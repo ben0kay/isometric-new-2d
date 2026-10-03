@@ -39,33 +39,46 @@ public partial class ChunkController : Node
 	#endregion
 
 	#region Lifecycle
-	// =========================================================
-	// Resolve scene references, create bounds, and load the initial view.
-	public override void _Ready()
-	{
-		TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
-		ChunkSize = Mathf.Max(1, ChunkSize);
-		WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
-		ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
+// =========================================================
+// Resolve scene references, wait for baked artwork, then populate the initial view.
+public override async void _Ready()
+{
+	SetProcess(false);
+	TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
+	ChunkSize = Mathf.Max(1, ChunkSize);
+	WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
+	ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
 
-		_groundRoot = GetNode<Node2D>("../../GroundChunks");
-		_objects = GetNode<Node2D>("../../WorldObjects");
-		_player = _objects.GetNode<Player>("Player");
-		_camera = _player.GetNode<Camera2D>("Camera2D");
-		_debug = GetNode<Label>("../../HUD/ChunkInfo");
-		_spawnPoint = _player.GlobalPosition;
-		_worldMin = -(WorldChunksPerAxis / 2);
-		_worldMax = _worldMin + WorldChunksPerAxis - 1;
+	_groundRoot = GetNode<Node2D>("../../GroundChunks");
+	_objects = GetNode<Node2D>("../../WorldObjects");
+	_player = _objects.GetNode<Player>("Player");
+	_camera = _player.GetNode<Camera2D>("Camera2D");
+	_debug = GetNode<Label>("../../HUD/ChunkInfo");
+	_spawnPoint = _player.GlobalPosition;
+	_worldMin = -(WorldChunksPerAxis / 2);
+	_worldMax = _worldMin + WorldChunksPerAxis - 1;
+	_debug.Text = "Baking placeholder artwork...";
+
+	try
+	{
+		await PlaceholderAtlas.EnsureReady(this);
+		if (!IsInsideTree()) return;
 
 		CreateWorldBoundary();
 		_camera.ResetSmoothing();
 		_camera.ForceUpdateScroll();
 		RefreshWantedChunks();
 
-		// Fill the starting view immediately to avoid an empty first frame.
 		while (_pending.Count > 0) LoadNextChunk();
 		UpdateDebug();
+		SetProcess(true);
 	}
+	catch (System.Exception error)
+	{
+		_debug.Text = "Artwork bake failed — see Errors.";
+		GD.PushError($"World initialization failed: {error}");
+	}
+}
 
 	// =========================================================
 	// Check the visible area periodically and spread later loading across frames.

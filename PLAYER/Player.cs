@@ -1,5 +1,5 @@
-// Controls the placeholder player: arrow movement, collision, and facing.
-// The node origin represents the player's feet for world Y-sorting.
+// Controls arrow movement and draws the shared baked player texture.
+// The node origin represents the player's feet for collision and Y-sorting.
 using Godot;
 
 public partial class Player : CharacterBody2D
@@ -11,14 +11,29 @@ public partial class Player : CharacterBody2D
 
 	#region Lifecycle
 	// =========================================================
-	// Configure movement for a flat world without gravity.
-	public override void _Ready()
+	// Configure flat-world movement and wait for the shared artwork bake.
+	public override async void _Ready()
 	{
 		MotionMode = MotionModeEnum.Floating;
+		Material = PlaceholderAtlas.BakedMaterial;
+		TextureFilter = TextureFilterEnum.Nearest;
+		SetPhysicsProcess(false);
+
+		try
+		{
+			await PlaceholderAtlas.EnsureReady(this);
+			if (!IsInsideTree()) return;
+			QueueRedraw();
+			SetPhysicsProcess(true);
+		}
+		catch (System.Exception error)
+		{
+			GD.PushError($"Player artwork failed: {error}");
+		}
 	}
 
 	// =========================================================
-	// Move using arrow keys and redraw only when facing changes.
+	// Move using arrow keys and redraw only when horizontal facing changes.
 	public override void _PhysicsProcess(double delta)
 	{
 		Vector2 direction = new(
@@ -38,21 +53,17 @@ public partial class Player : CharacterBody2D
 
 	#region Drawing
 	// =========================================================
-	// Draw a compact sci-fi character above its ground position.
+	// Draw the baked character and mirror its artwork for left-facing movement.
 	public override void _Draw()
 	{
-		DrawSetTransform(Vector2.Zero, 0f, new Vector2(1f, 0.45f));
-		DrawCircle(Vector2.Zero, 19f, new Color(0f, 0f, 0f, 0.35f));
+		if (PlaceholderAtlas.Texture == null) return;
+		DrawSetTransform(Vector2.Zero, 0f, new Vector2(_facing, 1f));
+		DrawTextureRectRegion(
+			PlaceholderAtlas.Texture,
+			new Rect2(-32, -72, 64, 96),
+			PlaceholderAtlas.PlayerRegion
+		);
 		DrawSetTransform(Vector2.Zero);
-
-		DrawLine(new Vector2(-7, -15), new Vector2(-7, -3), new Color("#24313e"), 7f);
-		DrawLine(new Vector2(7, -15), new Vector2(7, -3), new Color("#24313e"), 7f);
-		DrawRect(new Rect2(-13, -39, 26, 27), new Color("#465d70"));
-		DrawRect(new Rect2(-13, -39, 26, 27), new Color("#8398a6"), false, 2f);
-		DrawCircle(new Vector2(0, -46), 12f, new Color("#708697"));
-		DrawRect(new Rect2(-8 + _facing * 4, -50, 12, 7), new Color("#77e5ee"));
-		DrawLine(new Vector2(_facing * 13, -31), new Vector2(_facing * 23, -24), new Color("#354b5c"), 6f);
-		DrawRect(new Rect2(-5, -34, 10, 4), new Color("#77e5ee"));
 	}
 	#endregion
 }

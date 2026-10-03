@@ -1,5 +1,5 @@
-// Creates a solid ground footprint and draws a placeholder rock or sci-fi crate.
-// Position represents the obstacle's base for world Y-sorting.
+// Uses shared baked rock/crate artwork with an independent collision footprint.
+// The node origin remains the obstacle base for world Y-sorting.
 using Godot;
 
 public partial class Obstacle : StaticBody2D
@@ -14,69 +14,44 @@ public partial class Obstacle : StaticBody2D
 
 	#region Lifecycle
 	// =========================================================
-	// Add a rectangular collision footprint centred on the base.
-	public override void _Ready()
+	// Create collision and ensure the shared atlas is available.
+	public override async void _Ready()
 	{
 		AddChild(new CollisionShape2D
 		{
 			Name = "Footprint",
 			Shape = new RectangleShape2D { Size = Footprint }
 		});
+		Material = PlaceholderAtlas.BakedMaterial;
+		TextureFilter = TextureFilterEnum.Nearest;
+
+		try
+		{
+			await PlaceholderAtlas.EnsureReady(this);
+			if (IsInsideTree()) QueueRedraw();
+		}
+		catch (System.Exception error)
+		{
+			GD.PushError($"Obstacle artwork failed: {error}");
+		}
 	}
 	#endregion
 
 	#region Drawing
 	// =========================================================
-	// Draw the ground shadow and selected obstacle visual.
+	// Draw one baked visual with its base aligned to the node origin.
 	public override void _Draw()
 	{
-		DrawSetTransform(Vector2.Zero, 0f, new Vector2(1f, 0.5f));
-		DrawCircle(Vector2.Zero, Footprint.X * 0.65f, new Color(0f, 0f, 0f, 0.3f));
-		DrawSetTransform(Vector2.Zero);
-
-		if (Kind == ObstacleKind.Rock) DrawRock();
-		else DrawCrate();
-	}
-
-	// =========================================================
-	// Draw an angular rock with a shaded face and mineral streak.
-	private void DrawRock()
-	{
-		float w = Footprint.X * 0.65f, d = Footprint.Y * 0.5f;
-		Vector2[] outline =
-		{
-			new(-w, -d), new(-w * 0.75f, -Height),
-			new(-w * 0.15f, -Height - 16), new(w * 0.65f, -Height + 4),
-			new(w, -d), new(w * 0.55f, d), new(-w * 0.55f, d)
-		};
-		DrawColoredPolygon(outline, new Color("#47505c"));
-		DrawColoredPolygon(new Vector2[]
-		{
-			new(-w, -d), new(-w * 0.75f, -Height),
-			new(-w * 0.15f, -Height - 16), new(w * 0.1f, -d * 0.4f),
-			new(-w * 0.55f, d)
-		}, new Color("#5c6876"));
-		DrawPolyline(new Vector2[]
-		{
-			new(-w * 0.4f, -Height * 0.8f),
-			new(-w * 0.1f, -Height * 0.5f),
-			new(w * 0.3f, -Height * 0.35f)
-		}, new Color("#71b5c4"), 3f, true);
-	}
-
-	// =========================================================
-	// Draw a raised crate with distinct top and side panels.
-	private void DrawCrate()
-	{
-		float w = Footprint.X * 0.5f, d = Footprint.Y * 0.5f;
-		Vector2 a = new(-w, -Height), b = new(0, -Height - d);
-		Vector2 c = new(w, -Height), e = new(0, -Height + d);
-
-		DrawColoredPolygon(new Vector2[] { a, e, new(0, d), new(-w, 0) }, new Color("#344756"));
-		DrawColoredPolygon(new Vector2[] { e, c, new(w, 0), new(0, d) }, new Color("#263541"));
-		DrawColoredPolygon(new Vector2[] { a, b, c, e }, new Color("#61798a"));
-		DrawPolyline(new Vector2[] { a, b, c, e, a }, new Color("#8297a5"), 2f, true);
-		DrawLine(new Vector2(w * 0.25f, -Height * 0.45f), new Vector2(w * 0.75f, -Height * 0.65f), new Color("#76e2e7"), 3f);
+		if (PlaceholderAtlas.Texture == null) return;
+		Vector2 scale = new(Footprint.X / 96f, Height / 72f);
+		Rect2 destination = new(
+			new Vector2(-80f * scale.X, -120f * scale.Y),
+			new Vector2(160f * scale.X, 160f * scale.Y)
+		);
+		DrawTextureRectRegion(
+			PlaceholderAtlas.Texture, destination,
+			Kind == ObstacleKind.Rock ? PlaceholderAtlas.RockRegion : PlaceholderAtlas.CrateRegion
+		);
 	}
 	#endregion
 }
