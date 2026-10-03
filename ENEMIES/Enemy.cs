@@ -45,71 +45,77 @@ public partial class Enemy : CharacterBody2D
     }
 
     // =========================================================
-    // Refresh targeting and navigation periodically, then follow the current route.
-    public override void _PhysicsProcess(double delta)
+// Refresh targeting and follow reachable waypoints without backtracking
+// toward the starting grid cell whenever the route is rebuilt.
+public override void _PhysicsProcess(double delta)
+{
+    if (_navigation == null)
+        _navigation = GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
+    if (_navigation == null || delta <= 0.0) return;
+
+    _targetTimer -= delta;
+    _pathTimer -= delta;
+
+    if (_targetTimer <= 0.0 || !IsValidTarget(_target))
     {
-        if (_navigation == null)
-            _navigation = GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
-        if (_navigation == null) return;
-
-        _targetTimer -= delta;
-        _pathTimer -= delta;
-        if (_targetTimer <= 0.0 || !IsValidTarget(_target))
-        {
-            _targetTimer = System.Math.Max(0.1, TargetInterval);
-            SelectTarget();
-        }
-
-        if (!IsValidTarget(_target))
-        {
-            Velocity = Vector2.Zero;
-            return;
-        }
-
-        Vector2 targetPoint = _target.GlobalPosition;
-        if (GlobalPosition.DistanceSquaredTo(targetPoint) <= StopDistance * StopDistance)
-        {
-            Velocity = Vector2.Zero;
-            return;
-        }
-
-        if (_pathTimer <= 0.0)
-        {
-            _pathTimer = System.Math.Max(0.1, PathInterval);
-            _direct = _navigation.CanTravelDirectly(GlobalPosition, targetPoint);
-            _path = _direct ? System.Array.Empty<Vector2>() : _navigation.FindPath(GlobalPosition, targetPoint);
-            _pathIndex = 0;
-        }
-
-        Vector2 destination;
-        if (_direct)
-        {
-            destination = targetPoint;
-        }
-        else
-        {
-            while (_pathIndex < _path.Length && GlobalPosition.DistanceSquaredTo(_path[_pathIndex]) < 16f)
-                _pathIndex++;
-            if (_pathIndex >= _path.Length)
-            {
-                Velocity = Vector2.Zero;
-                return;
-            }
-            destination = _path[_pathIndex];
-        }
-
-        Vector2 difference = destination - GlobalPosition;
-        float distance = difference.Length();
-        float speed = Mathf.Min(MoveSpeed, distance / (float)delta);
-        if (_direct)
-            speed = Mathf.Min(speed, Mathf.Max(0f, distance - StopDistance) / (float)delta);
-
-        Velocity = distance > 0.001f ? difference / distance * speed : Vector2.Zero;
-        MoveAndSlide();
-
-        // A collision requests a fresh route on the next physics tick.
-        if (GetSlideCollisionCount() > 0) _pathTimer = 0.0;
+        _targetTimer = System.Math.Max(0.1, TargetInterval);
+        SelectTarget();
     }
+    if (!IsValidTarget(_target)) { Velocity = Vector2.Zero; return; }
+
+    Vector2 position = GlobalPosition;
+    Vector2 targetPoint = _target.GlobalPosition;
+    if (position.DistanceSquaredTo(targetPoint) <= StopDistance * StopDistance)
+    { Velocity = Vector2.Zero; return; }
+
+    if (_pathTimer <= 0.0)
+    {
+        _pathTimer = System.Math.Max(0.1, PathInterval);
+        _direct = _navigation.CanTravelDirectly(position, targetPoint);
+        _path = _direct
+            ? System.Array.Empty<Vector2>()
+            : _navigation.FindPath(position, targetPoint);
+        _pathIndex = 0;
+
+        // Skip the starting cell when a later waypoint is directly reachable.
+        // Limit the checks to keep route refreshes inexpensive.
+        if (!_direct && _path.Length > 1)
+        {
+            int lastCandidate = System.Math.Min(_path.Length - 1, 6);
+            for (int i = 1; i <= lastCandidate; i++)
+            {
+                if (!_navigation.CanTravelDirectly(position, _path[i])) break;
+                _pathIndex = i;
+            }
+        }
+    }
+
+    Vector2 destination;
+    if (_direct) destination = targetPoint;
+    else
+    {
+        // Advance past reached waypoints; 16 is a squared 4-pixel distance.
+        while (_pathIndex < _path.Length &&
+            position.DistanceSquaredTo(_path[_pathIndex]) < 16f)
+            _pathIndex++;
+
+        if (_pathIndex >= _path.Length) { Velocity = Vector2.Zero; return; }
+        destination = _path[_pathIndex];
+    }
+
+    Vector2 difference = destination - position;
+    float distance = difference.Length();
+    float speed = Mathf.Min(MoveSpeed, distance / (float)delta);
+    if (_direct)
+        speed = Mathf.Min(speed, Mathf.Max(0f, distance - StopDistance) / (float)delta);
+
+    Velocity = distance > 0.001f ? difference / distance * speed : Vector2.Zero;
+    MoveAndSlide();
+
+    // Request an earlier retry without rebuilding the route every physics tick.
+    if (GetSlideCollisionCount() > 0)
+        _pathTimer = System.Math.Min(_pathTimer, 0.1);
+}
     #endregion
 
     #region Targeting
