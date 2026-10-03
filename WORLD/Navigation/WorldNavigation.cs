@@ -73,19 +73,26 @@ public partial class WorldNavigation : Node
     #endregion
 
     #region Queries
-    // =========================================================
-    // Check a complete movement corridor using the enemy's clearance shape.
-    public bool CanTravelDirectly(Vector2 from, Vector2 to)
-    {
-        _query.Transform = new Transform2D(0f, from);
-        _query.Motion = Vector2.Zero;
-        var space = _objects.GetWorld2D().DirectSpaceState;
-        if (space.IntersectShape(_query, 1).Count > 0) return false;
+// =========================================================
+// Check the actual enemy-sized movement corridor while retaining
+// extra obstacle clearance separately in the navigation grid.
+public bool CanTravelDirectly(Vector2 from, Vector2 to)
+{
+    // Must match the CircleShape2D radius in Enemy.tscn.
+    const float bodyRadius = 10f;
+    _clearanceShape.Radius = bodyRadius;
+    _query.Margin = 0f;
+    _query.Transform = new Transform2D(0f, from);
+    _query.Motion = Vector2.Zero;
 
-        _query.Motion = to - from;
-        float[] result = space.CastMotion(_query);
-        return result.Length >= 2 && result[0] >= 0.9999f;
-    }
+    var space = _objects.GetWorld2D().DirectSpaceState;
+    if (space.IntersectShape(_query, 1).Count > 0) return false;
+    if (from.DistanceSquaredTo(to) <= 0.000001f) return true;
+
+    _query.Motion = to - from;
+    float[] result = space.CastMotion(_query);
+    return result.Length >= 2 && result[0] >= 0.9999f;
+}
 
     // =========================================================
     // Find a path through loaded ground with clearance around obstacle bases.
@@ -103,26 +110,31 @@ public partial class WorldNavigation : Node
         return _grid.GetPointPath(start, goal);
     }
 
-    // =========================================================
-    // Find the closest open cell in a small neighbourhood of a position.
-    private bool FindOpenCell(Vector2 point, out Vector2I result)
-    {
-        Vector2I centre = WorldToCell(point);
-        result = centre;
-        float bestDistance = float.MaxValue;
+// =========================================================
+// Find the closest open cell that can actually be reached from
+// the supplied position without crossing an obstacle.
+private bool FindOpenCell(Vector2 point, out Vector2I result)
+{
+    Vector2I centre = WorldToCell(point);
+    result = centre;
+    float bestDistance = float.MaxValue;
 
-        for (int y = -3; y <= 3; y++)
-        for (int x = -3; x <= 3; x++)
-        {
-            Vector2I cell = centre + new Vector2I(x, y);
-            if (!_cachedRegion.HasPoint(cell) || _grid.IsPointSolid(cell)) continue;
-            float distance = _grid.GetPointPosition(cell).DistanceSquaredTo(point);
-            if (distance >= bestDistance) continue;
-            result = cell;
-            bestDistance = distance;
-        }
-        return bestDistance < float.MaxValue;
+    for (int y = -3; y <= 3; y++)
+    for (int x = -3; x <= 3; x++)
+    {
+        Vector2I cell = centre + new Vector2I(x, y);
+        if (!_cachedRegion.HasPoint(cell) || _grid.IsPointSolid(cell)) continue;
+
+        Vector2 cellPoint = _grid.GetPointPosition(cell);
+        float distance = cellPoint.DistanceSquaredTo(point);
+        if (distance >= bestDistance) continue;
+        if (!CanTravelDirectly(point, cellPoint)) continue;
+
+        result = cell;
+        bestDistance = distance;
     }
+    return bestDistance < float.MaxValue;
+}
     #endregion
 
     #region Grid
