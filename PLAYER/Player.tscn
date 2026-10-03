@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://fqjv7dvfg82e"]
+
+[ext_resource type="Script" uid="uid://c5w6vuqfry2h4" path="res://PLAYER/Player.cs" id="1_player"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_player"]
+
+[node name="Player" type="CharacterBody2D" unique_id=2089079692]
+motion_mode = 1
+script = ExtResource("1_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=695253610]
+shape = SubResource("CircleShape_player")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=31692816]
+position = Vector2(0, -24)
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
