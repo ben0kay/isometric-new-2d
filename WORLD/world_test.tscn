@@ -1,0 +1,25 @@
+[gd_scene format=3 uid="uid://dlx7kblpf5oro"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_player"]
+
+[node name="WorldTest" type="Node2D" unique_id=333318045]
+
+[node name="Terrain" type="Node2D" parent="." unique_id=754462059]
+z_index = -1
+
+[node name="WorldObjects" type="Node2D" parent="." unique_id=835200516]
+y_sort_enabled = true
+
+[node name="Player" type="CharacterBody2D" parent="WorldObjects" unique_id=1242634136]
+position = Vector2(0, 180)
+motion_mode = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldObjects/Player" unique_id=1667047369]
+shape = SubResource("CircleShape_player")
+
+[node name="Camera2D" type="Camera2D" parent="WorldObjects/Player" unique_id=477441441]
+position = Vector2(0, -24)
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
+
+[node name="Systems" type="Node" parent="." unique_id=135147142]
