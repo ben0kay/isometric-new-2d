@@ -265,6 +265,22 @@ public override async void _Ready()
 	}
 	#endregion
 
+	#region Navigation Access
+// =========================================================
+// Report whether a world position belongs to loaded terrain inside the map.
+public bool IsNavigationPointAvailable(Vector2 globalPoint)
+{
+	if (_groundRoot == null || !IsProcessing()) return false;
+	Vector2 localPoint = _groundRoot.ToLocal(globalPoint);
+	Vector2 tile = IsoGrid.WorldToTile(localPoint, TileSize);
+	float low = _worldMin * ChunkSize - 0.5f;
+	float high = (_worldMax + 1) * ChunkSize - 0.5f;
+
+	if (tile.X < low || tile.Y < low || tile.X >= high || tile.Y >= high) return false;
+	return _loaded.ContainsKey(IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize));
+}
+#endregion
+
 	#region Debug
 	// =========================================================
 	// Show the current player chunk and streaming totals.

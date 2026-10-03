@@ -11,6 +11,8 @@ public partial class PlaceholderAtlas : Node2D
     public static readonly Rect2 CrateRegion = new(166, 80, 160, 160);
     public static readonly Rect2 PlayerRegion = new(330, 80, 64, 96);
 
+    public static readonly Rect2 EnemyRegion = new(398, 80, 96, 96);
+
     // Shared blend mode for artwork captured from the transparent viewport.
 public static readonly CanvasItemMaterial BakedMaterial = new()
 {
@@ -76,27 +78,30 @@ public static readonly CanvasItemMaterial BakedMaterial = new()
 
     #region Atlas Drawing
     // =========================================================
-    // Draw all placeholder artwork into its assigned atlas regions.
-    public override void _Draw()
+// Draw all placeholder artwork into its assigned atlas regions.
+public override void _Draw()
+{
+    for (int variant = 0; variant < 7; variant++)
     {
-        for (int variant = 0; variant < 7; variant++)
-        {
-            DrawSetTransform(new Vector2(66 + variant * 132, 34));
-            DrawGroundTile(variant);
-        }
-
-        DrawSetTransform(RockRegion.Position + new Vector2(80, 120));
-        DrawShadow(62.4f, 0.5f, 0.3f);
-        DrawRock();
-
-        DrawSetTransform(CrateRegion.Position + new Vector2(80, 120));
-        DrawShadow(62.4f, 0.5f, 0.3f);
-        DrawCrate();
-
-        DrawSetTransform(PlayerRegion.Position + new Vector2(32, 72));
-        DrawPlayer();
-        DrawSetTransform(Vector2.Zero);
+        DrawSetTransform(new Vector2(66 + variant * 132, 34));
+        DrawGroundTile(variant);
     }
+
+    DrawSetTransform(RockRegion.Position + new Vector2(80, 120));
+    DrawShadow(62.4f, 0.5f, 0.3f);
+    DrawRock();
+
+    DrawSetTransform(CrateRegion.Position + new Vector2(80, 120));
+    DrawShadow(62.4f, 0.5f, 0.3f);
+    DrawCrate();
+
+    DrawSetTransform(PlayerRegion.Position + new Vector2(32, 72));
+    DrawPlayer();
+
+    DrawSetTransform(EnemyRegion.Position + new Vector2(48, 64));
+    DrawEnemy();
+    DrawSetTransform(Vector2.Zero);
+}
 
     // =========================================================
     // Bake one diamond tile including seams and subtle grain.
@@ -192,5 +197,30 @@ public static readonly CanvasItemMaterial BakedMaterial = new()
         DrawLine(new Vector2(13, -31), new Vector2(23, -24), new Color("#354b5c"), 6f);
         DrawRect(new Rect2(-5, -34, 10, 4), new Color("#77e5ee"));
     }
+
+    // =========================================================
+// Bake a compact red security drone with an angular body and glowing sensor.
+private void DrawEnemy()
+{
+    DrawShadow(22f, 0.45f, 0.35f);
+    DrawLine(new Vector2(-12, -18), new Vector2(-18, -3), new Color("#472b35"), 6f);
+    DrawLine(new Vector2(12, -18), new Vector2(18, -3), new Color("#472b35"), 6f);
+
+    Vector2[] body =
+    {
+        new(-22, -29), new(-13, -45), new(13, -45),
+        new(22, -29), new(12, -13), new(-12, -13)
+    };
+    DrawColoredPolygon(body, new Color("#763a49"));
+    DrawPolyline(new Vector2[]
+    {
+        new(-22, -29), new(-13, -45), new(13, -45),
+        new(22, -29), new(12, -13), new(-12, -13), new(-22, -29)
+    }, new Color("#ba6472"), 2f, true);
+
+    DrawRect(new Rect2(-13, -34, 26, 8), new Color("#231d29"));
+    DrawRect(new Rect2(-9, -32, 18, 4), new Color("#ff7164"));
+    DrawLine(new Vector2(-8, -19), new Vector2(8, -19), new Color("#b55362"), 3f);
+}
     #endregion
 }
