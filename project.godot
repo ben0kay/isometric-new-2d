@@ -11,11 +11,14 @@ config_version=5
 [application]
 
 config/name="isometric-new-2d"
+run/main_scene="uid://dlx7kblpf5oro"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [display]
 
+window/size/viewport_width=2300
+window/size/viewport_height=1200
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

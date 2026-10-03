@@ -1,25 +1,32 @@
 [gd_scene format=3 uid="uid://dlx7kblpf5oro"]
 
+[ext_resource type="Script" uid="uid://dxpo631n4fhhr" path="res://PLAYER/Terrain.cs" id="1_terrain"]
+[ext_resource type="Script" uid="uid://c5w6vuqfry2h4" path="res://PLAYER/Player.cs" id="2_player"]
+[ext_resource type="Script" uid="uid://ch5y0okylhcnh" path="res://WORLD/WorldSetup.cs" id="3_setup"]
+
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 
-[node name="WorldTest" type="Node2D" unique_id=333318045]
+[node name="WorldTest" type="Node2D" unique_id=422658916]
 
-[node name="Terrain" type="Node2D" parent="." unique_id=754462059]
+[node name="Terrain" type="Node2D" parent="." unique_id=535989265]
 z_index = -1
+script = ExtResource("1_terrain")
 
-[node name="WorldObjects" type="Node2D" parent="." unique_id=835200516]
+[node name="WorldObjects" type="Node2D" parent="." unique_id=72021302]
 y_sort_enabled = true
 
-[node name="Player" type="CharacterBody2D" parent="WorldObjects" unique_id=1242634136]
+[node name="Player" type="CharacterBody2D" parent="WorldObjects" unique_id=497045440]
 position = Vector2(0, 180)
 motion_mode = 1
+script = ExtResource("2_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldObjects/Player" unique_id=1667047369]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WorldObjects/Player" unique_id=1089168910]
 shape = SubResource("CircleShape_player")
 
-[node name="Camera2D" type="Camera2D" parent="WorldObjects/Player" unique_id=477441441]
+[node name="Camera2D" type="Camera2D" parent="WorldObjects/Player" unique_id=1989269945]
 position = Vector2(0, -24)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
 
-[node name="Systems" type="Node" parent="." unique_id=135147142]
+[node name="Systems" type="Node" parent="." unique_id=1149394652]
+script = ExtResource("3_setup")
