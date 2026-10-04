@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="8_atmosphere"]
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
+[ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -42,12 +42,6 @@ script = ExtResource("9_ground_fog")
 [node name="WorldGenerator" type="Node" parent="Systems" unique_id=2115717396]
 script = ExtResource("10_generation")
 Catalog = ExtResource("11_biome_catalog")
-CompareBiomes = true
-SandboxBiomeId = "basalt_flats"
-BiomeBandWidth = 24.0
-BiomeBlendWidth = 4.0
-SandboxPlateau = false
-SandboxPlateauCentre = Vector2(-6, 6)
 
 [node name="TerrainElevation" type="Node" parent="Systems" unique_id=139849959]
 script = ExtResource("6_elevation")
@@ -57,6 +51,7 @@ script = ExtResource("4_navigation")
 
 [node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
+WorldChunksPerAxis = 32
 
 [node name="EnemyTest" type="Node" parent="Systems" unique_id=1277297044]
 script = ExtResource("5_enemy_test")

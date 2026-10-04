@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
-[ext_resource type="Script" uid="uid://c8r6uxctpkg6f" path="res://WORLD/Rocks/RockDefinition.cs" id="3_rock"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
@@ -18,4 +18,3 @@ RollingHeight = 8.0
 RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
-RocksPerChunk = 10

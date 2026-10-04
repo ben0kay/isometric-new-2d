@@ -335,14 +335,18 @@ public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f
 
 	#region Debug
 // =========================================================
-// Show the player's current biome alongside chunk streaming information.
+// Show the dominant biome, normalized climate and current streaming totals.
 private void UpdateDebug()
 {
 	Vector2 localPoint = _groundRoot.ToLocal(_player.GlobalPosition);
 	Vector2 tile = IsoGrid.WorldToTile(localPoint, TileSize);
 	Vector2I coordinate = IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize);
 	string biome = _generator.GetBiome(tile).DisplayName;
-	_debug.Text = $"{biome}  |  CHUNK {coordinate.X}, {coordinate.Y}"
+	ClimateSample climate = _generator.SampleClimate(tile);
+
+	_debug.Text = $"{biome}  |  TEMP {climate.Temperature:F2}"
+		+ $"  MOIST {climate.Moisture:F2}\n"
+		+ $"CHUNK {coordinate.X}, {coordinate.Y}"
 		+ $"  |  LOADED {_loaded.Count}  |  QUEUED {_pending.Count}";
 }
 	#endregion

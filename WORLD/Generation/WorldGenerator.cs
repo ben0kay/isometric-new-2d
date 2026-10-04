@@ -1,5 +1,5 @@
-// Samples registered biomes, blends their terrain and exposes spawn settings.
-// Comparison bands make new biome definitions easy to inspect in the sandbox.
+// Coordinates climate-aware biome placement, blended terrain and population queries.
+// Generation uses absolute tile coordinates independently from streamed chunk ownership.
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -9,8 +9,20 @@ public partial class WorldGenerator : Node
     #region Configuration
     [ExportGroup("Biomes")]
     [Export] public BiomeCatalog Catalog { get; set; }
-    [Export] public bool CompareBiomes { get; set; } = true;
+    [Export] public BiomePlacementMode PlacementMode { get; set; }
+        = BiomePlacementMode.Natural;
     [Export] public string SandboxBiomeId { get; set; } = "basalt_flats";
+
+    [ExportGroup("Generation Scale")]
+    [Export(PropertyHint.Range, "0.125,4,0.125")]
+    public float GenerationScale { get; set; } = 1f;
+    [Export] public float RegionSizeTiles { get; set; } = 256f;
+    [Export] public float BiomeSizeTiles { get; set; } = 96f;
+    [Export] public float TransitionWidthTiles { get; set; } = 8f;
+    [Export(PropertyHint.Range, "0,0.2,0.01")]
+    public float BorderWarpFraction { get; set; } = 0.12f;
+
+    [ExportGroup("Comparison")]
     [Export] public float BiomeBandWidth { get; set; } = 24f;
     [Export] public float BiomeBlendWidth { get; set; } = 4f;
 
@@ -35,115 +47,145 @@ public partial class WorldGenerator : Node
 
     #region Lifecycle
     // =========================================================
-    // Register generation before the other world systems begin sampling.
+    // Register generation before other world systems begin sampling.
     public override void _EnterTree()
     {
         AddToGroup("world_generator");
     }
 
-// =========================================================
-// Validate biome recipes and cache terrain generators and spawning budgets.
-public override void _Ready()
-{
-    _chunks = GetNode<ChunkController>("../ChunkController");
-    _ground = GetNode<Node2D>("../../GroundChunks");
-    if (Catalog == null)
-        throw new InvalidOperationException("WorldGenerator requires a BiomeCatalog.");
-
-    _biomes = Catalog.GetEnabledBiomes();
-    _biomes.Sort((a, b) =>
+    // =========================================================
+    // Validate definitions and prepare cached terrain and scaled biome placement.
+    public override void _Ready()
     {
-        int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
-        return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
-    });
+        _chunks = GetNode<ChunkController>("../ChunkController");
+        _ground = GetNode<Node2D>("../../GroundChunks");
+        if (Catalog == null)
+            throw new InvalidOperationException("WorldGenerator requires a BiomeCatalog.");
 
-    int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
-    if (singleIndex < 0)
-    {
-        if (!CompareBiomes)
-            throw new InvalidOperationException(
-                $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
-        singleIndex = 0;
+        _biomes = Catalog.GetEnabledBiomes();
+        _biomes.Sort((a, b) =>
+        {
+            int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
+            return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
+        });
+
+        int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
+        if (singleIndex < 0)
+        {
+            if (PlacementMode == BiomePlacementMode.Single)
+                throw new InvalidOperationException(
+                    $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
+            singleIndex = 0;
+        }
+
+        _terrain = new TerrainGenerator[_biomes.Count];
+        HeightRange = 1f;
+        MaxTrees = MaxPlantPatches = MaxGrassPatches = MaxRocks = 0;
+
+        for (int i = 0; i < _biomes.Count; i++)
+        {
+            BiomeDefinition biome = _biomes[i];
+            biome.ValidateClimate();
+            if (biome.Vegetation == null)
+                throw new InvalidOperationException(
+                    $"Biome '{biome.Id}' requires vegetation settings.");
+
+            biome.Vegetation.Validate(biome.Id);
+            BiomeSpecies.Validate<RockDefinition>(
+                biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
+
+            _terrain[i] = new TerrainGenerator(
+                biome, _chunks.WorldSeed, SandboxPlateau, SandboxPlateauCentre);
+            HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
+            MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
+            MaxPlantPatches = Mathf.Max(
+                MaxPlantPatches, biome.Vegetation.PlantPatches);
+            MaxGrassPatches = Mathf.Max(
+                MaxGrassPatches, biome.Vegetation.GrassPatches);
+            MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
+        }
+
+        float scale = Mathf.Clamp(GenerationScale, 0.125f, 4f);
+        _sampler = new BiomeSampler(
+            _biomes, _chunks.WorldSeed, PlacementMode, singleIndex,
+            RegionSizeTiles * scale, BiomeSizeTiles * scale,
+            TransitionWidthTiles * scale, BorderWarpFraction,
+            BiomeBandWidth * scale, BiomeBlendWidth * scale);
+
+        // Catch an uncovered starting climate before artwork/world initialization.
+        _sampler.Sample(Vector2.Zero);
+        GD.Print($"[World] {_biomes.Count} biome(s); mode: {PlacementMode}; scale: {scale}");
+        SetProcess(false);
     }
-
-    _sampler = new BiomeSampler(
-        _biomes.Count, CompareBiomes, singleIndex,
-        BiomeBandWidth, BiomeBlendWidth);
-    _terrain = new TerrainGenerator[_biomes.Count];
-
-    HeightRange = 1f;
-    MaxTrees = MaxPlantPatches = MaxGrassPatches = MaxRocks = 0;
-
-    for (int i = 0; i < _biomes.Count; i++)
-    {
-        BiomeDefinition biome = _biomes[i];
-        if (biome.Vegetation == null)
-            throw new InvalidOperationException(
-                $"Biome '{biome.Id}' requires vegetation settings.");
-
-        biome.Vegetation.Validate(biome.Id);
-        BiomeSpecies.Validate<RockDefinition>(
-            biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
-
-        _terrain[i] = new TerrainGenerator(
-            biome, _chunks.WorldSeed,
-            SandboxPlateau, SandboxPlateauCentre);
-        HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
-        MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
-        MaxPlantPatches = Mathf.Max(
-            MaxPlantPatches, biome.Vegetation.PlantPatches);
-        MaxGrassPatches = Mathf.Max(
-            MaxGrassPatches, biome.Vegetation.GrassPatches);
-        MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
-    }
-
-    GD.Print($"[World] {_biomes.Count} enabled biome(s); comparison: {CompareBiomes}");
-    SetProcess(false);
-}
     #endregion
 
-    #region Sampling
+    #region Biome Queries
     // =========================================================
-    // Return the definition controlling vegetation and rocks at this position.
+    // Read the dominant biome for HUD labels and classification.
     public BiomeDefinition GetBiome(Vector2 tile)
     {
-        return _biomes[_sampler.GetIndex(tile)];
+        return _biomes[_sampler.Sample(tile).DominantIndex];
     }
 
     // =========================================================
-    // Return terrain height using the shared border-blending calculation.
+    // Mix biome population recipes according to the local transition weights.
+    public BiomeDefinition PickBiome(Vector2 tile, RandomNumberGenerator rng)
+    {
+        return _biomes[_sampler.Sample(tile).Pick(rng)];
+    }
+
+    // =========================================================
+    // Expose normalized temperature and moisture for debugging and future mechanics.
+    public ClimateSample SampleClimate(Vector2 tile)
+    {
+        return _sampler.Climate.Sample(tile);
+    }
+    #endregion
+
+    #region Terrain Queries
+    // =========================================================
+    // Read terrain height through the shared multi-biome blending calculation.
     public float GetHeight(Vector2 tile)
     {
-        return SampleTerrain(tile, out _);
+        return SampleTerrain(tile, out _, out _);
     }
 
     // =========================================================
-    // Sample at most two cached generators to avoid height seams at biome borders.
-    private float SampleTerrain(Vector2 tile, out float plateauWeight)
+    // Blend every contributing biome so multi-way borders remain continuous.
+    private float SampleTerrain(
+        Vector2 tile, out float plateauWeight, out int biomeIndex)
     {
-        _sampler.GetBlend(tile, out int a, out int b, out float weight);
-        float height = _terrain[a].SampleHeight(tile, out plateauWeight);
-        if (a == b || weight <= 0f) return height;
+        BiomeBlend blend = _sampler.Sample(tile);
+        biomeIndex = blend.DominantIndex;
+        plateauWeight = 0f;
+        float height = 0f;
 
-        float other = _terrain[b].SampleHeight(tile, out float otherPlateau);
-        plateauWeight = Mathf.Lerp(plateauWeight, otherPlateau, weight);
-        return Mathf.Lerp(height, other, weight);
+        for (int i = 0; i < blend.Count; i++)
+        {
+            BiomeInfluence entry = blend.Get(i);
+            float sample = _terrain[entry.Index].SampleHeight(
+                tile, out float plateau);
+            height += sample * entry.Weight;
+            plateauWeight += plateau * entry.Weight;
+        }
+        return height;
     }
 
     // =========================================================
-    // Return shared terrain results and the dominant biome's stable ID.
+    // Return shared height, walkability and dominant biome identity.
     public WorldSample SampleTile(Vector2 tile)
     {
-        float height = SampleTerrain(tile, out float plateauWeight);
+        float height = SampleTerrain(
+            tile, out float plateauWeight, out int biomeIndex);
         int x = Mathf.FloorToInt(tile.X + 0.5f);
         int y = Mathf.FloorToInt(tile.Y + 0.5f);
         return new WorldSample(
             height, !ChasmFeature.IsVoidTile(x, y),
-            GetBiome(tile).Id, plateauWeight);
+            _biomes[biomeIndex].Id, plateauWeight);
     }
 
     // =========================================================
-    // Convert a logical world position into absolute terrain coordinates.
+    // Convert a logical world position into absolute generation coordinates.
     public WorldSample SampleWorld(Vector2 globalPoint)
     {
         return SampleTile(IsoGrid.WorldToTile(
