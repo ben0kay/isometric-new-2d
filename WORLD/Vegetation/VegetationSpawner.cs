@@ -56,7 +56,7 @@ public partial class VegetationSpawner : Node
 
             if (globalPoint.DistanceSquaredTo(spawnPoint)
                 < spawnClearRadius * spawnClearRadius) continue;
-            if (!TerrainLayout.HasGroundClearance(
+            if (!ChasmFeature.HasGroundClearance(
                 localPoint, tileSize, 85f)) continue;
             if (OverlapsObstacle(globalPoint, obstacles)) continue;
             if (NearTree(globalPoint, 220f, 120f)) continue;
@@ -96,7 +96,7 @@ public partial class VegetationSpawner : Node
                 Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
                 if (globalPoint.DistanceSquaredTo(spawnPoint)
                     < spawnClearRadius * spawnClearRadius) continue;
-                if (!TerrainLayout.HasGroundClearance(
+                if (!ChasmFeature.HasGroundClearance(
                     localPoint, tileSize, 48f)) continue;
                 if (OverlapsObstacle(globalPoint, obstacles)) continue;
                 if (NearTree(globalPoint, 58f, 35f)) continue;

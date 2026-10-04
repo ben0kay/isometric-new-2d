@@ -123,7 +123,7 @@ private void BuildMesh()
     List<int> cliffIndices = new();
 
     Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
-    Vector2 drop = Vector2.Down * TerrainLayout.CliffDepth;
+    Vector2 drop = Vector2.Down * ChasmFeature.CliffDepth;
 
     for (int y = 0; y < ChunkSize; y++)
     for (int x = 0; x < ChunkSize; x++)
@@ -132,7 +132,7 @@ private void BuildMesh()
         Vector2 globalTile = origin + localTile;
         int tileX = (int)globalTile.X, tileY = (int)globalTile.Y;
 
-        if (TerrainLayout.IsVoidTile(tileX, tileY))
+        if (ChasmFeature.IsVoidTile(tileX, tileY))
         {
             Vector2 a = GetSurfacePoint(localTile + VertexOffsets[1], origin) + drop;
             Vector2 b = GetSurfacePoint(localTile + VertexOffsets[2], origin) + drop;
@@ -165,7 +165,7 @@ private void BuildMesh()
         {
             int neighbourX = tileX + (side == 1 ? 1 : 0);
             int neighbourY = tileY + (side == 2 ? 1 : 0);
-            if (!TerrainLayout.IsVoidTile(neighbourX, neighbourY)) continue;
+            if (!ChasmFeature.IsVoidTile(neighbourX, neighbourY)) continue;
 
             Vector2 a = GetSurfacePoint(localTile + VertexOffsets[1 + side], origin);
             Vector2 b = GetSurfacePoint(localTile + VertexOffsets[1 + (side + 1) % 4], origin);
@@ -207,7 +207,7 @@ private void CreateTerrainCollision()
 		int x = 0;
 		while (x < ChunkSize)
 		{
-			if (!TerrainLayout.IsVoidTile(originX + x, originY + y))
+			if (!ChasmFeature.IsVoidTile(originX + x, originY + y))
 			{
 				x++;
 				continue;
@@ -215,7 +215,7 @@ private void CreateTerrainCollision()
 
 			int first = x;
 			while (x < ChunkSize &&
-				TerrainLayout.IsVoidTile(originX + x, originY + y))
+				ChasmFeature.IsVoidTile(originX + x, originY + y))
 				x++;
 
 			// Create helpers only for chunks containing void terrain.
@@ -226,7 +226,7 @@ private void CreateTerrainCollision()
 				body = new StaticBody2D
 				{
 					Name = "Ravine",
-					CollisionLayer = TerrainLayout.CollisionLayer,
+					CollisionLayer = ChasmFeature.CollisionLayer,
 					CollisionMask = 0
 				};
 				helpers.AddChild(body);
@@ -332,7 +332,7 @@ private void DrawRavineRim()
 	{
 		int globalX = Coordinate.X * ChunkSize + x;
 		int globalY = Coordinate.Y * ChunkSize + y;
-		if (TerrainLayout.IsVoidTile(globalX, globalY)) continue;
+		if (ChasmFeature.IsVoidTile(globalX, globalY)) continue;
 
 		Vector2 localTile = new(x, y);
 		for (int side = 0; side < 4; side++)
@@ -348,7 +348,7 @@ private void DrawRavineRim()
 				case 3: neighbourX--; break;
 			}
 
-			if (!TerrainLayout.IsVoidTile(neighbourX, neighbourY)) continue;
+			if (!ChasmFeature.IsVoidTile(neighbourX, neighbourY)) continue;
 
 			Vector2 a = GetSurfacePoint(localTile + VertexOffsets[1 + side], origin);
 			Vector2 b = GetSurfacePoint(localTile + VertexOffsets[1 + (side + 1) % 4], origin);

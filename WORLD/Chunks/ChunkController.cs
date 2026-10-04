@@ -288,7 +288,7 @@ private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
 		bool crate = rng.Randf() < 0.2f;
 		float width = crate ? 72f : rng.RandfRange(64f, 104f);
 		float height = crate ? 48f : rng.RandfRange(56f, 96f);
-		if (!TerrainLayout.HasGroundClearance(
+		if (!ChasmFeature.HasGroundClearance(
 			localPoint, TileSize, width * 0.6f)) continue;
 
 		Obstacle obstacle = new()
@@ -345,7 +345,7 @@ public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f
 	float high = (_worldMax + 1) * ChunkSize - 0.5f;
 
 	if (tile.X < low || tile.Y < low || tile.X >= high || tile.Y >= high) return false;
-	if (!TerrainLayout.HasGroundClearance(localPoint, TileSize, clearance)) return false;
+	if (!ChasmFeature.HasGroundClearance(localPoint, TileSize, clearance)) return false;
 	return _loaded.ContainsKey(IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize));
 }
 #endregion

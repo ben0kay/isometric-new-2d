@@ -40,7 +40,7 @@ public partial class WorldNavigation : Node
 
         _clearanceShape.Radius = AgentClearance;
         _query.Shape = _clearanceShape;
-        _query.CollisionMask = 1u | TerrainLayout.CollisionLayer;
+        _query.CollisionMask = 1u | ChasmFeature.CollisionLayer;
         _query.CollideWithAreas = false;
 
         _grid.CellSize = new Vector2(CellSize, CellSize);

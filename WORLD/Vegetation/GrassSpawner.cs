@@ -64,7 +64,7 @@ public partial class GrassSpawner : Node
                 Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
                 if (globalPoint.DistanceSquaredTo(spawnPoint) < 72f * 72f)
                     continue;
-                if (!TerrainLayout.HasGroundClearance(
+                if (!ChasmFeature.HasGroundClearance(
                     localPoint, tileSize, 28f)) continue;
                 if (Blocked(globalPoint, obstacles)) continue;
 

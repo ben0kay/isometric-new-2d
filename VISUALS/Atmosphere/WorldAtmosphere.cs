@@ -150,7 +150,7 @@ public void CreateObstacleShadow(Obstacle obstacle)
     for (int i = 0; i < hull.Length; i++)
     {
         Vector2 globalPoint = obstacle.ToGlobal(hull[i]);
-        if (!TerrainLayout.HasGroundClearance(
+        if (!ChasmFeature.HasGroundClearance(
             _ground.ToLocal(globalPoint), _chunks.TileSize))
             return;
 
