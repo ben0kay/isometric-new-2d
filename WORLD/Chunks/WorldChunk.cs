@@ -35,23 +35,38 @@ public partial class WorldChunk : Node2D
 	#endregion
 
 	#region Lifecycle
-	// =========================================================
-	// Build the chunk mesh after the controller has prepared the atlas.
-	public override void _Ready()
+
+// =========================================================
+// Build cached terrain and place pit artwork behind every ground chunk.
+public override void _Ready()
+{
+	Material = PlaceholderAtlas.BakedMaterial;
+	TextureFilter = TextureFilterEnum.Nearest;
+	_elevation = GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
+
+	if (_elevation == null || PlaceholderAtlas.Texture == null)
 	{
-		Material = PlaceholderAtlas.BakedMaterial;
-		TextureFilter = TextureFilterEnum.Nearest;
-		_elevation = GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
-
-		if (_elevation == null || PlaceholderAtlas.Texture == null)
-		{
-			GD.PushError("WorldChunk requires TerrainElevation and the baked atlas.");
-			return;
-		}
-
-		BuildMesh();
-		QueueRedraw();
+		GD.PushError("WorldChunk requires TerrainElevation and the baked atlas.");
+		return;
 	}
+
+	BuildMesh();
+
+	if (_cliffMesh != null)
+	{
+		AddChild(new MeshInstance2D
+		{
+			Name = "CliffVisual",
+			Mesh = _cliffMesh,
+			Material = PlaceholderAtlas.BakedMaterial,
+			TextureFilter = TextureFilterEnum.Nearest,
+			ZAsRelative = true,
+			ZIndex = -1
+		});
+	}
+
+	QueueRedraw();
+}
 
 // =========================================================
 // Release both unique meshes when streaming removes the chunk.
@@ -251,10 +266,9 @@ private void CreateTerrainCollision()
 
 	#region Drawing
 // =========================================================
-// Submit cached chasm artwork first, then the ground surface.
+// Draw ground only; the separate cliff mesh renders beneath all terrain.
 public override void _Draw()
 {
-    if (_cliffMesh != null) DrawMesh(_cliffMesh, null);
     if (_mesh != null && PlaceholderAtlas.Texture != null)
         DrawMesh(_mesh, PlaceholderAtlas.Texture);
     if (ShowBoundary) DrawBoundary();
