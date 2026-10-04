@@ -205,7 +205,7 @@ private static void AddCliffQuad(
 }
 
 // =========================================================
-// Merge this chunk's rectangular void into one solid logical collision polygon.
+// Merge the chunk's void into one collider and explicitly apply its world transform.
 private void CreateTerrainCollision()
 {
     Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
@@ -222,6 +222,7 @@ private void CreateTerrainCollision()
 
     Node helpers = new() { Name = "TerrainCollision" };
     AddChild(helpers);
+
     StaticBody2D body = new()
     {
         Name = "Chasm",
@@ -229,6 +230,11 @@ private void CreateTerrainCollision()
         CollisionMask = 0
     };
     helpers.AddChild(body);
+
+    // Plain Node helpers interrupt transform inheritance.
+    // Apply the chunk transform explicitly before adding its local collision shape.
+    body.GlobalTransform = GlobalTransform;
+
     body.AddChild(new CollisionPolygon2D
     {
         Name = "Footprint",
