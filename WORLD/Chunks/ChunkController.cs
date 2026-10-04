@@ -63,70 +63,70 @@ public float TallGrassChance { get; set; } = 0f;
 // Prepare cached artwork and vegetation helpers before loading the initial view.
 public override async void _Ready()
 {
-    SetProcess(false);
-    TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
-    ChunkSize = Mathf.Max(1, ChunkSize);
-    WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
-    ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
+	SetProcess(false);
+	TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
+	ChunkSize = Mathf.Max(1, ChunkSize);
+	WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
+	ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
 
-    _groundRoot = GetNode<Node2D>("../../GroundChunks");
-    _objects = GetNode<Node2D>("../../WorldObjects");
-    _player = _objects.GetNode<Player>("Player");
-    _camera = _player.GetNode<Camera2D>("Camera2D");
-    _debug = GetNode<Label>("../../HUD/ChunkInfo");
-    _spawnPoint = _player.GlobalPosition;
-    _worldMin = -(WorldChunksPerAxis / 2);
-    _worldMax = _worldMin + WorldChunksPerAxis - 1;
-    _debug.Text = "Loading world artwork...";
+	_groundRoot = GetNode<Node2D>("../../GroundChunks");
+	_objects = GetNode<Node2D>("../../WorldObjects");
+	_player = _objects.GetNode<Player>("Player");
+	_camera = _player.GetNode<Camera2D>("Camera2D");
+	_debug = GetNode<Label>("../../HUD/ChunkInfo");
+	_spawnPoint = _player.GlobalPosition;
+	_worldMin = -(WorldChunksPerAxis / 2);
+	_worldMax = _worldMin + WorldChunksPerAxis - 1;
+	_debug.Text = "Loading world artwork...";
 
-    try
-    {
-        await PlaceholderAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
-        await VegetationAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
-        await TreeAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+	try
+	{
+		await PlaceholderAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await VegetationAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await TreeAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-        _vegetation = new VegetationSpawner
-        {
-            Name = "VegetationSpawner",
-            PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
-            PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
-            TreesPerChunk = Mathf.Max(0, TreesPerChunk),
-            FrondVisual = FrondVisual,
-            ShrubVisual = ShrubVisual,
-            TreeVisual = TreeVisual
-        };
-        AddChild(_vegetation);
+		_vegetation = new VegetationSpawner
+		{
+			Name = "VegetationSpawner",
+			PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
+			PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
+			TreesPerChunk = Mathf.Max(0, TreesPerChunk),
+			FrondVisual = FrondVisual,
+			ShrubVisual = ShrubVisual,
+			TreeVisual = TreeVisual
+		};
+		AddChild(_vegetation);
 
-        _grass = new GrassSpawner
-        {
-            Name = "GrassSpawner",
-            PatchesPerChunk = Mathf.Max(0, GrassPatchesPerChunk),
-            TuftsPerPatch = Mathf.Max(0, GrassTuftsPerPatch),
-            MediumChance = MediumGrassChance,
-            TallChance = TallGrassChance,
-            ShortVisual = ShortGrassVisual,
-            MediumVisual = MediumGrassVisual,
-            TallVisual = TallGrassVisual
-        };
-        AddChild(_grass);
+		_grass = new GrassSpawner
+		{
+			Name = "GrassSpawner",
+			PatchesPerChunk = Mathf.Max(0, GrassPatchesPerChunk),
+			TuftsPerPatch = Mathf.Max(0, GrassTuftsPerPatch),
+			MediumChance = MediumGrassChance,
+			TallChance = TallGrassChance,
+			ShortVisual = ShortGrassVisual,
+			MediumVisual = MediumGrassVisual,
+			TallVisual = TallGrassVisual
+		};
+		AddChild(_grass);
 
-        CreateWorldBoundary();
-        _camera.ResetSmoothing();
-        _camera.ForceUpdateScroll();
-        RefreshWantedChunks();
+		CreateWorldBoundary();
+		_camera.ResetSmoothing();
+		_camera.ForceUpdateScroll();
+		RefreshWantedChunks();
 
-        while (_pending.Count > 0) LoadNextChunk();
-        UpdateDebug();
-        SetProcess(true);
-    }
-    catch (System.Exception error)
-    {
-        _debug.Text = "Artwork load failed — see Errors.";
-        GD.PushError($"World initialization failed: {error}");
-    }
+		while (_pending.Count > 0) LoadNextChunk();
+		UpdateDebug();
+		SetProcess(true);
+	}
+	catch (System.Exception error)
+	{
+		_debug.Text = "Artwork load failed — see Errors.";
+		GD.PushError($"World initialization failed: {error}");
+	}
 }
 
 	// =========================================================
@@ -217,47 +217,47 @@ public override async void _Ready()
 // Load terrain, obstacles, plants and grass for the next requested chunk.
 private void LoadNextChunk()
 {
-    int last = _pending.Count - 1;
-    Vector2I coordinate = _pending[last];
-    _pending.RemoveAt(last);
+	int last = _pending.Count - 1;
+	Vector2I coordinate = _pending[last];
+	_pending.RemoveAt(last);
 
-    WorldChunk ground = new()
-    {
-        Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
-        Coordinate = coordinate,
-        ChunkSize = ChunkSize,
-        TileSize = TileSize,
-        Seed = WorldSeed,
-        ShowBoundary = ShowChunkBoundaries,
-        Position = IsoGrid.TileToWorld(
-            new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
-            TileSize)
-    };
-    LoadedChunk chunk = new() { Ground = ground };
-    _groundRoot.AddChild(ground);
-    _loaded.Add(coordinate, chunk);
-    CreateObstacles(coordinate, chunk);
+	WorldChunk ground = new()
+	{
+		Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
+		Coordinate = coordinate,
+		ChunkSize = ChunkSize,
+		TileSize = TileSize,
+		Seed = WorldSeed,
+		ShowBoundary = ShowChunkBoundaries,
+		Position = IsoGrid.TileToWorld(
+			new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
+			TileSize)
+	};
+	LoadedChunk chunk = new() { Ground = ground };
+	_groundRoot.AddChild(ground);
+	_loaded.Add(coordinate, chunk);
+	CreateObstacles(coordinate, chunk);
 
-    _vegetation.Populate(
-        coordinate, ChunkSize, TileSize, WorldSeed,
-        _groundRoot, _objects, _spawnPoint,
-        SpawnClearRadius, chunk.Obstacles);
+	_vegetation.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint,
+		SpawnClearRadius, chunk.Obstacles);
 
-    _grass.Populate(
-        coordinate, ChunkSize, TileSize, WorldSeed,
-        _groundRoot, _objects, _spawnPoint);
+	_grass.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint);
 }
 
 // =========================================================
 // Remove terrain and all artwork instances owned by one streamed chunk.
 private void UnloadChunk(Vector2I coordinate)
 {
-    LoadedChunk chunk = _loaded[coordinate];
-    _grass.RemoveChunk(coordinate);
-    _vegetation.RemoveChunk(coordinate);
-    foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
-    chunk.Ground.QueueFree();
-    _loaded.Remove(coordinate);
+	LoadedChunk chunk = _loaded[coordinate];
+	_grass.RemoveChunk(coordinate);
+	_vegetation.RemoveChunk(coordinate);
+	foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
+	chunk.Ground.QueueFree();
+	_loaded.Remove(coordinate);
 }
 	#endregion
 
