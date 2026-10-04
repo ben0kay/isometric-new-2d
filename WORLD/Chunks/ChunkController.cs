@@ -199,44 +199,45 @@ public override async void _Ready()
 	#endregion
 
 	#region Generation
-	// =========================================================
-	// Generate repeatable obstacle positions with a clear starting area.
-	private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
+// =========================================================
+// Generate seeded obstacles on solid ground with a clear starting area.
+private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
+{
+	using RandomNumberGenerator rng = new();
+	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed);
+	HashSet<Vector2I> occupied = new();
+
+	for (int i = 0; i < ObstaclesPerChunk; i++)
 	{
-		using RandomNumberGenerator rng = new();
-		rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed);
-		HashSet<Vector2I> occupied = new();
+		Vector2I localTile = new(
+			rng.RandiRange(0, (ChunkSize - 1) / 2) * 2,
+			rng.RandiRange(0, (ChunkSize - 1) / 2) * 2);
+		if (!occupied.Add(localTile)) continue;
 
-		for (int i = 0; i < ObstaclesPerChunk; i++)
+		Vector2 tile = new(
+			coordinate.X * ChunkSize + localTile.X,
+			coordinate.Y * ChunkSize + localTile.Y);
+		Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
+		Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
+		if (globalPoint.DistanceSquaredTo(_spawnPoint) < SpawnClearRadius * SpawnClearRadius) continue;
+
+		bool crate = rng.Randf() < 0.2f;
+		float width = crate ? 72f : rng.RandfRange(64f, 104f);
+		float height = crate ? 48f : rng.RandfRange(56f, 96f);
+		if (!TerrainLayout.HasGroundClearance(localPoint, TileSize, width * 0.6f)) continue;
+
+		Obstacle obstacle = new()
 		{
-			// Restrict placement to alternating tiles to reduce crowding.
-			Vector2I localTile = new(
-				rng.RandiRange(0, (ChunkSize - 1) / 2) * 2,
-				rng.RandiRange(0, (ChunkSize - 1) / 2) * 2
-			);
-			if (!occupied.Add(localTile)) continue;
-
-			Vector2 tile = new(
-				coordinate.X * ChunkSize + localTile.X,
-				coordinate.Y * ChunkSize + localTile.Y
-			);
-			Vector2 globalPoint = _groundRoot.ToGlobal(IsoGrid.TileToWorld(tile, TileSize));
-			if (globalPoint.DistanceSquaredTo(_spawnPoint) < SpawnClearRadius * SpawnClearRadius) continue;
-
-			bool crate = rng.Randf() < 0.2f;
-			float width = crate ? 72f : rng.RandfRange(64f, 104f);
-			Obstacle obstacle = new()
-			{
-				Name = $"Obstacle_{coordinate.X}_{coordinate.Y}_{i}",
-				Position = _objects.ToLocal(globalPoint),
-				Kind = crate ? Obstacle.ObstacleKind.Crate : Obstacle.ObstacleKind.Rock,
-				Footprint = new Vector2(width, width * 0.5f),
-				Height = crate ? 48f : rng.RandfRange(56f, 96f)
-			};
-			_objects.AddChild(obstacle);
-			chunk.Obstacles.Add(obstacle);
-		}
+			Name = $"Obstacle_{coordinate.X}_{coordinate.Y}_{i}",
+			Position = _objects.ToLocal(globalPoint),
+			Kind = crate ? Obstacle.ObstacleKind.Crate : Obstacle.ObstacleKind.Rock,
+			Footprint = new Vector2(width, width * 0.5f),
+			Height = height
+		};
+		_objects.AddChild(obstacle);
+		chunk.Obstacles.Add(obstacle);
 	}
+}
 
 	// =========================================================
 	// Add four solid edges around the finite diamond-shaped map.
@@ -267,8 +268,8 @@ public override async void _Ready()
 
 	#region Navigation Access
 // =========================================================
-// Report whether a world position belongs to loaded terrain inside the map.
-public bool IsNavigationPointAvailable(Vector2 globalPoint)
+// Require loaded ground inside the map with optional clearance from chasms.
+public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f)
 {
 	if (_groundRoot == null || !IsProcessing()) return false;
 	Vector2 localPoint = _groundRoot.ToLocal(globalPoint);
@@ -277,6 +278,7 @@ public bool IsNavigationPointAvailable(Vector2 globalPoint)
 	float high = (_worldMax + 1) * ChunkSize - 0.5f;
 
 	if (tile.X < low || tile.Y < low || tile.X >= high || tile.Y >= high) return false;
+	if (!TerrainLayout.HasGroundClearance(localPoint, TileSize, clearance)) return false;
 	return _loaded.ContainsKey(IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize));
 }
 #endregion

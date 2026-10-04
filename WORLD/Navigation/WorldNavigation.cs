@@ -40,7 +40,7 @@ public partial class WorldNavigation : Node
 
         _clearanceShape.Radius = AgentClearance;
         _query.Shape = _clearanceShape;
-        _query.CollisionMask = 1;
+        _query.CollisionMask = 1u | TerrainLayout.CollisionLayer;
         _query.CollideWithAreas = false;
 
         _grid.CellSize = new Vector2(CellSize, CellSize);
@@ -74,12 +74,13 @@ public partial class WorldNavigation : Node
 
     #region Queries
 // =========================================================
-// Check the actual enemy-sized movement corridor while retaining
-// extra obstacle clearance separately in the navigation grid.
+// Check loaded ground and sweep the enemy body against rocks and chasms.
 public bool CanTravelDirectly(Vector2 from, Vector2 to)
 {
-    // Must match the CircleShape2D radius in Enemy.tscn.
     const float bodyRadius = 10f;
+    if (!_chunks.IsNavigationPointAvailable(from) ||
+        !_chunks.IsNavigationPointAvailable(to)) return false;
+
     _clearanceShape.Radius = bodyRadius;
     _query.Margin = 0f;
     _query.Transform = new Transform2D(0f, from);
@@ -138,55 +139,55 @@ private bool FindOpenCell(Vector2 point, out Vector2I result)
     #endregion
 
     #region Grid
-    // =========================================================
-    // Cache a search area, shifting it only after crossing a coarse position bucket.
-    private void PrepareGrid(Vector2 source)
+// =========================================================
+// Cache local navigation with clearance around rocks and terrain drops.
+private void PrepareGrid(Vector2 source)
+{
+    int bucket = CellSize * 8;
+    Vector2 anchor = new(
+        Mathf.Floor(source.X / bucket) * bucket,
+        Mathf.Floor(source.Y / bucket) * bucket);
+    Vector2I low = WorldToCell(anchor - Vector2.One * SearchRadius);
+    Vector2I high = WorldToCell(anchor + Vector2.One * SearchRadius);
+    Rect2I region = new(low, high - low + Vector2I.One);
+    if (_builtRevision == _revision && region == _cachedRegion) return;
+
+    _cachedRegion = region;
+    _grid.Region = region;
+    _grid.Update();
+
+    float terrainClearance = AgentClearance + CellSize * 0.707107f;
+    for (int y = region.Position.Y; y < region.End.Y; y++)
+    for (int x = region.Position.X; x < region.End.X; x++)
     {
-        int bucket = CellSize * 8;
-        Vector2 anchor = new(
-            Mathf.Floor(source.X / bucket) * bucket,
-            Mathf.Floor(source.Y / bucket) * bucket
-        );
-        Vector2I low = WorldToCell(anchor - Vector2.One * SearchRadius);
-        Vector2I high = WorldToCell(anchor + Vector2.One * SearchRadius);
-        Rect2I region = new(low, high - low + Vector2I.One);
-        if (_builtRevision == _revision && region == _cachedRegion) return;
+        Vector2I cell = new(x, y);
+        if (!_chunks.IsNavigationPointAvailable(_grid.GetPointPosition(cell), terrainClearance))
+            _grid.SetPointSolid(cell);
+    }
 
-        _cachedRegion = region;
-        _grid.Region = region;
-        _grid.Update();
+    _obstacles.Clear();
+    foreach (Node node in _objects.GetChildren())
+    {
+        if (node is Obstacle obstacle && !obstacle.IsQueuedForDeletion())
+            _obstacles.Add(obstacle);
+    }
 
-        for (int y = region.Position.Y; y < region.End.Y; y++)
-        for (int x = region.Position.X; x < region.End.X; x++)
+    foreach (Obstacle obstacle in _obstacles)
+    {
+        Rect2 footprint = new(obstacle.GlobalPosition - obstacle.Footprint * 0.5f, obstacle.Footprint);
+        Rect2 blocked = footprint.Grow(AgentClearance + CellSize * 0.5f);
+        Vector2I first = WorldToCell(blocked.Position);
+        Vector2I last = WorldToCell(blocked.End);
+
+        for (int y = Mathf.Max(first.Y, region.Position.Y); y <= Mathf.Min(last.Y, region.End.Y - 1); y++)
+        for (int x = Mathf.Max(first.X, region.Position.X); x <= Mathf.Min(last.X, region.End.X - 1); x++)
         {
             Vector2I cell = new(x, y);
-            if (!_chunks.IsNavigationPointAvailable(_grid.GetPointPosition(cell)))
-                _grid.SetPointSolid(cell);
+            if (blocked.HasPoint(_grid.GetPointPosition(cell))) _grid.SetPointSolid(cell);
         }
-
-        _obstacles.Clear();
-        foreach (Node node in _objects.GetChildren())
-        {
-            if (node is Obstacle obstacle && !obstacle.IsQueuedForDeletion())
-                _obstacles.Add(obstacle);
-        }
-
-        foreach (Obstacle obstacle in _obstacles)
-        {
-            Rect2 footprint = new(obstacle.GlobalPosition - obstacle.Footprint * 0.5f, obstacle.Footprint);
-            Rect2 blocked = footprint.Grow(AgentClearance + CellSize * 0.5f);
-            Vector2I first = WorldToCell(blocked.Position);
-            Vector2I last = WorldToCell(blocked.End);
-
-            for (int y = Mathf.Max(first.Y, region.Position.Y); y <= Mathf.Min(last.Y, region.End.Y - 1); y++)
-            for (int x = Mathf.Max(first.X, region.Position.X); x <= Mathf.Min(last.X, region.End.X - 1); x++)
-            {
-                Vector2I cell = new(x, y);
-                if (blocked.HasPoint(_grid.GetPointPosition(cell))) _grid.SetPointSolid(cell);
-            }
-        }
-        _builtRevision = _revision;
     }
+    _builtRevision = _revision;
+}
 
     // =========================================================
     // Convert a world position to a navigation cell, including negative positions.
