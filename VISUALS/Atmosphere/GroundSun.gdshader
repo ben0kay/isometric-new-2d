@@ -1,5 +1,5 @@
-// Renders continuous basalt, dust and mineral surfaces across cached terrain.
-// Shared baked noise supplies texture detail; no tile artwork is sampled.
+// Renders smooth, continuous basalt, dust and mineral terrain.
+// Applies broad sunlight with restrained surface detail.
 shader_type canvas_item;
 render_mode unshaded, blend_premul_alpha;
 
@@ -7,13 +7,11 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/DustSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/MineralSurface.gdshaderinc"
 
-// Material controls.
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
 uniform float dust_amount : hint_range(0.0, 1.0) = 0.55;
 uniform float mineral_amount : hint_range(0.0, 1.0) = 0.32;
 uniform float detail_strength : hint_range(0.0, 1.0) = 0.35;
 
-// Existing atmosphere controls.
 uniform sampler2D mist_texture : repeat_enable, filter_linear;
 uniform vec2 sun_direction = vec2(-1.0, -0.7);
 uniform vec4 sun_color : source_color = vec4(1.0, 0.96, 0.87, 1.0);
@@ -24,7 +22,7 @@ varying vec2 world_position;
 varying vec4 surface_color;
 
 // =========================================================
-// Preserve continuous terrain coordinates and the existing height shading.
+// Preserve continuous terrain coordinates and terrain height shading.
 void vertex() {
     terrain_position = UV;
     world_position = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
@@ -32,21 +30,20 @@ void vertex() {
 }
 
 // =========================================================
-// Blend natural surface materials and apply broad sunlight with small relief.
+// Blend ground materials and apply soft sunlight with subtle relief.
 void fragment() {
     vec2 p = terrain_position;
 
-    float dust_field = texture(ground_noise,
-        p * 0.0039 + vec2(0.17, 0.43)).r;
-    float mineral_field = texture(ground_noise,
-        p * 0.0061 + vec2(0.68, 0.21)).r;
-
-    float strata = texture(ground_noise,
-        p * 0.035 + vec2(0.31, 0.74)).r;
-    float detail = texture(ground_noise,
-        p * 0.22 + vec2(0.53, 0.11)).r;
-    float grain = texture(ground_noise,
-        p * 2.7 + vec2(0.09, 0.62)).r;
+    float dust_field = texture(
+        ground_noise, p * 0.0039 + vec2(0.17, 0.43)).r;
+    float mineral_field = texture(
+        ground_noise, p * 0.0061 + vec2(0.68, 0.21)).r;
+    float strata = texture(
+        ground_noise, p * 0.035 + vec2(0.31, 0.74)).r;
+    float detail = texture(
+        ground_noise, p * 0.22 + vec2(0.53, 0.11)).r;
+    float grain = texture(
+        ground_noise, p * 2.7 + vec2(0.09, 0.62)).r;
 
     float dust_threshold = mix(0.85, 0.30, dust_amount);
     float dust_mask = smoothstep(
@@ -64,22 +61,22 @@ void fragment() {
     ground = mineral_surface(
         ground, strata, detail, mineral_mask * (1.0 - dust_mask * 0.75));
 
-    // Convert screen-space sunlight into the logical isometric plane.
+    // Convert sunlight into the logical isometric plane.
     vec2 direction = sun_direction / max(length(sun_direction), 0.001);
     vec2 plane_direction = vec2(
         direction.x + direction.y * 2.0,
-        -direction.x + direction.y * 2.0
-    );
+        -direction.x + direction.y * 2.0);
     plane_direction /= max(length(plane_direction), 0.001);
 
-    float sunward_detail = texture(ground_noise,
+    float sunward_detail = texture(
+        ground_noise,
         p * 0.22 + vec2(0.53, 0.11) + plane_direction * 0.003).r;
     float relief = clamp(
         (detail - sunward_detail) * 7.0, -0.18, 0.18);
     relief *= detail_strength * (1.0 - dust_mask * 0.70);
 
-    float light_field = texture(mist_texture,
-        world_position * 0.00035).r;
+    float light_field = texture(
+        mist_texture, world_position * 0.00035).r;
     float sunlight = smoothstep(0.20, 0.80, light_field);
     float strength = sun_strength * mix(0.20, 0.62, sunlight);
 

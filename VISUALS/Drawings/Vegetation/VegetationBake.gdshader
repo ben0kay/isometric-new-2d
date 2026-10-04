@@ -3,7 +3,7 @@
 shader_type canvas_item;
 render_mode unshaded;
 
-#include "res://VISUALS/Drawings/Vegetation/Surface/VegetationSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Vegetation/VegetationSurface.gdshaderinc"
 
 uniform float surface_strength : hint_range(0.0, 2.0) = 1.0;
 
