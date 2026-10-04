@@ -23,6 +23,15 @@ public partial class ChunkController : Node
 
 [Export] public int TreesPerChunk { get; set; } = 3;
 [Export] public VisualDefinition TreeVisual { get; set; }
+[Export] public int GrassPatchesPerChunk { get; set; } = 6;
+[Export] public int GrassTuftsPerPatch { get; set; } = 10;
+[Export(PropertyHint.Range, "0,1,0.01")]
+public float MediumGrassChance { get; set; } = 0.12f;
+[Export(PropertyHint.Range, "0,1,0.01")]
+public float TallGrassChance { get; set; } = 0f;
+[Export] public VisualDefinition ShortGrassVisual { get; set; }
+[Export] public VisualDefinition MediumGrassVisual { get; set; }
+[Export] public VisualDefinition TallGrassVisual { get; set; }
 #endregion
 
 	#region State
@@ -46,11 +55,12 @@ public partial class ChunkController : Node
 	private int _worldMin, _worldMax;
 	private double _refreshTimer;
 	private VegetationSpawner _vegetation;
+	private GrassSpawner _grass;
 	#endregion
 
 	#region Lifecycle
 // =========================================================
-// Prepare shared artwork and vegetation helpers before loading the initial view.
+// Prepare cached artwork and vegetation helpers before loading the initial view.
 public override async void _Ready()
 {
     SetProcess(false);
@@ -67,7 +77,7 @@ public override async void _Ready()
     _spawnPoint = _player.GlobalPosition;
     _worldMin = -(WorldChunksPerAxis / 2);
     _worldMax = _worldMin + WorldChunksPerAxis - 1;
-    _debug.Text = "Baking world artwork...";
+    _debug.Text = "Loading world artwork...";
 
     try
     {
@@ -90,6 +100,19 @@ public override async void _Ready()
         };
         AddChild(_vegetation);
 
+        _grass = new GrassSpawner
+        {
+            Name = "GrassSpawner",
+            PatchesPerChunk = Mathf.Max(0, GrassPatchesPerChunk),
+            TuftsPerPatch = Mathf.Max(0, GrassTuftsPerPatch),
+            MediumChance = MediumGrassChance,
+            TallChance = TallGrassChance,
+            ShortVisual = ShortGrassVisual,
+            MediumVisual = MediumGrassVisual,
+            TallVisual = TallGrassVisual
+        };
+        AddChild(_grass);
+
         CreateWorldBoundary();
         _camera.ResetSmoothing();
         _camera.ForceUpdateScroll();
@@ -101,7 +124,7 @@ public override async void _Ready()
     }
     catch (System.Exception error)
     {
-        _debug.Text = "Artwork bake failed — see Errors.";
+        _debug.Text = "Artwork load failed — see Errors.";
         GD.PushError($"World initialization failed: {error}");
     }
 }
@@ -191,45 +214,50 @@ public override async void _Ready()
 	}
 
 // =========================================================
-// Load ground, obstacles and deterministic vegetation for the next chunk.
+// Load terrain, obstacles, plants and grass for the next requested chunk.
 private void LoadNextChunk()
 {
-	int last = _pending.Count - 1;
-	Vector2I coordinate = _pending[last];
-	_pending.RemoveAt(last);
+    int last = _pending.Count - 1;
+    Vector2I coordinate = _pending[last];
+    _pending.RemoveAt(last);
 
-	WorldChunk ground = new()
-	{
-		Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
-		Coordinate = coordinate,
-		ChunkSize = ChunkSize,
-		TileSize = TileSize,
-		Seed = WorldSeed,
-		ShowBoundary = ShowChunkBoundaries,
-		Position = IsoGrid.TileToWorld(
-			new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
-			TileSize)
-	};
-	LoadedChunk chunk = new() { Ground = ground };
-	_groundRoot.AddChild(ground);
-	_loaded.Add(coordinate, chunk);
-	CreateObstacles(coordinate, chunk);
+    WorldChunk ground = new()
+    {
+        Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
+        Coordinate = coordinate,
+        ChunkSize = ChunkSize,
+        TileSize = TileSize,
+        Seed = WorldSeed,
+        ShowBoundary = ShowChunkBoundaries,
+        Position = IsoGrid.TileToWorld(
+            new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
+            TileSize)
+    };
+    LoadedChunk chunk = new() { Ground = ground };
+    _groundRoot.AddChild(ground);
+    _loaded.Add(coordinate, chunk);
+    CreateObstacles(coordinate, chunk);
 
-	_vegetation.Populate(
-		coordinate, ChunkSize, TileSize, WorldSeed,
-		_groundRoot, _objects, _spawnPoint,
-		SpawnClearRadius, chunk.Obstacles);
+    _vegetation.Populate(
+        coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint,
+        SpawnClearRadius, chunk.Obstacles);
+
+    _grass.Populate(
+        coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint);
 }
 
 // =========================================================
-// Remove a chunk's ground, obstacles and associated vegetation.
+// Remove terrain and all artwork instances owned by one streamed chunk.
 private void UnloadChunk(Vector2I coordinate)
 {
-	LoadedChunk chunk = _loaded[coordinate];
-	_vegetation.RemoveChunk(coordinate);
-	foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
-	chunk.Ground.QueueFree();
-	_loaded.Remove(coordinate);
+    LoadedChunk chunk = _loaded[coordinate];
+    _grass.RemoveChunk(coordinate);
+    _vegetation.RemoveChunk(coordinate);
+    foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
+    chunk.Ground.QueueFree();
+    _loaded.Remove(coordinate);
 }
 	#endregion
 

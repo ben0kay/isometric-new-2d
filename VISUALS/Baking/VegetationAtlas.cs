@@ -1,5 +1,5 @@
-// Defines the plant atlas layout and caches its shared artwork and wind material.
-// Delegates rendering and capture to ArtworkBaker.
+// Defines plant and compact grass cells in one shared cached texture.
+// Uses ArtworkBaker for disk caching and separate wind materials for grass/plants.
 using Godot;
 using System.Threading.Tasks;
 
@@ -12,17 +12,28 @@ public partial class VegetationAtlas : Node2D
     private const int Columns = 4;
     private const int RowsPerKind = (VariantsPerKind + Columns - 1) / Columns;
     public static readonly Vector2 Origin = new(-128, -220);
+
+    public const int GrassCellSize = 64;
+    private const int AtlasWidth = Columns * CellSize;
+    private const int GrassColumns = AtlasWidth / GrassCellSize;
+    private const int GrassRowsPerKind =
+        (VariantsPerKind + GrassColumns - 1) / GrassColumns;
+    private const int GrassStartY = RowsPerKind * 2 * CellSize;
+    private const int AtlasHeight =
+        GrassStartY + GrassRowsPerKind * 3 * GrassCellSize;
+    public static readonly Vector2 GrassOrigin = new(-32, -56);
     #endregion
 
     #region Shared Resources
     public static ImageTexture Texture { get; private set; }
     public static ShaderMaterial WindMaterial { get; private set; }
+    public static ShaderMaterial GrassWindMaterial { get; private set; }
     private static Task _bakeTask;
     #endregion
 
     #region Baking
     // =========================================================
-    // Share one initial bake between all plant consumers.
+    // Share one load or bake between all plant and grass consumers.
     public static Task EnsureReady(Node host)
     {
         if (Texture != null) return Task.CompletedTask;
@@ -30,7 +41,7 @@ public partial class VegetationAtlas : Node2D
     }
 
     // =========================================================
-    // Locate one shape-and-palette cell within the requested plant family.
+    // Preserve the existing frond and shrub atlas regions.
     public static Rect2 GetRegion(bool shrub, int variant)
     {
         variant = Mathf.Clamp(variant, 0, VariantsPerKind - 1);
@@ -40,51 +51,75 @@ public partial class VegetationAtlas : Node2D
             row * CellSize, CellSize, CellSize);
     }
 
-// =========================================================
-// Load cached plant artwork or bake it, then prepare the shared wind material.
-private static async Task BakeAsync(Node host)
-{
-    // Increase this after changing plant drawings, palettes or the baking shader.
-    const int artworkRevision = 1;
-
-    try
+    // =========================================================
+    // Locate a compact grass cell for the requested height and colour variant.
+    public static Rect2 GetGrassRegion(GrassHeight height, int variant)
     {
-        ShaderMaterial wind = ArtworkBaker.LoadMaterial(
-            "res://VISUALS/Drawings/Vegetation/VegetationWind.gdshader");
-
-        string key = $"plants-{artworkRevision}"
-            + $"|variants={VariantsPerKind}|origin={Origin}";
-
-        Texture = await ArtworkBaker.LoadOrBake(
-            host, "VegetationBake", key,
-            new Vector2I(Columns * CellSize, RowsPerKind * 2 * CellSize),
-            () => new VegetationAtlas
-            {
-                Material = ArtworkBaker.LoadMaterial(
-                    "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
-            });
-        WindMaterial = wind;
+        int kind = Mathf.Clamp((int)height, 0, 2);
+        variant = Mathf.Clamp(variant, 0, VariantsPerKind - 1);
+        int row = kind * GrassRowsPerKind + variant / GrassColumns;
+        return new Rect2(
+            variant % GrassColumns * GrassCellSize,
+            GrassStartY + row * GrassCellSize,
+            GrassCellSize, GrassCellSize);
     }
-    catch
+
+    // =========================================================
+    // Load cached artwork and prepare independent plant and grass wind materials.
+    private static async Task BakeAsync(Node host)
     {
-        _bakeTask = null;
-        throw;
+        const int artworkRevision = 2;
+        try
+        {
+            ShaderMaterial wind = ArtworkBaker.LoadMaterial(
+                "res://VISUALS/Drawings/Vegetation/VegetationWind.gdshader");
+            ShaderMaterial grassWind = ArtworkBaker.LoadMaterial(
+                "res://VISUALS/Drawings/Vegetation/GrassWind.gdshader");
+
+            string key = $"plants-and-grass-{artworkRevision}"
+                + $"|variants={VariantsPerKind}|origin={Origin}"
+                + $"|grass-origin={GrassOrigin}";
+
+            Texture = await ArtworkBaker.LoadOrBake(
+                host, "VegetationBake", key,
+                new Vector2I(AtlasWidth, AtlasHeight),
+                () => new VegetationAtlas
+                {
+                    Material = ArtworkBaker.LoadMaterial(
+                        "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
+                });
+            WindMaterial = wind;
+            GrassWindMaterial = grassWind;
+        }
+        catch
+        {
+            _bakeTask = null;
+            throw;
+        }
     }
-}
     #endregion
 
     #region Drawing
     // =========================================================
-    // Draw each plant family into its padded atlas cells.
+    // Bake existing plants and all three independent grass height definitions.
     public override void _Draw()
     {
         for (int variant = 0; variant < VariantsPerKind; variant++)
         {
             DrawSetTransform(GetRegion(false, variant).Position - Origin);
             FrondDrawing.Draw(this, variant);
-
             DrawSetTransform(GetRegion(true, variant).Position - Origin);
             AlienShrubDrawing.Draw(this, variant);
+
+            DrawSetTransform(
+                GetGrassRegion(GrassHeight.Short, variant).Position - GrassOrigin);
+            ShortGrassDrawing.Draw(this, variant);
+            DrawSetTransform(
+                GetGrassRegion(GrassHeight.Medium, variant).Position - GrassOrigin);
+            MediumGrassDrawing.Draw(this, variant);
+            DrawSetTransform(
+                GetGrassRegion(GrassHeight.Tall, variant).Position - GrassOrigin);
+            TallGrassDrawing.Draw(this, variant);
         }
         DrawSetTransform(Vector2.Zero);
     }
