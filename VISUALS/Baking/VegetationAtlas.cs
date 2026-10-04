@@ -37,46 +37,46 @@ public partial class VegetationAtlas : Node2D
     }
 
     // =========================================================
-    // Capture the drawing output once and release the temporary viewport.
-    private static async Task BakeAsync(Node host)
+// Capture vegetation once and load the wind shader from its actual location.
+private static async Task BakeAsync(Node host)
+{
+    SubViewport viewport = new()
     {
-        SubViewport viewport = new()
-        {
-            Name = "VegetationBake",
-            Size = new Vector2I(CellSize * VariantsPerKind, CellSize * 2),
-            TransparentBg = true,
-            Disable3D = true,
-            World2D = new World2D(),
-            RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled
-        };
+        Name = "VegetationBake",
+        Size = new Vector2I(CellSize * VariantsPerKind, CellSize * 2),
+        TransparentBg = true,
+        Disable3D = true,
+        World2D = new World2D(),
+        RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled
+    };
 
-        host.AddChild(viewport);
-        viewport.AddChild(new VegetationAtlas());
+    host.AddChild(viewport);
+    viewport.AddChild(new VegetationAtlas());
 
-        try
-        {
-            await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
-            viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
-            await host.ToSignal(
-                RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+    try
+    {
+        await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
+        viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
+        await host.ToSignal(
+            RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
 
-            using Image image = viewport.GetTexture().GetImage();
-            if (image.IsEmpty())
-                throw new System.InvalidOperationException("Vegetation capture was empty.");
+        using Image image = viewport.GetTexture().GetImage();
+        if (image.IsEmpty())
+            throw new System.InvalidOperationException("Vegetation capture was empty.");
 
-            Shader shader = GD.Load<Shader>(
-                "res://VISUALS/Vegetation/VegetationWind.gdshader");
-            if (shader == null)
-                throw new System.InvalidOperationException("Vegetation wind shader was missing.");
+        Shader shader = GD.Load<Shader>(
+            "res://VISUALS/Drawings/Vegetation/VegetationWind.gdshader");
+        if (shader == null)
+            throw new System.InvalidOperationException("Vegetation wind shader was missing.");
 
-            WindMaterial = new ShaderMaterial { Shader = shader };
-            Texture = ImageTexture.CreateFromImage(image);
-        }
-        finally
-        {
-            viewport.QueueFree();
-        }
+        WindMaterial = new ShaderMaterial { Shader = shader };
+        Texture = ImageTexture.CreateFromImage(image);
     }
+    finally
+    {
+        viewport.QueueFree();
+    }
+}
     #endregion
 
     #region Drawing
