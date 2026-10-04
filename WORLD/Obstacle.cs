@@ -1,31 +1,65 @@
-// Creates obstacle collision, terrain-adjusted baked artwork and a cached shadow.
-// Rocks select a stable atlas variant without running a surface shader in gameplay.
+// Shares footprint collision and cached shadows for solid world objects.
+// Trees and rocks override configuration/artwork while navigation sees one base type.
 using Godot;
+using System.Threading.Tasks;
 
 public partial class Obstacle : StaticBody2D
 {
 	#region Configuration
 	public enum ObstacleKind { Rock, Crate }
-	[Export] public VisualDefinition VisualOverride { get; set; }
 
+	[ExportGroup("Obstacle")]
 	[Export] public ObstacleKind Kind { get; set; } = ObstacleKind.Rock;
 	[Export] public Vector2 Footprint { get; set; } = new(96, 48);
 	[Export] public float Height { get; set; } = 72f;
 	[Export] public int RockVariant { get; set; } = -1;
+	[Export] public VisualDefinition VisualOverride { get; set; }
 	#endregion
 
 	#region Lifecycle
-// =========================================================
-// Build collision, select artwork and create the existing footprint shadow.
-public override async void _Ready()
-{
-	AddChild(new CollisionShape2D
+	// =========================================================
+	// Configure the instance, build its collision and attach artwork and sunlight shadow.
+	public override async void _Ready()
 	{
-		Name = "Footprint",
-		Shape = new RectangleShape2D { Size = Footprint }
-	});
+		try
+		{
+			ConfigureInstance();
+			Footprint = new Vector2(
+				Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
+			CollisionLayer = 1;
+			CollisionMask = 0;
 
-	try
+			AddChild(new CollisionShape2D
+			{
+				Name = "Footprint",
+				Shape = new RectangleShape2D { Size = Footprint }
+			});
+
+			await AttachArtworkAsync();
+			if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+			WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
+				"world_atmosphere") as WorldAtmosphere;
+			atmosphere?.CreateObstacleShadow(this);
+			SetProcess(false);
+		}
+		catch (System.Exception error)
+		{
+			GD.PushError($"Obstacle '{Name}' initialization failed: {error}");
+		}
+	}
+
+	// =========================================================
+	// Let a derived family configure its footprint before collision is created.
+	protected virtual void ConfigureInstance()
+	{
+	}
+	#endregion
+
+	#region Artwork
+	// =========================================================
+	// Preserve the existing crate and generic obstacle visual behaviour.
+	protected virtual async Task AttachArtworkAsync()
 	{
 		await PlaceholderAtlas.EnsureReady(this);
 		if (!IsInsideTree() || IsQueuedForDeletion()) return;
@@ -47,16 +81,6 @@ public override async void _Ready()
 			this, region, new Vector2(-80, -120),
 			new Vector2(Footprint.X / 96f, Height / 72f),
 			false, VisualOverride);
-
-		WorldAtmosphere atmosphere =
-			GetTree().GetFirstNodeInGroup(
-				"world_atmosphere") as WorldAtmosphere;
-		atmosphere?.CreateObstacleShadow(this);
 	}
-	catch (System.Exception error)
-	{
-		GD.PushError($"Obstacle artwork failed: {error}");
-	}
-}
 	#endregion
 }

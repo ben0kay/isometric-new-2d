@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="PlantDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Vegetation/Plants/PlantDefinition.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Id = "frond"
+SizeRange = Vector2(0.6, 1.05)
+MirrorChance = 0.0
+BakedKind = 0
+ContactShadowScale = Vector2(0.8, 0.7)
+Spacing = Vector2(88, 48)
+GroundClearance = 48.0

@@ -41,58 +41,65 @@ public partial class WorldGenerator : Node
         AddToGroup("world_generator");
     }
 
-    // =========================================================
-    // Cache biome terrain generators and the largest required spawning budgets.
-    public override void _Ready()
+// =========================================================
+// Validate biome recipes and cache terrain generators and spawning budgets.
+public override void _Ready()
+{
+    _chunks = GetNode<ChunkController>("../ChunkController");
+    _ground = GetNode<Node2D>("../../GroundChunks");
+    if (Catalog == null)
+        throw new InvalidOperationException("WorldGenerator requires a BiomeCatalog.");
+
+    _biomes = Catalog.GetEnabledBiomes();
+    _biomes.Sort((a, b) =>
     {
-        _chunks = GetNode<ChunkController>("../ChunkController");
-        _ground = GetNode<Node2D>("../../GroundChunks");
-        if (Catalog == null)
-            throw new InvalidOperationException("WorldGenerator requires a BiomeCatalog.");
+        int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
+        return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
+    });
 
-        _biomes = Catalog.GetEnabledBiomes();
-        _biomes.Sort((a, b) =>
-        {
-            int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
-            return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
-        });
-
-        int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
-        if (singleIndex < 0)
-        {
-            if (!CompareBiomes)
-                throw new InvalidOperationException(
-                    $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
-            singleIndex = 0;
-        }
-
-        _sampler = new BiomeSampler(
-            _biomes.Count, CompareBiomes, singleIndex,
-            BiomeBandWidth, BiomeBlendWidth);
-        _terrain = new TerrainGenerator[_biomes.Count];
-
-        for (int i = 0; i < _biomes.Count; i++)
-        {
-            BiomeDefinition biome = _biomes[i];
-            if (biome.Vegetation == null)
-                throw new InvalidOperationException(
-                    $"Biome '{biome.Id}' requires vegetation settings.");
-
-            _terrain[i] = new TerrainGenerator(
-                biome, _chunks.WorldSeed,
-                SandboxPlateau, SandboxPlateauCentre);
-            HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
-            MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
-            MaxPlantPatches = Mathf.Max(
-                MaxPlantPatches, biome.Vegetation.PlantPatches);
-            MaxGrassPatches = Mathf.Max(
-                MaxGrassPatches, biome.Vegetation.GrassPatches);
-            MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
-        }
-
-        GD.Print($"[World] {_biomes.Count} enabled biome(s); comparison: {CompareBiomes}");
-        SetProcess(false);
+    int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
+    if (singleIndex < 0)
+    {
+        if (!CompareBiomes)
+            throw new InvalidOperationException(
+                $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
+        singleIndex = 0;
     }
+
+    _sampler = new BiomeSampler(
+        _biomes.Count, CompareBiomes, singleIndex,
+        BiomeBandWidth, BiomeBlendWidth);
+    _terrain = new TerrainGenerator[_biomes.Count];
+
+    HeightRange = 1f;
+    MaxTrees = MaxPlantPatches = MaxGrassPatches = MaxRocks = 0;
+
+    for (int i = 0; i < _biomes.Count; i++)
+    {
+        BiomeDefinition biome = _biomes[i];
+        if (biome.Vegetation == null)
+            throw new InvalidOperationException(
+                $"Biome '{biome.Id}' requires vegetation settings.");
+
+        biome.Vegetation.Validate(biome.Id);
+        BiomeSpecies.Validate<RockDefinition>(
+            biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
+
+        _terrain[i] = new TerrainGenerator(
+            biome, _chunks.WorldSeed,
+            SandboxPlateau, SandboxPlateauCentre);
+        HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
+        MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
+        MaxPlantPatches = Mathf.Max(
+            MaxPlantPatches, biome.Vegetation.PlantPatches);
+        MaxGrassPatches = Mathf.Max(
+            MaxGrassPatches, biome.Vegetation.GrassPatches);
+        MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
+    }
+
+    GD.Print($"[World] {_biomes.Count} enabled biome(s); comparison: {CompareBiomes}");
+    SetProcess(false);
+}
     #endregion
 
     #region Sampling

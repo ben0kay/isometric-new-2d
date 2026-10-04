@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="TreeDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Vegetation/Trees/TreeDefinition.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Id = "carbon_tree"
+SizeRange = Vector2(0.8, 1.2)
+MirrorChance = 0.0
+TrunkFootprint = Vector2(44, 24)
+VisualHeight = 280.0
+Spacing = Vector2(220, 120)
+GroundClearance = 85.0

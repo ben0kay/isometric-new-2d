@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 Id = "small_rock"
-Weight = 5.0
+SizeRange = Vector2(0.9, 1.1)
 WidthRange = Vector2(40, 60)
 HeightRange = Vector2(26, 44)
 FootprintDepthRatio = 0.5

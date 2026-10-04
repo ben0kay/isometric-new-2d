@@ -201,7 +201,7 @@ public override async void _Ready()
 	}
 
 // =========================================================
-// Load terrain, biome rocks, test crates, trees, plants and grass in that order.
+// Load terrain, biome rocks, test crates and species-based vegetation in order.
 private void LoadNextChunk()
 {
 	int last = _pending.Count - 1;
@@ -232,8 +232,7 @@ private void LoadNextChunk()
 
 	_vegetation.Populate(
 		coordinate, ChunkSize, TileSize, WorldSeed,
-		_groundRoot, _objects, _spawnPoint,
-		SpawnClearRadius, chunk.Obstacles);
+		_groundRoot, _objects, _spawnPoint, SpawnClearRadius);
 	_grass.Populate(
 		coordinate, ChunkSize, TileSize, WorldSeed,
 		_groundRoot, _objects, _spawnPoint);

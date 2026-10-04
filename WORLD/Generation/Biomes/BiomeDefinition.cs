@@ -1,5 +1,5 @@
-// Defines a biome's identity, terrain, vegetation and available solid rocks.
-// Resources keep related settings grouped without adding scene-tree nodes.
+// Defines a biome's terrain and its weighted vegetation/rock recipes.
+// Individual species remain reusable resources outside the biome folders.
 using Godot;
 
 [Tool, GlobalClass]
@@ -38,7 +38,6 @@ public partial class BiomeDefinition : Resource
     #region Rocks
     [ExportGroup("Rocks")]
     [Export] public int RocksPerChunk { get; set; } = 8;
-    [Export] public Godot.Collections.Array<RockDefinition> Rocks { get; set; }
-        = new();
+    [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; } = new();
     #endregion
 }
