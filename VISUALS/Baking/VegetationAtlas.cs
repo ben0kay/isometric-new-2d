@@ -1,5 +1,5 @@
-// Bakes independent vegetation shapes and palettes into one shared texture.
-// Surface shaders run only during capture; gameplay retains the separate wind shader.
+// Defines the plant atlas layout and caches its shared artwork and wind material.
+// Delegates rendering and capture to ArtworkBaker.
 using Godot;
 using System.Threading.Tasks;
 
@@ -10,7 +10,7 @@ public partial class VegetationAtlas : Node2D
         VegetationPalette.ShapeCount * VegetationPalette.PaletteCount;
     public const int CellSize = 256;
     private const int Columns = 4;
-    private const int RowsPerKind = VariantsPerKind / Columns;
+    private const int RowsPerKind = (VariantsPerKind + Columns - 1) / Columns;
     public static readonly Vector2 Origin = new(-128, -220);
     #endregion
 
@@ -22,7 +22,7 @@ public partial class VegetationAtlas : Node2D
 
     #region Baking
     // =========================================================
-    // Share one initial capture between vegetation consumers.
+    // Share one initial bake between all plant consumers.
     public static Task EnsureReady(Node host)
     {
         if (Texture != null) return Task.CompletedTask;
@@ -30,7 +30,7 @@ public partial class VegetationAtlas : Node2D
     }
 
     // =========================================================
-    // Locate a padded shape-and-palette cell for the selected family.
+    // Locate one shape-and-palette cell within the requested plant family.
     public static Rect2 GetRegion(bool shrub, int variant)
     {
         variant = Mathf.Clamp(variant, 0, VariantsPerKind - 1);
@@ -40,61 +40,42 @@ public partial class VegetationAtlas : Node2D
             row * CellSize, CellSize, CellSize);
     }
 
-    // =========================================================
-    // Capture surface-detailed artwork and release its temporary rendering nodes.
-    private static async Task BakeAsync(Node host)
+// =========================================================
+// Load cached plant artwork or bake it, then prepare the shared wind material.
+private static async Task BakeAsync(Node host)
+{
+    // Increase this after changing plant drawings, palettes or the baking shader.
+    const int artworkRevision = 1;
+
+    try
     {
-        Shader surfaceShader = GD.Load<Shader>(
-            "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader");
-        Shader windShader = GD.Load<Shader>(
+        ShaderMaterial wind = ArtworkBaker.LoadMaterial(
             "res://VISUALS/Drawings/Vegetation/VegetationWind.gdshader");
 
-        if (surfaceShader == null || windShader == null)
-            throw new System.InvalidOperationException(
-                "A vegetation shader was missing. Check the supplied resource paths.");
+        string key = $"plants-{artworkRevision}"
+            + $"|variants={VariantsPerKind}|origin={Origin}";
 
-        SubViewport viewport = new()
-        {
-            Name = "VegetationBake",
-            Size = new Vector2I(
-                Columns * CellSize, RowsPerKind * 2 * CellSize),
-            TransparentBg = true,
-            Disable3D = true,
-            World2D = new World2D(),
-            RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled
-        };
-
-        host.AddChild(viewport);
-
-        try
-        {
-            viewport.AddChild(new VegetationAtlas
+        Texture = await ArtworkBaker.LoadOrBake(
+            host, "VegetationBake", key,
+            new Vector2I(Columns * CellSize, RowsPerKind * 2 * CellSize),
+            () => new VegetationAtlas
             {
-                Material = new ShaderMaterial { Shader = surfaceShader }
+                Material = ArtworkBaker.LoadMaterial(
+                    "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
             });
-
-            await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
-            viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
-            await host.ToSignal(
-                RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
-
-            using Image image = viewport.GetTexture().GetImage();
-            if (image.IsEmpty())
-                throw new System.InvalidOperationException("Vegetation capture was empty.");
-
-            WindMaterial = new ShaderMaterial { Shader = windShader };
-            Texture = ImageTexture.CreateFromImage(image);
-        }
-        finally
-        {
-            viewport.QueueFree();
-        }
+        WindMaterial = wind;
     }
+    catch
+    {
+        _bakeTask = null;
+        throw;
+    }
+}
     #endregion
 
     #region Drawing
     // =========================================================
-    // Draw each family using independently selected shapes and palettes.
+    // Draw each plant family into its padded atlas cells.
     public override void _Draw()
     {
         for (int variant = 0; variant < VariantsPerKind; variant++)

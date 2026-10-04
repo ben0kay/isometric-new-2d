@@ -45,46 +45,36 @@ public partial class PlaceholderAtlas : Node2D
             2 + variant / RockColumns * RockStride, 160, 160);
     }
 
-    // =========================================================
-    // Render the artwork once, capture it and remove the temporary nodes.
-    private static async Task BakeAsync(Node host)
+// =========================================================
+// Cache rocks and characters using both artwork revision and baked sunlight.
+private static async Task BakeAsync(Node host)
+{
+    // Increase this after changing these drawings or their baking shaders.
+    const int artworkRevision = 1;
+
+    try
     {
-        SubViewport viewport = new()
-        {
-            Name = "PlaceholderBake",
-            Size = new Vector2I(768, 512),
-            TransparentBg = true,
-            Disable3D = true,
-            World2D = new World2D(),
-            RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled
-        };
+        WorldAtmosphere atmosphere = host.GetTree().GetFirstNodeInGroup(
+            "world_atmosphere") as WorldAtmosphere;
 
-        PlaceholderAtlas painter = new()
-        {
-            _atmosphere = host.GetTree().GetFirstNodeInGroup("world_atmosphere")
-                as WorldAtmosphere
-        };
-        host.AddChild(viewport);
-        viewport.AddChild(painter);
+string lighting = atmosphere == null
+    ? "no-atmosphere"
+    : System.FormattableString.Invariant(
+        $"{atmosphere.SunDirection.X:R}|{atmosphere.SunDirection.Y:R}|{atmosphere.SunTint.R:R}|{atmosphere.SunTint.G:R}|{atmosphere.SunTint.B:R}|{atmosphere.FaceAmbient:R}|{atmosphere.FaceSunStrength:R}");
 
-        try
-        {
-            await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
-            viewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Once;
-            await host.ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
+        string key = $"placeholders-{artworkRevision}"
+            + $"|rocks={RockDrawing.VariantCount}|light={lighting}";
 
-            using Image image = viewport.GetTexture().GetImage();
-            if (image.IsEmpty())
-                throw new System.InvalidOperationException("Placeholder atlas capture was empty.");
-            Texture = ImageTexture.CreateFromImage(image);
-        }
-        finally
-        {
-            viewport.QueueFree();
-        }
-
-        await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
+        Texture = await ArtworkBaker.LoadOrBake(
+            host, "PlaceholderBake", key, new Vector2I(768, 512),
+            () => new PlaceholderAtlas { _atmosphere = atmosphere });
     }
+    catch
+    {
+        _bakeTask = null;
+        throw;
+    }
+}
     #endregion
 
     #region Drawing
