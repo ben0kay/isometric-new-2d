@@ -220,58 +220,116 @@ private static void AddCliffQuad(
 }
 
 // =========================================================
-// Merge the chunk's void into one collider and explicitly apply its world transform.
+// Merge consecutive void tiles into solid row polygons matching the ravine.
 private void CreateTerrainCollision()
 {
-    Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
-    Rect2 chunkBounds = new(origin - Vector2.One * 0.5f, Vector2.One * ChunkSize);
-    Rect2 chasm = TerrainLayout.GetTileBounds();
+	int originX = Coordinate.X * ChunkSize;
+	int originY = Coordinate.Y * ChunkSize;
+	Node helpers = null;
+	StaticBody2D body = null;
+	int shapeCount = 0;
 
-    Vector2 low = new(
-        Mathf.Max(chunkBounds.Position.X, chasm.Position.X),
-        Mathf.Max(chunkBounds.Position.Y, chasm.Position.Y));
-    Vector2 high = new(
-        Mathf.Min(chunkBounds.End.X, chasm.End.X),
-        Mathf.Min(chunkBounds.End.Y, chasm.End.Y));
-    if (high.X <= low.X || high.Y <= low.Y) return;
+	for (int y = 0; y < ChunkSize; y++)
+	{
+		int x = 0;
+		while (x < ChunkSize)
+		{
+			if (!TerrainLayout.IsVoidTile(originX + x, originY + y))
+			{
+				x++;
+				continue;
+			}
 
-    Node helpers = new() { Name = "TerrainCollision" };
-    AddChild(helpers);
+			int first = x;
+			while (x < ChunkSize &&
+				TerrainLayout.IsVoidTile(originX + x, originY + y))
+				x++;
 
-    StaticBody2D body = new()
-    {
-        Name = "Chasm",
-        CollisionLayer = TerrainLayout.CollisionLayer,
-        CollisionMask = 0
-    };
-    helpers.AddChild(body);
+			// Create helpers only for chunks containing void terrain.
+			if (body == null)
+			{
+				helpers = new Node { Name = "TerrainCollision" };
+				AddChild(helpers);
+				body = new StaticBody2D
+				{
+					Name = "Ravine",
+					CollisionLayer = TerrainLayout.CollisionLayer,
+					CollisionMask = 0
+				};
+				helpers.AddChild(body);
 
-    // Plain Node helpers interrupt transform inheritance.
-    // Apply the chunk transform explicitly before adding its local collision shape.
-    body.GlobalTransform = GlobalTransform;
+				// Plain Node helpers interrupt transform inheritance.
+				body.GlobalTransform = GlobalTransform;
+			}
 
-    body.AddChild(new CollisionPolygon2D
-    {
-        Name = "Footprint",
-        Polygon = new Vector2[]
-        {
-            IsoGrid.TileToWorld(low - origin, TileSize),
-            IsoGrid.TileToWorld(new Vector2(high.X, low.Y) - origin, TileSize),
-            IsoGrid.TileToWorld(high - origin, TileSize),
-            IsoGrid.TileToWorld(new Vector2(low.X, high.Y) - origin, TileSize)
-        }
-    });
+			float left = first - 0.5f, right = x - 0.5f;
+			float top = y - 0.5f, bottom = y + 0.5f;
+			body.AddChild(new CollisionPolygon2D
+			{
+				Name = $"Run_{shapeCount++}",
+				Polygon = new Vector2[]
+				{
+					IsoGrid.TileToWorld(new(left, top), TileSize),
+					IsoGrid.TileToWorld(new(right, top), TileSize),
+					IsoGrid.TileToWorld(new(right, bottom), TileSize),
+					IsoGrid.TileToWorld(new(left, bottom), TileSize)
+				}
+			});
+		}
+	}
 }
 	#endregion
 
 	#region Drawing
+
 // =========================================================
-// Draw ground only; the separate cliff mesh renders beneath all terrain.
+// Draw cached ground and outline exposed ravine edges with a narrow rock rim.
 public override void _Draw()
 {
-    if (_mesh != null && PlaceholderAtlas.Texture != null)
-        DrawMesh(_mesh, PlaceholderAtlas.Texture);
-    if (ShowBoundary) DrawBoundary();
+	if (_mesh != null && PlaceholderAtlas.Texture != null)
+		DrawMesh(_mesh, PlaceholderAtlas.Texture);
+
+	DrawRavineRim();
+	if (ShowBoundary) DrawBoundary();
+}
+
+// =========================================================
+// Highlight ground-to-void boundaries, including foreground lips hiding cliff walls.
+private void DrawRavineRim()
+{
+	if (_elevation == null) return;
+
+	Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
+	Color rim = new("#425662");
+
+	for (int y = 0; y < ChunkSize; y++)
+	for (int x = 0; x < ChunkSize; x++)
+	{
+		int globalX = Coordinate.X * ChunkSize + x;
+		int globalY = Coordinate.Y * ChunkSize + y;
+		if (TerrainLayout.IsVoidTile(globalX, globalY)) continue;
+
+		Vector2 localTile = new(x, y);
+		for (int side = 0; side < 4; side++)
+		{
+			int neighbourX = globalX;
+			int neighbourY = globalY;
+
+			switch (side)
+			{
+				case 0: neighbourY--; break;
+				case 1: neighbourX++; break;
+				case 2: neighbourY++; break;
+				case 3: neighbourX--; break;
+			}
+
+			if (!TerrainLayout.IsVoidTile(neighbourX, neighbourY)) continue;
+
+			Vector2 a = GetSurfacePoint(localTile + VertexOffsets[1 + side], origin);
+			Vector2 b = GetSurfacePoint(localTile + VertexOffsets[1 + (side + 1) % 4], origin);
+			DrawLine(a, b, rim, 1.5f, false);
+		}
+	}
 }
 
 	// =========================================================
