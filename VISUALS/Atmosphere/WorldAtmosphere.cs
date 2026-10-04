@@ -15,6 +15,7 @@ public partial class WorldAtmosphere : Node
     [Export] public float FogDensity { get; set; } = 0.65f;
     [Export] public float FogNoiseScale { get; set; } = 0.012f;
     [Export] public Vector2 FogDrift { get; set; } = new(3f, -1f);
+    [Export] public float GroundSunStrength { get; set; } = 2.2f;
     #endregion
 
     #region State
@@ -25,6 +26,8 @@ public partial class WorldAtmosphere : Node
     private TerrainElevation _elevation;
     private ChunkController _chunks;
     private Node2D _ground;
+    public ShaderMaterial GroundMaterial { get; private set; }
+private NoiseTexture2D _mistTexture;
     #endregion
 
     #region Lifecycle
@@ -35,23 +38,48 @@ public partial class WorldAtmosphere : Node
         AddToGroup("world_atmosphere");
     }
 
-    // =========================================================
-    // Prepare one fog material and resolve the shared terrain services.
-    public override void _Ready()
-    {
-        _elevation = GetNode<TerrainElevation>("../TerrainElevation");
-        _chunks = GetNode<ChunkController>("../ChunkController");
-        _ground = GetNode<Node2D>("../../GroundChunks");
+// =========================================================
+// Share one smooth noise texture and prepare terrain sunlight and ravine mist.
+public override void _Ready()
+{
+    _elevation = GetNode<TerrainElevation>("../TerrainElevation");
+    _chunks = GetNode<ChunkController>("../ChunkController");
+    _ground = GetNode<Node2D>("../../GroundChunks");
 
-        FogMaterial = new ShaderMaterial
+    _mistTexture = new NoiseTexture2D
+    {
+        Width = 256,
+        Height = 256,
+        Seamless = true,
+        Normalize = true,
+        Noise = new FastNoiseLite
         {
-            Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/RavineFog.gdshader")
-        };
-        FogMaterial.SetShaderParameter("fog_color", FogColor);
-        FogMaterial.SetShaderParameter("fog_density", Mathf.Clamp(FogDensity, 0f, 1f));
-        FogMaterial.SetShaderParameter("noise_scale", Mathf.Max(0.001f, FogNoiseScale));
-        FogMaterial.SetShaderParameter("drift", FogDrift);
-    }
+            Seed = 64,
+            NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
+            Frequency = 0.018f,
+            FractalOctaves = 3
+        }
+    };
+
+    FogMaterial = new ShaderMaterial
+    {
+        Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/RavineFog.gdshader")
+    };
+    FogMaterial.SetShaderParameter("mist_texture", _mistTexture);
+    FogMaterial.SetShaderParameter("fog_color", FogColor);
+    FogMaterial.SetShaderParameter("fog_density", Mathf.Clamp(FogDensity, 0f, 1f));
+    FogMaterial.SetShaderParameter("noise_scale", Mathf.Max(0.0001f, FogNoiseScale));
+    FogMaterial.SetShaderParameter("drift", FogDrift);
+
+    GroundMaterial = new ShaderMaterial
+    {
+        Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/GroundSun.gdshader")
+    };
+    GroundMaterial.SetShaderParameter("mist_texture", _mistTexture);
+    GroundMaterial.SetShaderParameter("sun_direction", LightDirection);
+    GroundMaterial.SetShaderParameter("sun_color", SunTint);
+    GroundMaterial.SetShaderParameter("sun_strength", Mathf.Max(0f, GroundSunStrength));
+}
     #endregion
 
     #region Sunlight

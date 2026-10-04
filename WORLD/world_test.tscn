@@ -22,18 +22,15 @@ position = Vector2(0, 180)
 
 [node name="Systems" type="Node" parent="." unique_id=714722143]
 
-[node name="Atmosphere" type="Node" parent="Systems" unique_id=768461121]
+[node name="Atmosphere" type="Node" parent="Systems" unique_id=597471848]
 script = ExtResource("8_atmosphere")
-SunDirection = Vector2(-1, -0.7)
-SunTint = Color(1, 0.96, 0.87, 1)
-FaceAmbient = 0.65
-FaceSunStrength = 0.55
-ShadowLength = 1.8
-ShadowOpacity = 0.38
+FaceAmbient = 0.35
+FaceSunStrength = 1.05
+ShadowLength = 2.2
+ShadowOpacity = 0.8
 FogColor = Color(0.16, 0.31, 0.43, 1)
-FogDensity = 0.65
-FogNoiseScale = 0.012
-FogDrift = Vector2(3, -1)
+FogDensity = 0.72
+FogNoiseScale = 0.0012
 
 [node name="TerrainElevation" type="Node" parent="Systems" unique_id=410560499]
 script = ExtResource("6_elevation")
