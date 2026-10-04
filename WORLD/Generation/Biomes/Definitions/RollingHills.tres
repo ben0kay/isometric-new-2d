@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" path="res://WORLD/Rocks/RockDefinition.cs" id="3_rock"]
+[ext_resource type="Resource" path="res://WORLD/Rocks/SmallRock.tres" id="4_small"]
+[ext_resource type="Resource" path="res://WORLD/Rocks/Boulder.tres" id="5_boulder"]
+[ext_resource type="Resource" path="res://WORLD/Rocks/CliffRock.tres" id="6_cliff"]
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+PlantPatches = 10
+PlantsPerPatch = 7
+ShrubChance = 0.4
+TreesPerChunk = 3
+TreeSizeRange = Vector2(0.75, 1.05)
+GrassPatches = 14
+GrassTuftsPerPatch = 12
+MediumGrassChance = 0.2
+TallGrassChance = 0.05
+
+[resource]
+script = ExtResource("1_biome")
+Id = "rolling_hills"
+DisplayName = "Rolling Hills"
+Enabled = true
+SandboxOrder = 1
+RollingHeight = 110.0
+RollingFeatureSize = 10.0
+PlateausEnabled = false
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 6
+Rocks = Array[ExtResource("3_rock")]([ExtResource("4_small"), ExtResource("5_boulder"), ExtResource("6_cliff")])

@@ -5,7 +5,7 @@ render_mode unshaded, blend_mix;
 uniform sampler2D rock_noise : repeat_enable, filter_linear;
 uniform vec2 seed_offset = vec2(0.0);
 
-#include "res://VISUALS/Drawings/Props/RockSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Rocks/RockSurface.gdshaderinc"
 
 varying vec2 rock_position;
 varying vec4 face_color;

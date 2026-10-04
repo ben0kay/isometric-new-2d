@@ -5,33 +5,25 @@ using System.Collections.Generic;
 
 public partial class ChunkController : Node
 {
+
+
 #region Configuration
+[ExportGroup("World")]
 [Export] public Vector2 TileSize { get; set; } = new(128, 64);
 [Export] public int ChunkSize { get; set; } = 16;
 [Export] public int WorldChunksPerAxis { get; set; } = 8;
 [Export] public uint WorldSeed { get; set; } = 64;
-[Export] public int ChunksLoadedPerFrame { get; set; } = 2;
-[Export] public int ObstaclesPerChunk { get; set; } = 12;
-[Export] public float SpawnClearRadius { get; set; } = 320f;
-[Export] public bool ShowChunkBoundaries { get; set; }
-[Export] public VisualDefinition RockVisual { get; set; }
-[Export] public VisualDefinition CrateVisual { get; set; }
-[Export] public int VegetationPatchesPerChunk { get; set; } = 3;
-[Export] public int PlantsPerPatch { get; set; } = 4;
-[Export] public VisualDefinition FrondVisual { get; set; }
-[Export] public VisualDefinition ShrubVisual { get; set; }
 
-[Export] public int TreesPerChunk { get; set; } = 3;
-[Export] public VisualDefinition TreeVisual { get; set; }
-[Export] public int GrassPatchesPerChunk { get; set; } = 6;
-[Export] public int GrassTuftsPerPatch { get; set; } = 10;
-[Export(PropertyHint.Range, "0,1,0.01")]
-public float MediumGrassChance { get; set; } = 0.12f;
-[Export(PropertyHint.Range, "0,1,0.01")]
-public float TallGrassChance { get; set; } = 0f;
-[Export] public VisualDefinition ShortGrassVisual { get; set; }
-[Export] public VisualDefinition MediumGrassVisual { get; set; }
-[Export] public VisualDefinition TallGrassVisual { get; set; }
+[ExportGroup("Streaming")]
+[Export] public int ChunksLoadedPerFrame { get; set; } = 2;
+[Export] public bool ShowChunkBoundaries { get; set; }
+
+[ExportGroup("Spawn")]
+[Export] public float SpawnClearRadius { get; set; } = 320f;
+
+[ExportGroup("Test Props")]
+[Export] public int CratesPerChunk { get; set; } = 2;
+[Export] public VisualDefinition CrateVisual { get; set; }
 #endregion
 
 	#region State
@@ -56,77 +48,72 @@ public float TallGrassChance { get; set; } = 0f;
 	private double _refreshTimer;
 	private VegetationSpawner _vegetation;
 	private GrassSpawner _grass;
+private WorldGenerator _generator;
+private RockSpawner _rocks;
+
 	#endregion
 
 	#region Lifecycle
 // =========================================================
-// Prepare cached artwork and vegetation helpers before loading the initial view.
+// Prepare cached artwork and shared biome-aware helpers before streaming.
 public override async void _Ready()
 {
-	SetProcess(false);
-	TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
-	ChunkSize = Mathf.Max(1, ChunkSize);
-	WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
-	ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
+    SetProcess(false);
+    TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
+    ChunkSize = Mathf.Max(1, ChunkSize);
+    WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
+    ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
 
-	_groundRoot = GetNode<Node2D>("../../GroundChunks");
-	_objects = GetNode<Node2D>("../../WorldObjects");
-	_player = _objects.GetNode<Player>("Player");
-	_camera = _player.GetNode<Camera2D>("Camera2D");
-	_debug = GetNode<Label>("../../HUD/ChunkInfo");
-	_spawnPoint = _player.GlobalPosition;
-	_worldMin = -(WorldChunksPerAxis / 2);
-	_worldMax = _worldMin + WorldChunksPerAxis - 1;
-	_debug.Text = "Loading world artwork...";
+    _groundRoot = GetNode<Node2D>("../../GroundChunks");
+    _objects = GetNode<Node2D>("../../WorldObjects");
+    _generator = GetNode<WorldGenerator>("../WorldGenerator");
+    _player = _objects.GetNode<Player>("Player");
+    _camera = _player.GetNode<Camera2D>("Camera2D");
+    _debug = GetNode<Label>("../../HUD/ChunkInfo");
+    _spawnPoint = _player.GlobalPosition;
+    _worldMin = -(WorldChunksPerAxis / 2);
+    _worldMax = _worldMin + WorldChunksPerAxis - 1;
+    _debug.Text = "Loading world artwork...";
 
-	try
-	{
-		await PlaceholderAtlas.EnsureReady(this);
-		if (!IsInsideTree() || IsQueuedForDeletion()) return;
-		await VegetationAtlas.EnsureReady(this);
-		if (!IsInsideTree() || IsQueuedForDeletion()) return;
-		await TreeAtlas.EnsureReady(this);
-		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+    try
+    {
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await VegetationAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await TreeAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-		_vegetation = new VegetationSpawner
-		{
-			Name = "VegetationSpawner",
-			PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
-			PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
-			TreesPerChunk = Mathf.Max(0, TreesPerChunk),
-			FrondVisual = FrondVisual,
-			ShrubVisual = ShrubVisual,
-			TreeVisual = TreeVisual
-		};
-		AddChild(_vegetation);
+        _rocks = new RockSpawner
+        {
+            Name = "RockSpawner", Generator = _generator
+        };
+        _vegetation = new VegetationSpawner
+        {
+            Name = "VegetationSpawner", Generator = _generator
+        };
+        _grass = new GrassSpawner
+        {
+            Name = "GrassSpawner", Generator = _generator
+        };
+        AddChild(_rocks);
+        AddChild(_vegetation);
+        AddChild(_grass);
 
-		_grass = new GrassSpawner
-		{
-			Name = "GrassSpawner",
-			PatchesPerChunk = Mathf.Max(0, GrassPatchesPerChunk),
-			TuftsPerPatch = Mathf.Max(0, GrassTuftsPerPatch),
-			MediumChance = MediumGrassChance,
-			TallChance = TallGrassChance,
-			ShortVisual = ShortGrassVisual,
-			MediumVisual = MediumGrassVisual,
-			TallVisual = TallGrassVisual
-		};
-		AddChild(_grass);
+        CreateWorldBoundary();
+        _camera.ResetSmoothing();
+        _camera.ForceUpdateScroll();
+        RefreshWantedChunks();
 
-		CreateWorldBoundary();
-		_camera.ResetSmoothing();
-		_camera.ForceUpdateScroll();
-		RefreshWantedChunks();
-
-		while (_pending.Count > 0) LoadNextChunk();
-		UpdateDebug();
-		SetProcess(true);
-	}
-	catch (System.Exception error)
-	{
-		_debug.Text = "Artwork load failed — see Errors.";
-		GD.PushError($"World initialization failed: {error}");
-	}
+        while (_pending.Count > 0) LoadNextChunk();
+        UpdateDebug();
+        SetProcess(true);
+    }
+    catch (System.Exception error)
+    {
+        _debug.Text = "World initialization failed — see Errors.";
+        GD.PushError($"World initialization failed: {error}");
+    }
 }
 
 	// =========================================================
@@ -214,38 +201,42 @@ public override async void _Ready()
 	}
 
 // =========================================================
-// Load terrain, obstacles, plants and grass for the next requested chunk.
+// Load terrain, biome rocks, test crates, trees, plants and grass in that order.
 private void LoadNextChunk()
 {
-	int last = _pending.Count - 1;
-	Vector2I coordinate = _pending[last];
-	_pending.RemoveAt(last);
+    int last = _pending.Count - 1;
+    Vector2I coordinate = _pending[last];
+    _pending.RemoveAt(last);
 
-	WorldChunk ground = new()
-	{
-		Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
-		Coordinate = coordinate,
-		ChunkSize = ChunkSize,
-		TileSize = TileSize,
-		Seed = WorldSeed,
-		ShowBoundary = ShowChunkBoundaries,
-		Position = IsoGrid.TileToWorld(
-			new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
-			TileSize)
-	};
-	LoadedChunk chunk = new() { Ground = ground };
-	_groundRoot.AddChild(ground);
-	_loaded.Add(coordinate, chunk);
-	CreateObstacles(coordinate, chunk);
+    WorldChunk ground = new()
+    {
+        Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
+        Coordinate = coordinate,
+        ChunkSize = ChunkSize,
+        TileSize = TileSize,
+        Seed = WorldSeed,
+        ShowBoundary = ShowChunkBoundaries,
+        Position = IsoGrid.TileToWorld(
+            new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
+            TileSize)
+    };
+    LoadedChunk chunk = new() { Ground = ground };
+    _groundRoot.AddChild(ground);
+    _loaded.Add(coordinate, chunk);
 
-	_vegetation.Populate(
-		coordinate, ChunkSize, TileSize, WorldSeed,
-		_groundRoot, _objects, _spawnPoint,
-		SpawnClearRadius, chunk.Obstacles);
+    _rocks.Populate(
+        coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint,
+        SpawnClearRadius, chunk.Obstacles);
+    CreateObstacles(coordinate, chunk);
 
-	_grass.Populate(
-		coordinate, ChunkSize, TileSize, WorldSeed,
-		_groundRoot, _objects, _spawnPoint);
+    _vegetation.Populate(
+        coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint,
+        SpawnClearRadius, chunk.Obstacles);
+    _grass.Populate(
+        coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint);
 }
 
 // =========================================================
@@ -263,47 +254,40 @@ private void UnloadChunk(Vector2I coordinate)
 
 	#region Generation
 // =========================================================
-// Generate seeded obstacles with optional shared artwork definitions.
+// Generate optional test crates independently from natural biome rock selection.
 private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
 {
-	using RandomNumberGenerator rng = new();
-	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed);
-	HashSet<Vector2I> occupied = new();
+    using RandomNumberGenerator rng = new();
+    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
 
-	for (int i = 0; i < ObstaclesPerChunk; i++)
-	{
-		Vector2I localTile = new(
-			rng.RandiRange(0, (ChunkSize - 1) / 2) * 2,
-			rng.RandiRange(0, (ChunkSize - 1) / 2) * 2);
-		if (!occupied.Add(localTile)) continue;
+    float lowX = coordinate.X * ChunkSize - 0.5f;
+    float lowY = coordinate.Y * ChunkSize - 0.5f;
+    Vector2 footprint = new(72, 36);
 
-		Vector2 tile = new(
-			coordinate.X * ChunkSize + localTile.X,
-			coordinate.Y * ChunkSize + localTile.Y);
-		Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
-		Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
-		if (globalPoint.DistanceSquaredTo(_spawnPoint)
-			< SpawnClearRadius * SpawnClearRadius) continue;
+    for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
+    {
+        Vector2 tile = new(
+            rng.RandfRange(lowX, lowX + ChunkSize),
+            rng.RandfRange(lowY, lowY + ChunkSize));
+        Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
+        Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
+        if (globalPoint.DistanceSquaredTo(_spawnPoint)
+            < SpawnClearRadius * SpawnClearRadius) continue;
+        if (!ChasmFeature.HasGroundClearance(localPoint, TileSize, 48f)) continue;
+        if (!RockSpawner.CanPlace(_objects, globalPoint, footprint)) continue;
 
-		bool crate = rng.Randf() < 0.2f;
-		float width = crate ? 72f : rng.RandfRange(64f, 104f);
-		float height = crate ? 48f : rng.RandfRange(56f, 96f);
-		if (!ChasmFeature.HasGroundClearance(
-			localPoint, TileSize, width * 0.6f)) continue;
-
-		Obstacle obstacle = new()
-		{
-			Name = $"Obstacle_{coordinate.X}_{coordinate.Y}_{i}",
-			Position = _objects.ToLocal(globalPoint),
-			Kind = crate ? Obstacle.ObstacleKind.Crate
-				: Obstacle.ObstacleKind.Rock,
-			Footprint = new Vector2(width, width * 0.5f),
-			Height = height,
-			VisualOverride = crate ? CrateVisual : RockVisual
-		};
-		_objects.AddChild(obstacle);
-		chunk.Obstacles.Add(obstacle);
-	}
+        Obstacle crate = new()
+        {
+            Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
+            Position = _objects.ToLocal(globalPoint),
+            Kind = Obstacle.ObstacleKind.Crate,
+            Footprint = footprint,
+            Height = 48f,
+            VisualOverride = CrateVisual
+        };
+        _objects.AddChild(crate);
+        chunk.Obstacles.Add(crate);
+    }
 }
 
 	// =========================================================
@@ -351,13 +335,16 @@ public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f
 #endregion
 
 	#region Debug
-	// =========================================================
-	// Show the current player chunk and streaming totals.
-	private void UpdateDebug()
-	{
-		Vector2I coordinate = IsoGrid.WorldToChunk(
-			_groundRoot.ToLocal(_player.GlobalPosition), TileSize, ChunkSize);
-		_debug.Text = $"CHUNK {coordinate.X}, {coordinate.Y}   |   LOADED {_loaded.Count}   |   QUEUED {_pending.Count}";
-	}
+// =========================================================
+// Show the player's current biome alongside chunk streaming information.
+private void UpdateDebug()
+{
+    Vector2 localPoint = _groundRoot.ToLocal(_player.GlobalPosition);
+    Vector2 tile = IsoGrid.WorldToTile(localPoint, TileSize);
+    Vector2I coordinate = IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize);
+    string biome = _generator.GetBiome(tile).DisplayName;
+    _debug.Text = $"{biome}  |  CHUNK {coordinate.X}, {coordinate.Y}"
+        + $"  |  LOADED {_loaded.Count}  |  QUEUED {_pending.Count}";
+}
 	#endregion
 }

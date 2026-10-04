@@ -42,8 +42,11 @@ script = ExtResource("9_ground_fog")
 [node name="WorldGenerator" type="Node" parent="Systems" unique_id=2115717396]
 script = ExtResource("10_generation")
 Catalog = ExtResource("11_biome_catalog")
+CompareBiomes = true
 SandboxBiomeId = "basalt_flats"
-SandboxPlateau = true
+BiomeBandWidth = 24.0
+BiomeBlendWidth = 4.0
+SandboxPlateau = false
 SandboxPlateauCentre = Vector2(-6, 6)
 
 [node name="TerrainElevation" type="Node" parent="Systems" unique_id=139849959]

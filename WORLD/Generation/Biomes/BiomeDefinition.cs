@@ -1,5 +1,5 @@
-// Defines a biome's stable identity and terrain configuration.
-// Inspector groups keep related settings together; regions organize the code.
+// Defines a biome's identity, terrain, vegetation and available solid rocks.
+// Resources keep related settings grouped without adding scene-tree nodes.
 using Godot;
 
 [Tool, GlobalClass]
@@ -10,18 +10,16 @@ public partial class BiomeDefinition : Resource
     [Export] public string Id { get; set; } = "basalt_flats";
     [Export] public string DisplayName { get; set; } = "Basalt Flats";
     [Export] public bool Enabled { get; set; } = true;
+    [Export] public int SandboxOrder { get; set; }
     #endregion
 
     #region Terrain
     [ExportGroup("Terrain")]
 
-    #region Rolling
     [ExportSubgroup("Rolling")]
     [Export] public float RollingHeight { get; set; } = 64f;
     [Export] public float RollingFeatureSize { get; set; } = 12f;
-    #endregion
 
-    #region Plateaus
     [ExportSubgroup("Plateaus")]
     [Export] public bool PlateausEnabled { get; set; } = true;
     [Export] public float PlateauHeight { get; set; } = 96f;
@@ -32,5 +30,15 @@ public partial class BiomeDefinition : Resource
     public float PlateauChance { get; set; } = 0.55f;
     #endregion
 
+    #region Vegetation
+    [ExportGroup("Vegetation")]
+    [Export] public BiomeVegetation Vegetation { get; set; } = new();
+    #endregion
+
+    #region Rocks
+    [ExportGroup("Rocks")]
+    [Export] public int RocksPerChunk { get; set; } = 8;
+    [Export] public Godot.Collections.Array<RockDefinition> Rocks { get; set; }
+        = new();
     #endregion
 }

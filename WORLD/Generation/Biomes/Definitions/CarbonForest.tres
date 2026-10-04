@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" path="res://WORLD/Rocks/RockDefinition.cs" id="3_rock"]
+[ext_resource type="Resource" path="res://WORLD/Rocks/SmallRock.tres" id="4_small"]
+[ext_resource type="Resource" path="res://WORLD/Rocks/Boulder.tres" id="5_boulder"]
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+PlantPatches = 5
+PlantsPerPatch = 5
+ShrubChance = 0.65
+TreesPerChunk = 28
+TreeSizeRange = Vector2(0.85, 1.25)
+GrassPatches = 8
+GrassTuftsPerPatch = 8
+MediumGrassChance = 0.1
+TallGrassChance = 0.0
+
+[resource]
+script = ExtResource("1_biome")
+Id = "carbon_forest"
+DisplayName = "Carbon Forest"
+Enabled = true
+SandboxOrder = 2
+RollingHeight = 12.0
+RollingFeatureSize = 20.0
+PlateausEnabled = false
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 4
+Rocks = Array[ExtResource("3_rock")]([ExtResource("4_small"), ExtResource("5_boulder")])

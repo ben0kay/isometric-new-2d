@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RockDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Rocks/RockDefinition.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Id = "cliff_rock"
+Weight = 1.0
+WidthRange = Vector2(190, 260)
+HeightRange = Vector2(170, 280)
+FootprintDepthRatio = 0.5

@@ -11,20 +11,21 @@ public partial class RockBakePainter : Node2D
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Assign a bake-only material with a different texture offset per variant.
-    public override void _Ready()
+// =========================================================
+// Assign a bake-only material with a different texture offset per variant.
+public override void _Ready()
+{
+    ShaderMaterial material = new()
     {
-        ShaderMaterial material = new()
-        {
-            Shader = GD.Load<Shader>("res://VISUALS/Drawings/Props/RockBake.gdshader")
-        };
-        material.SetShaderParameter("rock_noise", GetNoise());
-        material.SetShaderParameter("seed_offset",
-            new Vector2(Variant * 137.3f, Variant * 89.7f));
-        Material = material;
-        SetProcess(false);
-    }
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Drawings/Rocks/RockBake.gdshader")
+    };
+    material.SetShaderParameter("rock_noise", GetNoise());
+    material.SetShaderParameter("seed_offset",
+        new Vector2(Variant * 137.3f, Variant * 89.7f));
+    Material = material;
+    SetProcess(false);
+}
 
     // =========================================================
     // Draw this variant's silhouette and shaded facets.

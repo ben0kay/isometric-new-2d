@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="RockDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Rocks/RockDefinition.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Id = "small_rock"
+Weight = 5.0
+WidthRange = Vector2(40, 60)
+HeightRange = Vector2(26, 44)
+FootprintDepthRatio = 0.5
