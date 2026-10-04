@@ -1,23 +1,23 @@
 // Stores generation results at an absolute logical tile position.
-// Height is visual elevation; walkability describes the logical ground plane.
+// Carries a stable biome ID instead of requiring an enum entry for every biome.
 public readonly struct WorldSample
 {
     #region Results
     public readonly float Height;
     public readonly bool Walkable;
-    public readonly BiomeType Biome;
+    public readonly string BiomeId;
     public readonly float PlateauWeight;
     #endregion
 
     #region Construction
     // =========================================================
-    // Package terrain and biome results without heap allocations.
+    // Package generation results without allocating a sample object.
     public WorldSample(
-        float height, bool walkable, BiomeType biome, float plateauWeight)
+        float height, bool walkable, string biomeId, float plateauWeight)
     {
         Height = height;
         Walkable = walkable;
-        Biome = biome;
+        BiomeId = biomeId;
         PlateauWeight = plateauWeight;
     }
     #endregion

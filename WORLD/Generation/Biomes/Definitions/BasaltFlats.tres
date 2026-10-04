@@ -4,7 +4,9 @@
 
 [resource]
 script = ExtResource("1_biome")
-Type = 0
+Id = "basalt_flats"
+DisplayName = "Basalt Flats"
+Enabled = true
 RollingHeight = 64.0
 RollingFeatureSize = 12.0
 PlateausEnabled = true

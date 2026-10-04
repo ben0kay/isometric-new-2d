@@ -1,12 +1,14 @@
-// Describes terrain settings for one biome.
-// Shared terrain generators consume these settings; biomes do not duplicate generation.
+// Defines one biome using a stable ID and reusable terrain settings.
+// Tool support lets the editor catalog inspect these resources.
 using Godot;
 
-[GlobalClass]
+[Tool, GlobalClass]
 public partial class BiomeDefinition : Resource
 {
     #region Identity
-    [Export] public BiomeType Type { get; set; } = BiomeType.BasaltFlats;
+    [Export] public string Id { get; set; } = "basalt_flats";
+    [Export] public string DisplayName { get; set; } = "Basalt Flats";
+    [Export] public bool Enabled { get; set; } = true;
     #endregion
 
     #region Rolling Terrain
