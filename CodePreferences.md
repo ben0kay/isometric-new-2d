@@ -7,4 +7,5 @@ I prefer you to give me the full functions/methods pasted in chat. never updated
 Please keep in mind I like optimization where possible too. Performance oriented.
 To save on time I would appreciate you giving me the code to paste as well for .tscn files when there are alot of things to tweak in inspector
 I like Node helpers as well so that the scene trees to not become cluttered. we should group common things in a shared plain node.
+I like grouping similar variables in structs / export groups for inspector so it shows sub categories etc.
 Check out https://github.com/ben0kay/spaceshooter_vector_2026 for old references to how i structured a previous 2D space shooter with good combat modularity

@@ -26,6 +26,10 @@ window/stretch/aspect="expand"
 
 project/assembly_name="isometric-new-2d"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/biome_catalog/plugin.cfg")
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
