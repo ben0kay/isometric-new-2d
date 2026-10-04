@@ -20,6 +20,9 @@ public partial class ChunkController : Node
 [Export] public int PlantsPerPatch { get; set; } = 4;
 [Export] public VisualDefinition FrondVisual { get; set; }
 [Export] public VisualDefinition ShrubVisual { get; set; }
+
+[Export] public int TreesPerChunk { get; set; } = 3;
+[Export] public VisualDefinition TreeVisual { get; set; }
 #endregion
 
 	#region State
@@ -47,56 +50,60 @@ public partial class ChunkController : Node
 
 	#region Lifecycle
 // =========================================================
-// Prepare shared artwork and helpers before populating the initial view.
+// Prepare shared artwork and vegetation helpers before loading the initial view.
 public override async void _Ready()
 {
-	SetProcess(false);
-	TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
-	ChunkSize = Mathf.Max(1, ChunkSize);
-	WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
-	ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
+    SetProcess(false);
+    TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
+    ChunkSize = Mathf.Max(1, ChunkSize);
+    WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
+    ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
 
-	_groundRoot = GetNode<Node2D>("../../GroundChunks");
-	_objects = GetNode<Node2D>("../../WorldObjects");
-	_player = _objects.GetNode<Player>("Player");
-	_camera = _player.GetNode<Camera2D>("Camera2D");
-	_debug = GetNode<Label>("../../HUD/ChunkInfo");
-	_spawnPoint = _player.GlobalPosition;
-	_worldMin = -(WorldChunksPerAxis / 2);
-	_worldMax = _worldMin + WorldChunksPerAxis - 1;
-	_debug.Text = "Baking world artwork...";
+    _groundRoot = GetNode<Node2D>("../../GroundChunks");
+    _objects = GetNode<Node2D>("../../WorldObjects");
+    _player = _objects.GetNode<Player>("Player");
+    _camera = _player.GetNode<Camera2D>("Camera2D");
+    _debug = GetNode<Label>("../../HUD/ChunkInfo");
+    _spawnPoint = _player.GlobalPosition;
+    _worldMin = -(WorldChunksPerAxis / 2);
+    _worldMax = _worldMin + WorldChunksPerAxis - 1;
+    _debug.Text = "Baking world artwork...";
 
-	try
-	{
-		await PlaceholderAtlas.EnsureReady(this);
-		if (!IsInsideTree() || IsQueuedForDeletion()) return;
-		await VegetationAtlas.EnsureReady(this);
-		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+    try
+    {
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await VegetationAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await TreeAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-		_vegetation = new VegetationSpawner
-		{
-			Name = "VegetationSpawner",
-			PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
-			PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
-			FrondVisual = FrondVisual,
-			ShrubVisual = ShrubVisual
-		};
-		AddChild(_vegetation);
+        _vegetation = new VegetationSpawner
+        {
+            Name = "VegetationSpawner",
+            PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
+            PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
+            TreesPerChunk = Mathf.Max(0, TreesPerChunk),
+            FrondVisual = FrondVisual,
+            ShrubVisual = ShrubVisual,
+            TreeVisual = TreeVisual
+        };
+        AddChild(_vegetation);
 
-		CreateWorldBoundary();
-		_camera.ResetSmoothing();
-		_camera.ForceUpdateScroll();
-		RefreshWantedChunks();
+        CreateWorldBoundary();
+        _camera.ResetSmoothing();
+        _camera.ForceUpdateScroll();
+        RefreshWantedChunks();
 
-		while (_pending.Count > 0) LoadNextChunk();
-		UpdateDebug();
-		SetProcess(true);
-	}
-	catch (System.Exception error)
-	{
-		_debug.Text = "Artwork bake failed — see Errors.";
-		GD.PushError($"World initialization failed: {error}");
-	}
+        while (_pending.Count > 0) LoadNextChunk();
+        UpdateDebug();
+        SetProcess(true);
+    }
+    catch (System.Exception error)
+    {
+        _debug.Text = "Artwork bake failed — see Errors.";
+        GD.PushError($"World initialization failed: {error}");
+    }
 }
 
 	// =========================================================
