@@ -101,7 +101,7 @@ public override void _ExitTree()
 
 	#region Mesh Generation
 // =========================================================
-// Build separate ground, floor and wall meshes with explicit fog depth coordinates.
+// Build cached terrain with continuous ground coordinates and separate ravine layers.
 private void BuildMesh()
 {
     int capacity = ChunkSize * ChunkSize * 5;
@@ -120,7 +120,6 @@ private void BuildMesh()
     List<Color> cliffColors = new();
     List<int> cliffIndices = new();
 
-    Vector2 atlasSize = PlaceholderAtlas.Texture.GetSize();
     Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
     Vector2 drop = Vector2.Down * TerrainLayout.CliffDepth;
 
@@ -143,16 +142,13 @@ private void BuildMesh()
             continue;
         }
 
-        uint hash = IsoGrid.Hash(tileX, tileY, Seed);
-        Rect2 region = PlaceholderAtlas.TileRegion((int)(hash % 7u));
         int first = vertices.Count;
-
         for (int i = 0; i < 5; i++)
         {
             Vector2 sample = globalTile + VertexOffsets[i];
             Vector2 point = GetSurfacePoint(localTile + VertexOffsets[i], origin);
             vertices.Add(new Vector3(point.X, point.Y, 0f));
-            uvs.Add((region.Position + TexturePoints[i] * region.Size) / atlasSize);
+            uvs.Add(sample);
             colors.Add(_elevation.GetTint(sample));
         }
 

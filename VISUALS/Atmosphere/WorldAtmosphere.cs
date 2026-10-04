@@ -39,7 +39,7 @@ private NoiseTexture2D _mistTexture;
     }
 
 // =========================================================
-// Share one smooth noise texture and prepare terrain sunlight and ravine mist.
+// Prepare shared noise textures, continuous ground materials and ravine mist.
 public override void _Ready()
 {
     _elevation = GetNode<TerrainElevation>("../TerrainElevation");
@@ -75,6 +75,7 @@ public override void _Ready()
     {
         Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/GroundSun.gdshader")
     };
+    GroundMaterial.SetShaderParameter("ground_noise", GroundSurfaceNoise.GetTexture());
     GroundMaterial.SetShaderParameter("mist_texture", _mistTexture);
     GroundMaterial.SetShaderParameter("sun_direction", LightDirection);
     GroundMaterial.SetShaderParameter("sun_color", SunTint);

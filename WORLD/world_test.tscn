@@ -34,8 +34,8 @@ FogNoiseScale = 0.0012
 
 [node name="TerrainElevation" type="Node" parent="Systems" unique_id=410560499]
 script = ExtResource("6_elevation")
-MaxHeight = 64.0
-FeatureSize = 4.0
+MaxHeight = 128.0
+FeatureSize = 8.0
 ShadeStrength = 0.08
 
 [node name="WorldNavigation" type="Node" parent="Systems" unique_id=94911667]
