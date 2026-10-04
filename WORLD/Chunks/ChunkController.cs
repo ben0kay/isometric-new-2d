@@ -58,62 +58,62 @@ private RockSpawner _rocks;
 // Prepare cached artwork and shared biome-aware helpers before streaming.
 public override async void _Ready()
 {
-    SetProcess(false);
-    TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
-    ChunkSize = Mathf.Max(1, ChunkSize);
-    WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
-    ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
+	SetProcess(false);
+	TileSize = new Vector2(Mathf.Max(16f, TileSize.X), Mathf.Max(8f, TileSize.Y));
+	ChunkSize = Mathf.Max(1, ChunkSize);
+	WorldChunksPerAxis = Mathf.Max(1, WorldChunksPerAxis);
+	ChunksLoadedPerFrame = Mathf.Max(1, ChunksLoadedPerFrame);
 
-    _groundRoot = GetNode<Node2D>("../../GroundChunks");
-    _objects = GetNode<Node2D>("../../WorldObjects");
-    _generator = GetNode<WorldGenerator>("../WorldGenerator");
-    _player = _objects.GetNode<Player>("Player");
-    _camera = _player.GetNode<Camera2D>("Camera2D");
-    _debug = GetNode<Label>("../../HUD/ChunkInfo");
-    _spawnPoint = _player.GlobalPosition;
-    _worldMin = -(WorldChunksPerAxis / 2);
-    _worldMax = _worldMin + WorldChunksPerAxis - 1;
-    _debug.Text = "Loading world artwork...";
+	_groundRoot = GetNode<Node2D>("../../GroundChunks");
+	_objects = GetNode<Node2D>("../../WorldObjects");
+	_generator = GetNode<WorldGenerator>("../WorldGenerator");
+	_player = _objects.GetNode<Player>("Player");
+	_camera = _player.GetNode<Camera2D>("Camera2D");
+	_debug = GetNode<Label>("../../HUD/ChunkInfo");
+	_spawnPoint = _player.GlobalPosition;
+	_worldMin = -(WorldChunksPerAxis / 2);
+	_worldMax = _worldMin + WorldChunksPerAxis - 1;
+	_debug.Text = "Loading world artwork...";
 
-    try
-    {
-        await PlaceholderAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
-        await VegetationAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
-        await TreeAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+	try
+	{
+		await PlaceholderAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await VegetationAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await TreeAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-        _rocks = new RockSpawner
-        {
-            Name = "RockSpawner", Generator = _generator
-        };
-        _vegetation = new VegetationSpawner
-        {
-            Name = "VegetationSpawner", Generator = _generator
-        };
-        _grass = new GrassSpawner
-        {
-            Name = "GrassSpawner", Generator = _generator
-        };
-        AddChild(_rocks);
-        AddChild(_vegetation);
-        AddChild(_grass);
+		_rocks = new RockSpawner
+		{
+			Name = "RockSpawner", Generator = _generator
+		};
+		_vegetation = new VegetationSpawner
+		{
+			Name = "VegetationSpawner", Generator = _generator
+		};
+		_grass = new GrassSpawner
+		{
+			Name = "GrassSpawner", Generator = _generator
+		};
+		AddChild(_rocks);
+		AddChild(_vegetation);
+		AddChild(_grass);
 
-        CreateWorldBoundary();
-        _camera.ResetSmoothing();
-        _camera.ForceUpdateScroll();
-        RefreshWantedChunks();
+		CreateWorldBoundary();
+		_camera.ResetSmoothing();
+		_camera.ForceUpdateScroll();
+		RefreshWantedChunks();
 
-        while (_pending.Count > 0) LoadNextChunk();
-        UpdateDebug();
-        SetProcess(true);
-    }
-    catch (System.Exception error)
-    {
-        _debug.Text = "World initialization failed — see Errors.";
-        GD.PushError($"World initialization failed: {error}");
-    }
+		while (_pending.Count > 0) LoadNextChunk();
+		UpdateDebug();
+		SetProcess(true);
+	}
+	catch (System.Exception error)
+	{
+		_debug.Text = "World initialization failed — see Errors.";
+		GD.PushError($"World initialization failed: {error}");
+	}
 }
 
 	// =========================================================
@@ -204,39 +204,39 @@ public override async void _Ready()
 // Load terrain, biome rocks, test crates, trees, plants and grass in that order.
 private void LoadNextChunk()
 {
-    int last = _pending.Count - 1;
-    Vector2I coordinate = _pending[last];
-    _pending.RemoveAt(last);
+	int last = _pending.Count - 1;
+	Vector2I coordinate = _pending[last];
+	_pending.RemoveAt(last);
 
-    WorldChunk ground = new()
-    {
-        Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
-        Coordinate = coordinate,
-        ChunkSize = ChunkSize,
-        TileSize = TileSize,
-        Seed = WorldSeed,
-        ShowBoundary = ShowChunkBoundaries,
-        Position = IsoGrid.TileToWorld(
-            new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
-            TileSize)
-    };
-    LoadedChunk chunk = new() { Ground = ground };
-    _groundRoot.AddChild(ground);
-    _loaded.Add(coordinate, chunk);
+	WorldChunk ground = new()
+	{
+		Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
+		Coordinate = coordinate,
+		ChunkSize = ChunkSize,
+		TileSize = TileSize,
+		Seed = WorldSeed,
+		ShowBoundary = ShowChunkBoundaries,
+		Position = IsoGrid.TileToWorld(
+			new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
+			TileSize)
+	};
+	LoadedChunk chunk = new() { Ground = ground };
+	_groundRoot.AddChild(ground);
+	_loaded.Add(coordinate, chunk);
 
-    _rocks.Populate(
-        coordinate, ChunkSize, TileSize, WorldSeed,
-        _groundRoot, _objects, _spawnPoint,
-        SpawnClearRadius, chunk.Obstacles);
-    CreateObstacles(coordinate, chunk);
+	_rocks.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint,
+		SpawnClearRadius, chunk.Obstacles);
+	CreateObstacles(coordinate, chunk);
 
-    _vegetation.Populate(
-        coordinate, ChunkSize, TileSize, WorldSeed,
-        _groundRoot, _objects, _spawnPoint,
-        SpawnClearRadius, chunk.Obstacles);
-    _grass.Populate(
-        coordinate, ChunkSize, TileSize, WorldSeed,
-        _groundRoot, _objects, _spawnPoint);
+	_vegetation.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint,
+		SpawnClearRadius, chunk.Obstacles);
+	_grass.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint);
 }
 
 // =========================================================
@@ -257,37 +257,37 @@ private void UnloadChunk(Vector2I coordinate)
 // Generate optional test crates independently from natural biome rock selection.
 private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
 {
-    using RandomNumberGenerator rng = new();
-    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
+	using RandomNumberGenerator rng = new();
+	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
 
-    float lowX = coordinate.X * ChunkSize - 0.5f;
-    float lowY = coordinate.Y * ChunkSize - 0.5f;
-    Vector2 footprint = new(72, 36);
+	float lowX = coordinate.X * ChunkSize - 0.5f;
+	float lowY = coordinate.Y * ChunkSize - 0.5f;
+	Vector2 footprint = new(72, 36);
 
-    for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
-    {
-        Vector2 tile = new(
-            rng.RandfRange(lowX, lowX + ChunkSize),
-            rng.RandfRange(lowY, lowY + ChunkSize));
-        Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
-        Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
-        if (globalPoint.DistanceSquaredTo(_spawnPoint)
-            < SpawnClearRadius * SpawnClearRadius) continue;
-        if (!ChasmFeature.HasGroundClearance(localPoint, TileSize, 48f)) continue;
-        if (!RockSpawner.CanPlace(_objects, globalPoint, footprint)) continue;
+	for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
+	{
+		Vector2 tile = new(
+			rng.RandfRange(lowX, lowX + ChunkSize),
+			rng.RandfRange(lowY, lowY + ChunkSize));
+		Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
+		Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
+		if (globalPoint.DistanceSquaredTo(_spawnPoint)
+			< SpawnClearRadius * SpawnClearRadius) continue;
+		if (!ChasmFeature.HasGroundClearance(localPoint, TileSize, 48f)) continue;
+		if (!RockSpawner.CanPlace(_objects, globalPoint, footprint)) continue;
 
-        Obstacle crate = new()
-        {
-            Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
-            Position = _objects.ToLocal(globalPoint),
-            Kind = Obstacle.ObstacleKind.Crate,
-            Footprint = footprint,
-            Height = 48f,
-            VisualOverride = CrateVisual
-        };
-        _objects.AddChild(crate);
-        chunk.Obstacles.Add(crate);
-    }
+		Obstacle crate = new()
+		{
+			Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
+			Position = _objects.ToLocal(globalPoint),
+			Kind = Obstacle.ObstacleKind.Crate,
+			Footprint = footprint,
+			Height = 48f,
+			VisualOverride = CrateVisual
+		};
+		_objects.AddChild(crate);
+		chunk.Obstacles.Add(crate);
+	}
 }
 
 	// =========================================================
@@ -339,12 +339,12 @@ public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f
 // Show the player's current biome alongside chunk streaming information.
 private void UpdateDebug()
 {
-    Vector2 localPoint = _groundRoot.ToLocal(_player.GlobalPosition);
-    Vector2 tile = IsoGrid.WorldToTile(localPoint, TileSize);
-    Vector2I coordinate = IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize);
-    string biome = _generator.GetBiome(tile).DisplayName;
-    _debug.Text = $"{biome}  |  CHUNK {coordinate.X}, {coordinate.Y}"
-        + $"  |  LOADED {_loaded.Count}  |  QUEUED {_pending.Count}";
+	Vector2 localPoint = _groundRoot.ToLocal(_player.GlobalPosition);
+	Vector2 tile = IsoGrid.WorldToTile(localPoint, TileSize);
+	Vector2I coordinate = IsoGrid.WorldToChunk(localPoint, TileSize, ChunkSize);
+	string biome = _generator.GetBiome(tile).DisplayName;
+	_debug.Text = $"{biome}  |  CHUNK {coordinate.X}, {coordinate.Y}"
+		+ $"  |  LOADED {_loaded.Count}  |  QUEUED {_pending.Count}";
 }
 	#endregion
 }
