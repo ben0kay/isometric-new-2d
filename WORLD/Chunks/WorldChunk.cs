@@ -37,7 +37,7 @@ public partial class WorldChunk : Node2D
 	#region Lifecycle
 
 // =========================================================
-// Build cached terrain and place pit artwork behind every ground chunk.
+// Build cached terrain and apply shared animated fog beneath all ground chunks.
 public override void _Ready()
 {
 	Material = PlaceholderAtlas.BakedMaterial;
@@ -54,11 +54,16 @@ public override void _Ready()
 
 	if (_cliffMesh != null)
 	{
+		WorldAtmosphere atmosphere =
+			GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
+		Material cliffMaterial = atmosphere != null
+			? atmosphere.FogMaterial : PlaceholderAtlas.BakedMaterial;
+
 		AddChild(new MeshInstance2D
 		{
 			Name = "CliffVisual",
 			Mesh = _cliffMesh,
-			Material = PlaceholderAtlas.BakedMaterial,
+			Material = cliffMaterial,
 			TextureFilter = TextureFilterEnum.Nearest,
 			ZAsRelative = true,
 			ZIndex = -1

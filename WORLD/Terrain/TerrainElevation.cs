@@ -13,6 +13,8 @@ public partial class TerrainElevation : Node
     #region References
     private ChunkController _chunks;
     private Node2D _ground;
+private WorldAtmosphere _atmosphere;
+
     #endregion
 
     #region Lifecycle
@@ -76,22 +78,22 @@ public partial class TerrainElevation : Node
     }
 
     // =========================================================
-    // Shade low ground darker and add a directional gradient across slopes.
-    public Color GetTint(Vector2 tile)
-    {
-        if (MaxHeight <= 0f) return Colors.White;
+// Shade terrain slopes toward the shared sun direction with a subtle warm tint.
+public Color GetTint(Vector2 tile)
+{
+    _atmosphere ??= GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
+    Vector2 light = _atmosphere?.LightDirection ?? new Vector2(-1f, -0.7f).Normalized();
+    Vector2 tileDirection = IsoGrid.WorldToTile(light, _chunks.TileSize).Normalized();
 
-        float height = GetHeight(tile);
-        float slope =
-            GetHeight(tile - Vector2.Right) - GetHeight(tile + Vector2.Right) +
-            GetHeight(tile - Vector2.Down) - GetHeight(tile + Vector2.Down);
+    float height = GetHeight(tile);
+    float slope = GetHeight(tile - tileDirection) - GetHeight(tile + tileDirection);
+    float altitude = MaxHeight > 0f ? height / MaxHeight : 0.5f;
+    float shade = Mathf.Clamp(
+        0.7f + altitude * 0.3f + slope * ShadeStrength, 0.45f, 1.15f);
 
-        float shade = Mathf.Clamp(
-            0.65f + height / MaxHeight * 0.35f + slope * ShadeStrength,
-            0.5f, 1f
-        );
-        return new Color(shade, shade, shade, 1f);
-    }
+    Color sun = _atmosphere?.SunTint ?? Colors.White;
+    return new Color(shade * sun.R, shade * sun.G, shade * sun.B, 1f);
+}
     #endregion
 
     #region Generation

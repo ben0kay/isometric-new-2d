@@ -142,46 +142,74 @@ public override void _Draw()
     }
 
     // =========================================================
-    // Bake the canonical rock; instances scale this shared artwork.
-    private void DrawRock()
+// Bake the canonical rock with a sun-facing facet and a brighter upper-left edge.
+private void DrawRock()
+{
+    const float w = 62.4f, d = 24f, height = 72f;
+    WorldAtmosphere atmosphere =
+        GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
+
+    Color dark = new("#47505c");
+    Color light = new("#5c6876");
+    if (atmosphere != null)
     {
-        const float w = 62.4f, d = 24f, height = 72f;
-        DrawColoredPolygon(new Vector2[]
-        {
-            new(-w, -d), new(-w * 0.75f, -height),
-            new(-w * 0.15f, -height - 16), new(w * 0.65f, -height + 4),
-            new(w, -d), new(w * 0.55f, d), new(-w * 0.55f, d)
-        }, new Color("#47505c"));
-
-        DrawColoredPolygon(new Vector2[]
-        {
-            new(-w, -d), new(-w * 0.75f, -height),
-            new(-w * 0.15f, -height - 16), new(w * 0.1f, -d * 0.4f),
-            new(-w * 0.55f, d)
-        }, new Color("#5c6876"));
-
-        DrawPolyline(new Vector2[]
-        {
-            new(-w * 0.4f, -height * 0.8f),
-            new(-w * 0.1f, -height * 0.5f),
-            new(w * 0.3f, -height * 0.35f)
-        }, new Color("#71b5c4"), 3f, true);
+        dark = atmosphere.ShadeFace(dark, new Vector2(1f, 0.35f));
+        light = atmosphere.ShadeFace(light, new Vector2(-1f, -0.4f));
     }
 
-    // =========================================================
-    // Bake the canonical crate with shaded sides and a cyan light strip.
-    private void DrawCrate()
+    DrawColoredPolygon(new Vector2[]
     {
-        const float w = 48f, d = 24f, height = 72f;
-        Vector2 a = new(-w, -height), b = new(0, -height - d);
-        Vector2 c = new(w, -height), e = new(0, -height + d);
+        new(-w, -d), new(-w * 0.75f, -height),
+        new(-w * 0.15f, -height - 16), new(w * 0.65f, -height + 4),
+        new(w, -d), new(w * 0.55f, d), new(-w * 0.55f, d)
+    }, dark);
 
-        DrawColoredPolygon(new Vector2[] { a, e, new(0, d), new(-w, 0) }, new Color("#344756"));
-        DrawColoredPolygon(new Vector2[] { e, c, new(w, 0), new(0, d) }, new Color("#263541"));
-        DrawColoredPolygon(new Vector2[] { a, b, c, e }, new Color("#61798a"));
-        DrawPolyline(new Vector2[] { a, b, c, e, a }, new Color("#8297a5"), 2f, true);
-        DrawLine(new Vector2(w * 0.25f, -height * 0.45f), new Vector2(w * 0.75f, -height * 0.65f), new Color("#76e2e7"), 3f);
+    DrawColoredPolygon(new Vector2[]
+    {
+        new(-w, -d), new(-w * 0.75f, -height),
+        new(-w * 0.15f, -height - 16), new(w * 0.1f, -d * 0.4f),
+        new(-w * 0.55f, d)
+    }, light);
+
+    DrawPolyline(new Vector2[]
+    {
+        new(-w, -d), new(-w * 0.75f, -height),
+        new(-w * 0.15f, -height - 16)
+    }, new Color("#a2b2b7"), 2f, true);
+
+    DrawPolyline(new Vector2[]
+    {
+        new(-w * 0.4f, -height * 0.8f),
+        new(-w * 0.1f, -height * 0.5f),
+        new(w * 0.3f, -height * 0.35f)
+    }, new Color("#71b5c4"), 3f, true);
+}
+
+// =========================================================
+// Bake the crate with sun-facing sides, a bright top and its existing cyan strip.
+private void DrawCrate()
+{
+    const float w = 48f, d = 24f, height = 72f;
+    Vector2 a = new(-w, -height), b = new(0, -height - d);
+    Vector2 c = new(w, -height), e = new(0, -height + d);
+
+    WorldAtmosphere atmosphere =
+        GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
+    Color left = new("#344756"), right = new("#263541"), top = new("#61798a");
+    if (atmosphere != null)
+    {
+        left = atmosphere.ShadeFace(left, new Vector2(-1f, 0f));
+        right = atmosphere.ShadeFace(right, new Vector2(1f, 0f));
+        top = atmosphere.ShadeFace(top, new Vector2(0f, -1f));
     }
+
+    DrawColoredPolygon(new Vector2[] { a, e, new(0, d), new(-w, 0) }, left);
+    DrawColoredPolygon(new Vector2[] { e, c, new(w, 0), new(0, d) }, right);
+    DrawColoredPolygon(new Vector2[] { a, b, c, e }, top);
+    DrawPolyline(new Vector2[] { a, b, c }, new Color("#acbbc0"), 2f, true);
+    DrawLine(new Vector2(w * 0.25f, -height * 0.45f),
+        new Vector2(w * 0.75f, -height * 0.65f), new Color("#76e2e7"), 3f);
+}
 
     // =========================================================
     // Bake the right-facing player; runtime facing mirrors this texture.
