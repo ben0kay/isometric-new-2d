@@ -18,6 +18,13 @@ public partial class Obstacle : StaticBody2D
 
 	#region Lifecycle
 	// =========================================================
+	// Register solids so placement queries skip plants, grass and other walkable nodes.
+	public override void _EnterTree()
+	{
+		AddToGroup("world_obstacles");
+	}
+
+	// =========================================================
 	// Configure the instance, build its collision and attach artwork and sunlight shadow.
 	public override async void _Ready()
 	{

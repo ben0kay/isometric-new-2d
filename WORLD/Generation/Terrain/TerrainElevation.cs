@@ -1,10 +1,12 @@
 // Connects generated terrain heights to the rendered triangle surface.
 // Keeps moving artwork aligned with terrain and applies subtle slope shading.
 using Godot;
+using System.Collections.Generic;
 
 public partial class TerrainElevation : Node
 {
     #region Configuration
+    [Export] public int MaxCachedHeights { get; set; } = 32768;
     [Export] public float ShadeStrength { get; set; } = 0.02f;
     #endregion
 
@@ -13,6 +15,8 @@ public partial class TerrainElevation : Node
     private Node2D _ground;
     private WorldGenerator _generator;
     private WorldAtmosphere _atmosphere;
+    private readonly Dictionary<Vector2, float> _heights = new();
+    private readonly Queue<Vector2> _heightOrder = new();
     #endregion
 
     #region Lifecycle
@@ -30,10 +34,16 @@ public partial class TerrainElevation : Node
 
     #region Height Sampling
     // =========================================================
-    // Read shared generated height at an absolute tile coordinate.
+    // Reuse exact-coordinate heights with a bounded FIFO cache; restart after generator edits.
     public float GetHeight(Vector2 tile)
     {
-        return _generator.GetHeight(tile);
+        if (_heights.TryGetValue(tile, out float height)) return height;
+        height = _generator.GetHeight(tile);
+        int limit = Mathf.Max(1024, MaxCachedHeights);
+        while (_heights.Count >= limit) _heights.Remove(_heightOrder.Dequeue());
+        _heights.Add(tile, height);
+        _heightOrder.Enqueue(tile);
+        return height;
     }
 
     // =========================================================

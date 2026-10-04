@@ -1,0 +1,16 @@
+A strong realism stack could look like this:
+- Food and water — hunger should reduce stamina/recovery before it starts killing you. Water should matter more urgently than food.
+- Sleep and fatigue — staying awake too long could reduce stamina, aim stability, mining efficiency, perception range, or movement speed.
+- Temperature — hot zones, freezing nights, caves, deserts, volcanic areas. Clothing and shelter matter.
+- Injuries instead of just HP — bleeding, fractures, burns, poisoning, infection. A dinosaur bite should feel different from a laser hit.
+- Encumbrance — weight affects movement, stamina drain, climbing, maybe even dodge speed.
+- Weather — rain, dust storms, fog, lightning, extreme heat. Weather can alter visibility and enemy behavior.
+- Fuel and maintenance — vehicles consume fuel, but also slowly wear down. Engines, tyres, batteries, suspension, or cooling could degrade.
+- Ammo and magazines — you could eventually make ammunition physical rather than simply “300 bullets.” Different ammo types take space and have weight.
+- Power — bases, lights, crafting machines, scanners, chargers, doors, turrets, refrigeration.
+- Medical supplies — bandages, splints, stimulants, antibiotics, medkits.
+- Noise — probably one of the coolest additions for your game. Gunfire, mining, engines, generators and explosions attract predators.
+- Scent / tracks — some creatures could track the player after combat or follow blood trails.
+- Day/night ecology — certain predators come out at night; robots patrol different zones; herbivores migrate.
+- Shelter — sleeping exposed should be much riskier than sleeping inside your base or vehicle.
+- Navigation — remote regions might initially have incomplete maps until you scan/explore them.

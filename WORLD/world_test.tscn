@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
 [ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
+[ext_resource type="PackedScene" path="res://WORLD/Ores/Iron/IronDeposit.tscn" id="20_iron_deposit"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -22,6 +23,17 @@ y_sort_enabled = true
 
 [node name="Player" parent="WorldObjects" unique_id=432636805 instance=ExtResource("1_player")]
 position = Vector2(0, 180)
+
+[node name="IronDepositA" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+position = Vector2(110, 230)
+
+[node name="IronDepositB" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+position = Vector2(-140, 250)
+InstanceSize = 0.9
+
+[node name="IronDepositC" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+position = Vector2(220, 310)
+InstanceSize = 1.1
 
 [node name="Systems" type="Node" parent="." unique_id=519031447]
 
@@ -51,7 +63,6 @@ script = ExtResource("4_navigation")
 
 [node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
-WorldChunksPerAxis = 32
 
 [node name="EnemyTest" type="Node" parent="Systems" unique_id=1277297044]
 script = ExtResource("5_enemy_test")
@@ -64,8 +75,8 @@ script = ExtResource("7_projectiles")
 [node name="ChunkInfo" type="Label" parent="HUD" unique_id=1021907104]
 offset_left = 16.0
 offset_top = 40.0
-offset_right = 660.0
-offset_bottom = 68.0
+offset_right = 960.0
+offset_bottom = 160.0
 theme_override_colors/font_color = Color(0.65, 0.85, 0.9, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
 theme_override_constants/shadow_offset_x = 1

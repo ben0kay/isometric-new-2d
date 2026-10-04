@@ -17,12 +17,12 @@ public partial class VegetationSpawner : Node
     #region Generation
   // =========================================================
 // Mix tree and plant recipes across biome transitions while preserving safe placement.
-public void Populate(
+public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
     float spawnClearRadius)
 {
-    if (_plants.ContainsKey(coordinate)) return;
+    if (_plants.ContainsKey(coordinate)) yield break;
     List<Plant> plants = new();
     List<Tree> trees = new();
     List<Vector2> placed = new();
@@ -41,6 +41,7 @@ public void Populate(
     int treeBudget = Generator.MaxTrees * 4;
     for (int attempt = 0; attempt < treeBudget; attempt++)
     {
+        yield return ChunkBuildStage.Trees;
         Vector2 tile = new(
             treeRng.RandfRange(lowX, highX), treeRng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(tile, treeRng).Vegetation;
@@ -87,6 +88,7 @@ public void Populate(
     int patchBudget = Generator.MaxPlantPatches;
     for (int patch = 0; patch < patchBudget; patch++)
     {
+        yield return ChunkBuildStage.Plants;
         Vector2 centre = new(
             rng.RandfRange(lowX, highX), rng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
@@ -96,6 +98,7 @@ public void Populate(
 
         for (int i = 0; i < Mathf.Max(0, settings.PlantsPerPatch); i++)
         {
+            yield return ChunkBuildStage.Plants;
             Vector2 tile = centre + new Vector2(
                 rng.RandfRange(-1.8f, 1.8f), rng.RandfRange(-1.8f, 1.8f));
             if (tile.X < lowX || tile.X >= highX ||
@@ -136,19 +139,25 @@ public void Populate(
     #region Streaming
     // =========================================================
     // Release all tree and plant instances belonging to one unloaded chunk.
-    public void RemoveChunk(Vector2I coordinate)
+    public IEnumerable<ChunkBuildStage> RemoveSteps(Vector2I coordinate)
     {
         if (_plants.TryGetValue(coordinate, out List<Plant> plants))
         {
             foreach (Plant plant in plants)
+            {
                 if (GodotObject.IsInstanceValid(plant)) plant.QueueFree();
+                yield return ChunkBuildStage.Retiring;
+            }
             _plants.Remove(coordinate);
         }
 
         if (_trees.TryGetValue(coordinate, out List<Tree> trees))
         {
             foreach (Tree tree in trees)
+            {
                 if (GodotObject.IsInstanceValid(tree)) tree.QueueFree();
+                yield return ChunkBuildStage.Retiring;
+            }
             _trees.Remove(coordinate);
         }
     }

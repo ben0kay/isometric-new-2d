@@ -75,14 +75,19 @@ public override void _PhysicsProcess(double delta)
     {
         _pathTimer = System.Math.Max(0.1, PathInterval);
         _direct = _navigation.CanTravelDirectly(position, targetPoint);
-        _path = _direct
-            ? System.Array.Empty<Vector2>()
-            : _navigation.FindPath(position, targetPoint);
-        _pathIndex = 0;
+        bool routeChanged = _direct;
+        if (_direct) _path = System.Array.Empty<Vector2>();
+        else
+        {
+            Vector2[] nextPath = _navigation.FindPath(position, targetPoint);
+            if (_navigation.IsBuilding) _pathTimer = 0.05;
+            else { _path = nextPath; routeChanged = true; }
+        }
+        if (routeChanged) _pathIndex = 0;
 
         // Skip the starting cell when a later waypoint is directly reachable.
         // Limit the checks to keep route refreshes inexpensive.
-        if (!_direct && _path.Length > 1)
+        if (routeChanged && !_direct && _path.Length > 1)
         {
             int lastCandidate = System.Math.Min(_path.Length - 1, 6);
             for (int i = 1; i <= lastCandidate; i++)

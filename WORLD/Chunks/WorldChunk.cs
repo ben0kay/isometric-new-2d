@@ -1,4 +1,4 @@
-// Builds one static textured mesh per terrain chunk using the baked atlas.
+// Prepares terrain one tile at a time, then uploads meshes and collision in separate stages.
 // Shared world-coordinate heights keep neighbouring chunk edges aligned.
 using Godot;
 
@@ -19,6 +19,25 @@ public partial class WorldChunk : Node2D
 	private ArrayMesh _mesh;
 	private ArrayMesh _cliffMesh;
 	private ArrayMesh _floorMesh;
+	private WorldAtmosphere _atmosphere;
+	private MeshData _surfaceData, _floorData, _cliffData;
+	private readonly Dictionary<Vector2, Color> _tints = new();
+	private readonly List<Vector2> _rimPoints = new();
+
+	private sealed class MeshData
+	{
+		public readonly List<Vector3> Vertices;
+		public readonly List<Vector2> Uvs;
+		public readonly List<Color> Colors;
+		public readonly List<int> Indices;
+		// =========================================================
+		// Allocate the buffers for one prepared terrain layer.
+		public MeshData(int capacity)
+		{
+			Vertices = new(capacity); Uvs = new(capacity);
+			Colors = new(capacity); Indices = new(capacity * 3);
+		}
+	}
 
 	private static readonly Vector2[] VertexOffsets =
 	{
@@ -27,65 +46,21 @@ public partial class WorldChunk : Node2D
 		new(0.5f, 0.5f), new(-0.5f, 0.5f)
 	};
 
-	private static readonly Vector2[] TexturePoints =
-	{
-		new(0.5f, 0.5f),
-		new(0.5f, 0f), new(1f, 0.5f),
-		new(0.5f, 1f), new(0f, 0.5f)
-	};
 	#endregion
 
 	#region Lifecycle
 
 // =========================================================
-// Build terrain and ravine visuals, then attach the shared ground-mist layer.
+// Resolve shared resources only; ChunkController schedules all expensive building.
 public override void _Ready()
 {
 	TextureFilter = TextureFilterEnum.Nearest;
 	_elevation = GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
-	WorldAtmosphere atmosphere =
-		GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
-
+	_atmosphere = GetTree().GetFirstNodeInGroup("world_atmosphere") as WorldAtmosphere;
 	if (_elevation == null || PlaceholderAtlas.Texture == null)
-	{
-		GD.PushError("WorldChunk requires TerrainElevation and the baked atlas.");
-		return;
-	}
-
-	Material = atmosphere != null
-		? atmosphere.GroundMaterial : PlaceholderAtlas.BakedMaterial;
-	BuildMesh();
-
-	Material fogMaterial = atmosphere != null
-		? atmosphere.FogMaterial : PlaceholderAtlas.BakedMaterial;
-
-	if (_floorMesh != null)
-	{
-		AddChild(new MeshInstance2D
-		{
-			Name = "RavineFloor",
-			Mesh = _floorMesh,
-			Material = fogMaterial,
-			ZAsRelative = true,
-			ZIndex = -2
-		});
-	}
-
-	if (_cliffMesh != null)
-	{
-		AddChild(new MeshInstance2D
-		{
-			Name = "CliffVisual",
-			Mesh = _cliffMesh,
-			Material = fogMaterial,
-			ZAsRelative = true,
-			ZIndex = -1
-		});
-	}
-
-	GroundFog groundFog = GetTree().GetFirstNodeInGroup("ground_fog") as GroundFog;
-	groundFog?.Attach(this, _mesh);
-	QueueRedraw();
+		throw new System.InvalidOperationException("WorldChunk requires elevation and cached artwork.");
+	Material = _atmosphere != null ? _atmosphere.GroundMaterial : PlaceholderAtlas.BakedMaterial;
+	SetProcess(false);
 }
 
 // =========================================================
@@ -104,23 +79,16 @@ public override void _ExitTree()
 	#region Mesh Generation
 // =========================================================
 // Build cached terrain with continuous ground coordinates and separate ravine layers.
-private void BuildMesh()
+public IEnumerable<ChunkBuildStage> PrepareSteps()
 {
-    int capacity = ChunkSize * ChunkSize * 5;
-    List<Vector3> vertices = new(capacity);
-    List<Vector2> uvs = new(capacity);
-    List<Color> colors = new(capacity);
-    List<int> indices = new(ChunkSize * ChunkSize * 12);
-
-    List<Vector3> floorVertices = new();
-    List<Vector2> floorUvs = new();
-    List<Color> floorColors = new();
-    List<int> floorIndices = new();
-
-    List<Vector3> cliffVertices = new();
-    List<Vector2> cliffUvs = new();
-    List<Color> cliffColors = new();
-    List<int> cliffIndices = new();
+    _surfaceData = new(ChunkSize * ChunkSize * 5);
+    _floorData = new(0); _cliffData = new(0);
+    var vertices = _surfaceData.Vertices; var uvs = _surfaceData.Uvs;
+    var colors = _surfaceData.Colors; var indices = _surfaceData.Indices;
+    var floorVertices = _floorData.Vertices; var floorUvs = _floorData.Uvs;
+    var floorColors = _floorData.Colors; var floorIndices = _floorData.Indices;
+    var cliffVertices = _cliffData.Vertices; var cliffUvs = _cliffData.Uvs;
+    var cliffColors = _cliffData.Colors; var cliffIndices = _cliffData.Indices;
 
     Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
     Vector2 drop = Vector2.Down * ChasmFeature.CliffDepth;
@@ -128,6 +96,7 @@ private void BuildMesh()
     for (int y = 0; y < ChunkSize; y++)
     for (int x = 0; x < ChunkSize; x++)
     {
+        yield return ChunkBuildStage.TerrainData;
         Vector2 localTile = new(x, y);
         Vector2 globalTile = origin + localTile;
         int tileX = (int)globalTile.X, tileY = (int)globalTile.Y;
@@ -151,7 +120,7 @@ private void BuildMesh()
             Vector2 point = GetSurfacePoint(localTile + VertexOffsets[i], origin);
             vertices.Add(new Vector3(point.X, point.Y, 0f));
             uvs.Add(sample);
-            colors.Add(_elevation.GetTint(sample));
+            colors.Add(GetSurfaceTint(sample));
         }
 
         for (int side = 0; side < 4; side++)
@@ -159,6 +128,15 @@ private void BuildMesh()
             indices.Add(first);
             indices.Add(first + 1 + side);
             indices.Add(first + 1 + (side + 1) % 4);
+        }
+
+        for (int side = 0; side < 4; side++)
+        {
+            int nx = tileX + (side == 1 ? 1 : side == 3 ? -1 : 0);
+            int ny = tileY + (side == 2 ? 1 : side == 0 ? -1 : 0);
+            if (!ChasmFeature.IsVoidTile(nx, ny)) continue;
+            _rimPoints.Add(GetSurfacePoint(localTile + VertexOffsets[1 + side], origin));
+            _rimPoints.Add(GetSurfacePoint(localTile + VertexOffsets[1 + (side + 1) % 4], origin));
         }
 
         for (int side = 1; side <= 2; side++)
@@ -176,10 +154,51 @@ private void BuildMesh()
         }
     }
 
-    _mesh = CreateCachedMesh(vertices, uvs, colors, indices);
-    _floorMesh = CreateCachedMesh(floorVertices, floorUvs, floorColors, floorIndices);
-    _cliffMesh = CreateCachedMesh(cliffVertices, cliffUvs, cliffColors, cliffIndices);
-    CreateTerrainCollision();
+    _tints.Clear();
+}
+
+// =========================================================
+// Upload each mesh separately, then add collision and atmosphere in small steps.
+public IEnumerable<ChunkBuildStage> UploadSteps()
+{
+    yield return ChunkBuildStage.TerrainUpload;
+    _mesh = Upload(_surfaceData); _surfaceData = null;
+    yield return ChunkBuildStage.TerrainUpload;
+    _floorMesh = Upload(_floorData); _floorData = null;
+    yield return ChunkBuildStage.TerrainUpload;
+    _cliffMesh = Upload(_cliffData); _cliffData = null;
+
+    yield return ChunkBuildStage.TerrainUpload;
+    Material fog = _atmosphere != null ? _atmosphere.FogMaterial : PlaceholderAtlas.BakedMaterial;
+    if (_floorMesh != null)
+        AddChild(new MeshInstance2D { Name = "RavineFloor", Mesh = _floorMesh,
+            Material = fog, ZIndex = -2 });
+    yield return ChunkBuildStage.TerrainUpload;
+    if (_cliffMesh != null)
+        AddChild(new MeshInstance2D { Name = "CliffVisual", Mesh = _cliffMesh,
+            Material = fog, ZIndex = -1 });
+
+    foreach (ChunkBuildStage stage in CreateTerrainCollisionSteps()) yield return stage;
+    yield return ChunkBuildStage.TerrainUpload;
+    GroundFog fogService = GetTree().GetFirstNodeInGroup("ground_fog") as GroundFog;
+    if (_mesh != null) fogService?.Attach(this, _mesh);
+    QueueRedraw();
+}
+
+// =========================================================
+// Reuse a shared vertex tint instead of resampling the same corner for adjacent tiles.
+private Color GetSurfaceTint(Vector2 tile)
+{
+    if (_tints.TryGetValue(tile, out Color color)) return color;
+    color = _elevation.GetTint(tile); _tints.Add(tile, color);
+    return color;
+}
+
+// =========================================================
+// Upload a completed layer; this individual engine call cannot be time-sliced.
+private static ArrayMesh Upload(MeshData data)
+{
+    return CreateCachedMesh(data.Vertices, data.Uvs, data.Colors, data.Indices);
 }
 
 // =========================================================
@@ -194,7 +213,7 @@ private Vector2 GetSurfacePoint(Vector2 localTile, Vector2 chunkOrigin)
 
 // =========================================================
 // Merge consecutive void tiles into solid row polygons matching the ravine.
-private void CreateTerrainCollision()
+private IEnumerable<ChunkBuildStage> CreateTerrainCollisionSteps()
 {
 	int originX = Coordinate.X * ChunkSize;
 	int originY = Coordinate.Y * ChunkSize;
@@ -204,6 +223,7 @@ private void CreateTerrainCollision()
 
 	for (int y = 0; y < ChunkSize; y++)
 	{
+        yield return ChunkBuildStage.TerrainCollision;
 		int x = 0;
 		while (x < ChunkSize)
 		{
@@ -237,6 +257,7 @@ private void CreateTerrainCollision()
 
 			float left = first - 0.5f, right = x - 0.5f;
 			float top = y - 0.5f, bottom = y + 0.5f;
+            yield return ChunkBuildStage.TerrainCollision;
 			body.AddChild(new CollisionPolygon2D
 			{
 				Name = $"Run_{shapeCount++}",
@@ -322,39 +343,9 @@ public override void _Draw()
 // Highlight ground-to-void boundaries, including foreground lips hiding cliff walls.
 private void DrawRavineRim()
 {
-	if (_elevation == null) return;
-
-	Vector2 origin = new(Coordinate.X * ChunkSize, Coordinate.Y * ChunkSize);
-	Color rim = new("#425662");
-
-	for (int y = 0; y < ChunkSize; y++)
-	for (int x = 0; x < ChunkSize; x++)
-	{
-		int globalX = Coordinate.X * ChunkSize + x;
-		int globalY = Coordinate.Y * ChunkSize + y;
-		if (ChasmFeature.IsVoidTile(globalX, globalY)) continue;
-
-		Vector2 localTile = new(x, y);
-		for (int side = 0; side < 4; side++)
-		{
-			int neighbourX = globalX;
-			int neighbourY = globalY;
-
-			switch (side)
-			{
-				case 0: neighbourY--; break;
-				case 1: neighbourX++; break;
-				case 2: neighbourY++; break;
-				case 3: neighbourX--; break;
-			}
-
-			if (!ChasmFeature.IsVoidTile(neighbourX, neighbourY)) continue;
-
-			Vector2 a = GetSurfacePoint(localTile + VertexOffsets[1 + side], origin);
-			Vector2 b = GetSurfacePoint(localTile + VertexOffsets[1 + (side + 1) % 4], origin);
-			DrawLine(a, b, rim, 1.5f, false);
-		}
-	}
+    Color rim = new("#425662");
+    for (int i = 0; i < _rimPoints.Count; i += 2)
+        DrawLine(_rimPoints[i], _rimPoints[i + 1], rim, 1.5f, false);
 }
 
 	// =========================================================

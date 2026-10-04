@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="MiningAttack" format=3]
+
+[ext_resource type="Script" path="res://COMBAT/Attacks/MiningAttack.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Cooldown = 0.1
+VisualHeight = 24.0
+MuzzleOffsets = Array[Vector2]([Vector2(0, 0)])
+Range = 180.0
+MiningPower = 6.0
+Tint = Color(0.51, 0.96, 1, 1)[gd_resource type="Resource" script_class="MiningAttack" format=3]
+
+[ext_resource type="Script" path="res://COMBAT/Attacks/MiningAttack.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+Cooldown = 0.1
+VisualHeight = 24.0
+MuzzleOffsets = Array[Vector2]([Vector2(0, 0)])
+Range = 180.0
+MiningPower = 6.0
+Tint = Color(0.51, 0.96, 1, 1)

@@ -16,11 +16,11 @@ public partial class GrassSpawner : Node
     #region Generation
    // =========================================================
 // Mix biome grass densities and species across smooth transition areas.
-public void Populate(
+public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint)
 {
-    if (_grass.ContainsKey(coordinate)) return;
+    if (_grass.ContainsKey(coordinate)) yield break;
     List<Grass> tufts = new();
     List<Vector2> placed = new();
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
@@ -35,6 +35,7 @@ public void Populate(
     int patchBudget = Generator.MaxGrassPatches;
     for (int patch = 0; patch < patchBudget; patch++)
     {
+        yield return ChunkBuildStage.Grass;
         Vector2 centre = new(
             rng.RandfRange(lowX, highX), rng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
@@ -44,6 +45,7 @@ public void Populate(
 
         for (int tuft = 0; tuft < Mathf.Max(0, settings.GrassTuftsPerPatch); tuft++)
         {
+            yield return ChunkBuildStage.Grass;
             Vector2 tile = centre + new Vector2(
                 rng.RandfRange(-1.3f, 1.3f), rng.RandfRange(-1.3f, 1.3f));
             if (tile.X < lowX || tile.X >= highX ||
@@ -84,11 +86,14 @@ public void Populate(
     #region Streaming
     // =========================================================
     // Release grass instances belonging to one unloaded chunk.
-    public void RemoveChunk(Vector2I coordinate)
+    public IEnumerable<ChunkBuildStage> RemoveSteps(Vector2I coordinate)
     {
-        if (!_grass.TryGetValue(coordinate, out List<Grass> tufts)) return;
+        if (!_grass.TryGetValue(coordinate, out List<Grass> tufts)) yield break;
         foreach (Grass grass in tufts)
+        {
             if (GodotObject.IsInstanceValid(grass)) grass.QueueFree();
+            yield return ChunkBuildStage.Retiring;
+        }
         _grass.Remove(coordinate);
     }
     #endregion

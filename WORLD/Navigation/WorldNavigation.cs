@@ -1,11 +1,13 @@
-// Provides shared local A* navigation around loaded terrain and static obstacles.
+// Builds shared local A* navigation incrementally, with a separate frame budget.
 // Keeps pathfinding independent from enemy targeting and movement.
 using Godot;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 public partial class WorldNavigation : Node
 {
     #region Configuration
+    [Export] public double BuildBudgetMs { get; set; } = 0.35;
     [Export] public int CellSize { get; set; } = 32;
     [Export] public int SearchRadius { get; set; } = 1280;
     [Export] public float AgentClearance { get; set; } = 12f;
@@ -22,6 +24,12 @@ public partial class WorldNavigation : Node
     private SceneTree _tree;
     private Rect2I _cachedRegion;
     private int _revision, _builtRevision = -1;
+    private IEnumerator<int> _build;
+    private bool _gridReady;
+    private Node2D _ground;
+    public bool IsBuilding => _build != null;
+    public double LastWorkMs { get; private set; }
+    public double PeakStepMs { get; private set; }
     #endregion
 
     #region Lifecycle
@@ -34,6 +42,9 @@ public partial class WorldNavigation : Node
         SearchRadius = Mathf.Max(512, SearchRadius);
         _chunks = GetNode<ChunkController>("../ChunkController");
         _objects = GetNode<Node2D>("../../WorldObjects");
+        _ground = GetNode<Node2D>("../../GroundChunks");
+        _chunks.ChunkAvailabilityChanged += OnChunkAvailabilityChanged;
+        SetProcess(false);
         _tree = GetTree();
         _tree.NodeAdded += OnWorldNodeChanged;
         _tree.NodeRemoved += OnWorldNodeChanged;
@@ -59,6 +70,9 @@ public partial class WorldNavigation : Node
             _tree.NodeAdded -= OnWorldNodeChanged;
             _tree.NodeRemoved -= OnWorldNodeChanged;
         }
+        if (GodotObject.IsInstanceValid(_chunks))
+            _chunks.ChunkAvailabilityChanged -= OnChunkAvailabilityChanged;
+        _build?.Dispose(); _build = null;
         _grid.Dispose();
         _query.Dispose();
         _clearanceShape.Dispose();
@@ -68,7 +82,58 @@ public partial class WorldNavigation : Node
     // Invalidate cached navigation when static world topology changes.
     private void OnWorldNodeChanged(Node node)
     {
-        if (node is Obstacle || node is WorldChunk) _revision++;
+        if (node is not Obstacle obstacle || _cachedRegion.Size == Vector2I.Zero) return;
+        Rect2 footprint = new(obstacle.GlobalPosition - obstacle.Footprint * 0.5f, obstacle.Footprint);
+        if (GridWorldBounds().Intersects(footprint.Grow(AgentClearance + CellSize))) _revision++;
+    }
+
+    // =========================================================
+    // Ignore distant preparation; invalidate only ready/retiring chunks overlapping this grid.
+    private void OnChunkAvailabilityChanged(Vector2I coordinate)
+    {
+        if (_cachedRegion.Size == Vector2I.Zero) return;
+        Vector2 origin = new(coordinate.X * _chunks.ChunkSize - 0.5f,
+            coordinate.Y * _chunks.ChunkSize - 0.5f);
+        Vector2 a = _ground.ToGlobal(IsoGrid.TileToWorld(origin, _chunks.TileSize));
+        Rect2 bounds = new(a, Vector2.Zero);
+        bounds = bounds.Expand(_ground.ToGlobal(IsoGrid.TileToWorld(origin + new Vector2(_chunks.ChunkSize, 0), _chunks.TileSize)));
+        bounds = bounds.Expand(_ground.ToGlobal(IsoGrid.TileToWorld(origin + new Vector2(0, _chunks.ChunkSize), _chunks.TileSize)));
+        bounds = bounds.Expand(_ground.ToGlobal(IsoGrid.TileToWorld(origin + Vector2.One * _chunks.ChunkSize, _chunks.TileSize)));
+        if (GridWorldBounds().Intersects(bounds.Grow(AgentClearance + CellSize))) _revision++;
+    }
+
+    // =========================================================
+    // Return the logical world rectangle covered by the cached navigation grid.
+    private Rect2 GridWorldBounds()
+    {
+        Vector2 position = new(_cachedRegion.Position.X * CellSize, _cachedRegion.Position.Y * CellSize);
+        Vector2 size = new(_cachedRegion.Size.X * CellSize, _cachedRegion.Size.Y * CellSize);
+        return new Rect2(position, size);
+    }
+
+    // =========================================================
+    // Build a small portion of the grid each frame; path queries wait for a complete grid.
+    public override void _Process(double delta)
+    {
+        long started = Stopwatch.GetTimestamp();
+        double budget = System.Math.Max(0.05, BuildBudgetMs);
+        while (_build != null && ElapsedMs(started) < budget)
+        {
+            long step = Stopwatch.GetTimestamp();
+            bool more = _build.MoveNext();
+            PeakStepMs = System.Math.Max(PeakStepMs, ElapsedMs(step));
+            if (more) continue;
+            _build.Dispose(); _build = null;
+            SetProcess(false);
+        }
+        LastWorkMs = ElapsedMs(started);
+    }
+
+    // =========================================================
+    // Read monotonic elapsed milliseconds without allocating a Stopwatch instance.
+    private static double ElapsedMs(long started)
+    {
+        return (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
     }
     #endregion
 
@@ -102,7 +167,7 @@ public bool CanTravelDirectly(Vector2 from, Vector2 to)
         if (!_chunks.IsNavigationPointAvailable(from) || !_chunks.IsNavigationPointAvailable(to))
             return System.Array.Empty<Vector2>();
 
-        PrepareGrid(from);
+        if (!PrepareGrid(from)) return System.Array.Empty<Vector2>();
         if (!FindOpenCell(from, out Vector2I start) || !FindOpenCell(to, out Vector2I goal))
             return System.Array.Empty<Vector2>();
 
@@ -140,8 +205,8 @@ private bool FindOpenCell(Vector2 point, out Vector2I result)
 
     #region Grid
 // =========================================================
-// Cache local navigation with clearance around rocks and terrain drops.
-private void PrepareGrid(Vector2 source)
+// Request an incremental grid rebuild when its region or relevant topology changes.
+private bool PrepareGrid(Vector2 source)
 {
     int bucket = CellSize * 8;
     Vector2 anchor = new(
@@ -150,30 +215,41 @@ private void PrepareGrid(Vector2 source)
     Vector2I low = WorldToCell(anchor - Vector2.One * SearchRadius);
     Vector2I high = WorldToCell(anchor + Vector2.One * SearchRadius);
     Rect2I region = new(low, high - low + Vector2I.One);
-    if (_builtRevision == _revision && region == _cachedRegion) return;
+    if (_gridReady && _builtRevision == _revision && region == _cachedRegion) return true;
+    if (_build != null && region == _cachedRegion) return false;
+    _build?.Dispose();
+    _cachedRegion = region; _gridReady = false;
+    _build = BuildGridSteps(region, _revision).GetEnumerator();
+    SetProcess(true);
+    return false;
+}
 
-    _cachedRegion = region;
+// =========================================================
+// Fill terrain cells incrementally, then stamp currently loaded solid footprints.
+private IEnumerable<int> BuildGridSteps(Rect2I region, int revision)
+{
     _grid.Region = region;
     _grid.Update();
+    yield return 0;
 
     float terrainClearance = AgentClearance + CellSize * 0.707107f;
     for (int y = region.Position.Y; y < region.End.Y; y++)
     for (int x = region.Position.X; x < region.End.X; x++)
     {
+        yield return 0;
         Vector2I cell = new(x, y);
         if (!_chunks.IsNavigationPointAvailable(_grid.GetPointPosition(cell), terrainClearance))
             _grid.SetPointSolid(cell);
     }
 
     _obstacles.Clear();
-    foreach (Node node in _objects.GetChildren())
-    {
-        if (node is Obstacle obstacle && !obstacle.IsQueuedForDeletion())
-            _obstacles.Add(obstacle);
-    }
+    _obstacles.AddRange(WorldPlacement.CollectObstacles(_objects));
+    yield return 0;
 
     foreach (Obstacle obstacle in _obstacles)
     {
+        yield return 0;
+        if (!GodotObject.IsInstanceValid(obstacle) || obstacle.IsQueuedForDeletion()) continue;
         Rect2 footprint = new(obstacle.GlobalPosition - obstacle.Footprint * 0.5f, obstacle.Footprint);
         Rect2 blocked = footprint.Grow(AgentClearance + CellSize * 0.5f);
         Vector2I first = WorldToCell(blocked.Position);
@@ -182,11 +258,12 @@ private void PrepareGrid(Vector2 source)
         for (int y = Mathf.Max(first.Y, region.Position.Y); y <= Mathf.Min(last.Y, region.End.Y - 1); y++)
         for (int x = Mathf.Max(first.X, region.Position.X); x <= Mathf.Min(last.X, region.End.X - 1); x++)
         {
+            yield return 0;
             Vector2I cell = new(x, y);
             if (blocked.HasPoint(_grid.GetPointPosition(cell))) _grid.SetPointSolid(cell);
         }
     }
-    _builtRevision = _revision;
+    _builtRevision = revision; _gridReady = true;
 }
 
     // =========================================================

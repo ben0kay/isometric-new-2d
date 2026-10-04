@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CarryingRules" format=3]
+
+[ext_resource type="Script" path="res://PLAYER/Inventory/CarryingRules.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+MinimumSpeedFactor = 0.55
+PenaltyExponent = 1.0
+ComfortableWeightKg = 8.0
+MaximumWeightKg = 16.0

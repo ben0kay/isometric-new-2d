@@ -11,8 +11,9 @@ public static class WorldPlacement
     public static List<Obstacle> CollectObstacles(Node2D objects)
     {
         List<Obstacle> result = new();
-        foreach (Node node in objects.GetChildren())
-            if (node is Obstacle obstacle && !obstacle.IsQueuedForDeletion())
+        foreach (Node node in objects.GetTree().GetNodesInGroup("world_obstacles"))
+            if (node is Obstacle obstacle && obstacle.GetParent() == objects
+                && !obstacle.IsQueuedForDeletion())
                 result.Add(obstacle);
         return result;
     }

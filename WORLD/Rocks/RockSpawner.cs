@@ -12,7 +12,7 @@ public partial class RockSpawner : Node
     #region Generation
 // =========================================================
 // Mix local biome rock recipes while preserving solid footprint placement.
-public void Populate(
+public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
     float spawnClearRadius, List<Obstacle> owned)
@@ -28,6 +28,7 @@ public void Populate(
 
     for (int attempt = 0; attempt < budget; attempt++)
     {
+        yield return ChunkBuildStage.Rocks;
         Vector2 tile = new(
             rng.RandfRange(lowX, lowX + chunkSize),
             rng.RandfRange(lowY, lowY + chunkSize));
