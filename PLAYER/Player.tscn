@@ -1,10 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://fqjv7dvfg82e"]
+[gd_scene format=3 uid="uid://fqjv7dvfg82e"]
 
-[ext_resource type="Script" path="res://PLAYER/Player.cs" id="1_player"]
-[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
-[ext_resource type="Script" path="res://COMBAT/CombatLife.cs" id="3_life"]
-[ext_resource type="Script" path="res://COMBAT/Weapons/Weapon.cs" id="4_weapon"]
-[ext_resource type="Resource" path="res://COMBAT/Attacks/PlayerBlaster.tres" id="5_attack"]
+[ext_resource type="Script" uid="uid://c5w6vuqfry2h4" path="res://PLAYER/Player.cs" id="1_player"]
+[ext_resource type="Script" uid="uid://c5tqjqqd4afrm" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Script" uid="uid://loo8no2lshnc" path="res://COMBAT/CombatLife.cs" id="3_life"]
+[ext_resource type="Script" uid="uid://bvg36ii1nwvi6" path="res://COMBAT/Weapons/Weapon.cs" id="4_weapon"]
+[ext_resource type="Resource" path="res://PLAYER/Weapons/PlayerBlaster.tres" id="5_attack"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 radius = 10.0
