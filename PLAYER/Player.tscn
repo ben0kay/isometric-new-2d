@@ -1,6 +1,10 @@
-[gd_scene load_steps=3 format=3 uid="uid://fqjv7dvfg82e"]
+[gd_scene load_steps=7 format=3 uid="uid://fqjv7dvfg82e"]
 
 [ext_resource type="Script" path="res://PLAYER/Player.cs" id="1_player"]
+[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Script" path="res://COMBAT/CombatLife.cs" id="3_life"]
+[ext_resource type="Script" path="res://COMBAT/Weapons/Weapon.cs" id="4_weapon"]
+[ext_resource type="Resource" path="res://COMBAT/Attacks/PlayerBlaster.tres" id="5_attack"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 radius = 10.0
@@ -18,3 +22,19 @@ shape = SubResource("CircleShape_player")
 position = Vector2(0, -24)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Health" type="Node" parent="Systems"]
+script = ExtResource("2_health")
+MaxHealth = 100
+DamageImmunity = 0.35
+
+[node name="CombatLife" type="Node" parent="Systems"]
+script = ExtResource("3_life")
+Respawn = true
+RespawnDelay = 1.5
+
+[node name="Weapon" type="Node" parent="Systems"]
+script = ExtResource("4_weapon")
+Attack = ExtResource("5_attack")

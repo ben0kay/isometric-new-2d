@@ -1,6 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://ENEMIES/Enemy.cs" id="1_enemy"]
+[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Script" path="res://COMBAT/CombatLife.cs" id="3_life"]
+[ext_resource type="Script" path="res://COMBAT/Attacks/ContactAttack.cs" id="4_contact"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_enemy"]
 radius = 10.0
@@ -13,3 +16,18 @@ script = ExtResource("1_enemy")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape_enemy")
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Health" type="Node" parent="Systems"]
+script = ExtResource("2_health")
+MaxHealth = 60
+
+[node name="CombatLife" type="Node" parent="Systems"]
+script = ExtResource("3_life")
+
+[node name="ContactAttack" type="Node" parent="Systems"]
+script = ExtResource("4_contact")
+Damage = 15
+Range = 34.0
+Cooldown = 0.8

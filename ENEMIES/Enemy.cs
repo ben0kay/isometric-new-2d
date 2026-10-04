@@ -121,14 +121,18 @@ public override void _PhysicsProcess(double delta)
     #endregion
 
     #region Targeting
-    // =========================================================
-    // Validate a registered player without assuming a fixed scene-tree path.
-    private bool IsValidTarget(Player player)
-    {
-        return GodotObject.IsInstanceValid(player) && player.IsInsideTree() &&
-            !player.IsQueuedForDeletion() &&
-            GlobalPosition.DistanceSquaredTo(player.GlobalPosition) <= DetectionRange * DetectionRange;
-    }
+
+// =========================================================
+// Accept only living players within detection range.
+private bool IsValidTarget(Player player)
+{
+    if (!GodotObject.IsInstanceValid(player) || !player.IsInsideTree() ||
+        player.IsQueuedForDeletion()) return false;
+
+    Health health = player.GetNodeOrNull<Health>("Systems/Health");
+    return health != null && health.IsAlive &&
+        GlobalPosition.DistanceSquaredTo(player.GlobalPosition) <= DetectionRange * DetectionRange;
+}
 
     // =========================================================
     // Pick the nearest player while applying a preference for the current target.
@@ -155,16 +159,4 @@ public override void _PhysicsProcess(double delta)
     }
     #endregion
 
-    #region Drawing
-    // =========================================================
-    // Draw one baked drone texture with its ground origin at the node position.
-    public override void _Draw()
-    {
-        if (PlaceholderAtlas.Texture == null) return;
-        DrawTextureRectRegion(
-            PlaceholderAtlas.Texture, new Rect2(-48, -64, 96, 96),
-            PlaceholderAtlas.EnemyRegion
-        );
-    }
-    #endregion
 }
