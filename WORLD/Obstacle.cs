@@ -1,5 +1,5 @@
-// Uses shared baked rock/crate artwork with an independent collision footprint.
-// The node origin remains the obstacle base for world Y-sorting.
+// Creates rock/crate collision independently from terrain-adjusted artwork.
+// Static visuals sample their height once and reuse the shared baked atlas.
 using Godot;
 
 public partial class Obstacle : StaticBody2D
@@ -14,7 +14,7 @@ public partial class Obstacle : StaticBody2D
 
 	#region Lifecycle
 	// =========================================================
-	// Create collision and ensure the shared atlas is available.
+	// Create the collision footprint and attach terrain-adjusted artwork.
 	public override async void _Ready()
 	{
 		AddChild(new CollisionShape2D
@@ -22,36 +22,25 @@ public partial class Obstacle : StaticBody2D
 			Name = "Footprint",
 			Shape = new RectangleShape2D { Size = Footprint }
 		});
-		Material = PlaceholderAtlas.BakedMaterial;
-		TextureFilter = TextureFilterEnum.Nearest;
 
 		try
 		{
 			await PlaceholderAtlas.EnsureReady(this);
-			if (IsInsideTree()) QueueRedraw();
+			if (!IsInsideTree()) return;
+
+			Rect2 region = Kind == ObstacleKind.Rock
+				? PlaceholderAtlas.RockRegion
+				: PlaceholderAtlas.CrateRegion;
+
+			TerrainVisual.Attach(
+				this, region, new Vector2(-80, -120),
+				new Vector2(Footprint.X / 96f, Height / 72f), false
+			);
 		}
 		catch (System.Exception error)
 		{
 			GD.PushError($"Obstacle artwork failed: {error}");
 		}
-	}
-	#endregion
-
-	#region Drawing
-	// =========================================================
-	// Draw one baked visual with its base aligned to the node origin.
-	public override void _Draw()
-	{
-		if (PlaceholderAtlas.Texture == null) return;
-		Vector2 scale = new(Footprint.X / 96f, Height / 72f);
-		Rect2 destination = new(
-			new Vector2(-80f * scale.X, -120f * scale.Y),
-			new Vector2(160f * scale.X, 160f * scale.Y)
-		);
-		DrawTextureRectRegion(
-			PlaceholderAtlas.Texture, destination,
-			Kind == ObstacleKind.Rock ? PlaceholderAtlas.RockRegion : PlaceholderAtlas.CrateRegion
-		);
 	}
 	#endregion
 }

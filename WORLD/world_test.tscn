@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://dlx7kblpf5oro"]
+[gd_scene load_steps=7 format=3 uid="uid://dlx7kblpf5oro"]
 
 [ext_resource type="PackedScene" path="res://PLAYER/Player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://WORLD/Chunks/ChunkController.cs" id="2_chunks"]
 [ext_resource type="Script" path="res://UI/FpsLabel.cs" id="3_fps"]
 [ext_resource type="Script" path="res://WORLD/Navigation/WorldNavigation.cs" id="4_navigation"]
 [ext_resource type="Script" path="res://ENEMIES/EnemyTest.cs" id="5_enemy_test"]
+[ext_resource type="Script" path="res://WORLD/Terrain/TerrainElevation.cs" id="6_elevation"]
 
 [node name="WorldTest" type="Node2D"]
 
@@ -18,6 +19,12 @@ y_sort_enabled = true
 position = Vector2(0, 180)
 
 [node name="Systems" type="Node" parent="."]
+
+[node name="TerrainElevation" type="Node" parent="Systems"]
+script = ExtResource("6_elevation")
+MaxHeight = 16.0
+FeatureSize = 12.0
+ShadeStrength = 0.04
 
 [node name="WorldNavigation" type="Node" parent="Systems"]
 script = ExtResource("4_navigation")

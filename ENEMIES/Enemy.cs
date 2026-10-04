@@ -22,27 +22,29 @@ public partial class Enemy : CharacterBody2D
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Configure collision movement and wait for the shared artwork bake.
-    public override async void _Ready()
-    {
-        MotionMode = MotionModeEnum.Floating;
-        Material = PlaceholderAtlas.BakedMaterial;
-        TextureFilter = TextureFilterEnum.Nearest;
-        SetPhysicsProcess(false);
+// =========================================================
+// Prepare collision movement and attach terrain-adjusted drone artwork.
+public override async void _Ready()
+{
+    MotionMode = MotionModeEnum.Floating;
+    SetPhysicsProcess(false);
 
-        try
-        {
-            await PlaceholderAtlas.EnsureReady(this);
-            if (!IsInsideTree()) return;
-            QueueRedraw();
-            SetPhysicsProcess(true);
-        }
-        catch (System.Exception error)
-        {
-            GD.PushError($"Enemy initialization failed: {error}");
-        }
+    try
+    {
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree()) return;
+
+        TerrainVisual.Attach(
+            this, PlaceholderAtlas.EnemyRegion,
+            new Vector2(-48, -64), Vector2.One, true
+        );
+        SetPhysicsProcess(true);
     }
+    catch (System.Exception error)
+    {
+        GD.PushError($"Enemy initialization failed: {error}");
+    }
+}
 
     // =========================================================
 // Refresh targeting and follow reachable waypoints without backtracking
