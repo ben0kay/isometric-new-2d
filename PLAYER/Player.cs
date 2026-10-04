@@ -6,6 +6,7 @@ public partial class Player : CharacterBody2D
 {
 	#region Configuration
 	[Export] public float MoveSpeed { get; set; } = 240f;
+	[Export] public VisualDefinition VisualOverride { get; set; }
 	#endregion
 
 	#region State
@@ -16,30 +17,31 @@ public partial class Player : CharacterBody2D
 	#endregion
 
 	#region Lifecycle
-	// =========================================================
-	// Resolve combat components and attach the shared player artwork.
-	public override async void _Ready()
-	{
-		MotionMode = MotionModeEnum.Floating;
-		_weapon = GetNode<Weapon>("Systems/Weapon");
-		_health = GetNode<Health>("Systems/Health");
-		SetPhysicsProcess(false);
+// =========================================================
+// Resolve combat components and attach custom or baked player artwork.
+public override async void _Ready()
+{
+	MotionMode = MotionModeEnum.Floating;
+	_weapon = GetNode<Weapon>("Systems/Weapon");
+	_health = GetNode<Health>("Systems/Health");
+	SetPhysicsProcess(false);
 
-		try
-		{
-			await PlaceholderAtlas.EnsureReady(this);
-			if (!IsInsideTree()) return;
-			_visual = TerrainVisual.Attach(
-				this, PlaceholderAtlas.PlayerRegion,
-				new Vector2(-32, -72), Vector2.One, true
-			);
-			SetPhysicsProcess(true);
-		}
-		catch (System.Exception error)
-		{
-			GD.PushError($"Player initialization failed: {error}");
-		}
+	try
+	{
+		await PlaceholderAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+		_visual = TerrainVisual.Attach(
+			this, PlaceholderAtlas.PlayerRegion,
+			new Vector2(-32, -72), Vector2.One, true, VisualOverride);
+
+		SetPhysicsProcess(true);
 	}
+	catch (System.Exception error)
+	{
+		GD.PushError($"Player initialization failed: {error}");
+	}
+}
 
 	// =========================================================
 	// Move, advance weapon timing, and fire while left mouse is held.

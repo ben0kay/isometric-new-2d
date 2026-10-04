@@ -10,6 +10,7 @@ public partial class Enemy : CharacterBody2D
     [Export] public float StopDistance { get; set; } = 30f;
     [Export] public double TargetInterval { get; set; } = 0.35;
     [Export] public double PathInterval { get; set; } = 0.4;
+    [Export] public VisualDefinition VisualOverride { get; set; }
     #endregion
 
     #region State
@@ -23,7 +24,7 @@ public partial class Enemy : CharacterBody2D
 
     #region Lifecycle
 // =========================================================
-// Prepare collision movement and attach terrain-adjusted drone artwork.
+// Prepare movement and attach custom or baked enemy artwork.
 public override async void _Ready()
 {
     MotionMode = MotionModeEnum.Floating;
@@ -32,12 +33,12 @@ public override async void _Ready()
     try
     {
         await PlaceholderAtlas.EnsureReady(this);
-        if (!IsInsideTree()) return;
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
         TerrainVisual.Attach(
             this, PlaceholderAtlas.EnemyRegion,
-            new Vector2(-48, -64), Vector2.One, true
-        );
+            new Vector2(-48, -64), Vector2.One, true, VisualOverride);
+
         SetPhysicsProcess(true);
     }
     catch (System.Exception error)

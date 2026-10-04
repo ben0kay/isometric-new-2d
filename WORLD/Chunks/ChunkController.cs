@@ -5,16 +5,22 @@ using System.Collections.Generic;
 
 public partial class ChunkController : Node
 {
-	#region Configuration
-	[Export] public Vector2 TileSize { get; set; } = new(128, 64);
-	[Export] public int ChunkSize { get; set; } = 16;
-	[Export] public int WorldChunksPerAxis { get; set; } = 8;
-	[Export] public uint WorldSeed { get; set; } = 64;
-	[Export] public int ChunksLoadedPerFrame { get; set; } = 2;
-	[Export] public int ObstaclesPerChunk { get; set; } = 12;
-	[Export] public float SpawnClearRadius { get; set; } = 320f;
-	[Export] public bool ShowChunkBoundaries { get; set; }
-	#endregion
+#region Configuration
+[Export] public Vector2 TileSize { get; set; } = new(128, 64);
+[Export] public int ChunkSize { get; set; } = 16;
+[Export] public int WorldChunksPerAxis { get; set; } = 8;
+[Export] public uint WorldSeed { get; set; } = 64;
+[Export] public int ChunksLoadedPerFrame { get; set; } = 2;
+[Export] public int ObstaclesPerChunk { get; set; } = 12;
+[Export] public float SpawnClearRadius { get; set; } = 320f;
+[Export] public bool ShowChunkBoundaries { get; set; }
+[Export] public VisualDefinition RockVisual { get; set; }
+[Export] public VisualDefinition CrateVisual { get; set; }
+[Export] public int VegetationPatchesPerChunk { get; set; } = 3;
+[Export] public int PlantsPerPatch { get; set; } = 4;
+[Export] public VisualDefinition FrondVisual { get; set; }
+[Export] public VisualDefinition ShrubVisual { get; set; }
+#endregion
 
 	#region State
 	private sealed class LoadedChunk
@@ -36,11 +42,12 @@ public partial class ChunkController : Node
 	private Vector2I _viewMin, _viewMax;
 	private int _worldMin, _worldMax;
 	private double _refreshTimer;
+	private VegetationSpawner _vegetation;
 	#endregion
 
 	#region Lifecycle
 // =========================================================
-// Resolve scene references, wait for baked artwork, then populate the initial view.
+// Prepare shared artwork and helpers before populating the initial view.
 public override async void _Ready()
 {
 	SetProcess(false);
@@ -57,12 +64,24 @@ public override async void _Ready()
 	_spawnPoint = _player.GlobalPosition;
 	_worldMin = -(WorldChunksPerAxis / 2);
 	_worldMax = _worldMin + WorldChunksPerAxis - 1;
-	_debug.Text = "Baking placeholder artwork...";
+	_debug.Text = "Baking world artwork...";
 
 	try
 	{
 		await PlaceholderAtlas.EnsureReady(this);
-		if (!IsInsideTree()) return;
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await VegetationAtlas.EnsureReady(this);
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+		_vegetation = new VegetationSpawner
+		{
+			Name = "VegetationSpawner",
+			PatchesPerChunk = Mathf.Max(0, VegetationPatchesPerChunk),
+			PlantsPerPatch = Mathf.Max(0, PlantsPerPatch),
+			FrondVisual = FrondVisual,
+			ShrubVisual = ShrubVisual
+		};
+		AddChild(_vegetation);
 
 		CreateWorldBoundary();
 		_camera.ResetSmoothing();
@@ -164,43 +183,52 @@ public override async void _Ready()
 		);
 	}
 
-	// =========================================================
-	// Load the closest pending chunk and create its seeded obstacles.
-	private void LoadNextChunk()
-	{
-		int last = _pending.Count - 1;
-		Vector2I coordinate = _pending[last];
-		_pending.RemoveAt(last);
+// =========================================================
+// Load ground, obstacles and deterministic vegetation for the next chunk.
+private void LoadNextChunk()
+{
+	int last = _pending.Count - 1;
+	Vector2I coordinate = _pending[last];
+	_pending.RemoveAt(last);
 
-		WorldChunk ground = new()
-		{
-			Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
-			Coordinate = coordinate, ChunkSize = ChunkSize,
-			TileSize = TileSize, Seed = WorldSeed,
-			ShowBoundary = ShowChunkBoundaries,
-			Position = IsoGrid.TileToWorld(
-				new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize), TileSize)
-		};
-		LoadedChunk chunk = new() { Ground = ground };
-		_groundRoot.AddChild(ground);
-		_loaded.Add(coordinate, chunk);
-		CreateObstacles(coordinate, chunk);
-	}
-
-	// =========================================================
-	// Remove ground and its associated obstacles from the world.
-	private void UnloadChunk(Vector2I coordinate)
+	WorldChunk ground = new()
 	{
-		LoadedChunk chunk = _loaded[coordinate];
-		foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
-		chunk.Ground.QueueFree();
-		_loaded.Remove(coordinate);
-	}
+		Name = $"Chunk_{coordinate.X}_{coordinate.Y}",
+		Coordinate = coordinate,
+		ChunkSize = ChunkSize,
+		TileSize = TileSize,
+		Seed = WorldSeed,
+		ShowBoundary = ShowChunkBoundaries,
+		Position = IsoGrid.TileToWorld(
+			new Vector2(coordinate.X * ChunkSize, coordinate.Y * ChunkSize),
+			TileSize)
+	};
+	LoadedChunk chunk = new() { Ground = ground };
+	_groundRoot.AddChild(ground);
+	_loaded.Add(coordinate, chunk);
+	CreateObstacles(coordinate, chunk);
+
+	_vegetation.Populate(
+		coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint,
+		SpawnClearRadius, chunk.Obstacles);
+}
+
+// =========================================================
+// Remove a chunk's ground, obstacles and associated vegetation.
+private void UnloadChunk(Vector2I coordinate)
+{
+	LoadedChunk chunk = _loaded[coordinate];
+	_vegetation.RemoveChunk(coordinate);
+	foreach (Obstacle obstacle in chunk.Obstacles) obstacle.QueueFree();
+	chunk.Ground.QueueFree();
+	_loaded.Remove(coordinate);
+}
 	#endregion
 
 	#region Generation
 // =========================================================
-// Generate seeded obstacles on solid ground with a clear starting area.
+// Generate seeded obstacles with optional shared artwork definitions.
 private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
 {
 	using RandomNumberGenerator rng = new();
@@ -219,20 +247,24 @@ private void CreateObstacles(Vector2I coordinate, LoadedChunk chunk)
 			coordinate.Y * ChunkSize + localTile.Y);
 		Vector2 localPoint = IsoGrid.TileToWorld(tile, TileSize);
 		Vector2 globalPoint = _groundRoot.ToGlobal(localPoint);
-		if (globalPoint.DistanceSquaredTo(_spawnPoint) < SpawnClearRadius * SpawnClearRadius) continue;
+		if (globalPoint.DistanceSquaredTo(_spawnPoint)
+			< SpawnClearRadius * SpawnClearRadius) continue;
 
 		bool crate = rng.Randf() < 0.2f;
 		float width = crate ? 72f : rng.RandfRange(64f, 104f);
 		float height = crate ? 48f : rng.RandfRange(56f, 96f);
-		if (!TerrainLayout.HasGroundClearance(localPoint, TileSize, width * 0.6f)) continue;
+		if (!TerrainLayout.HasGroundClearance(
+			localPoint, TileSize, width * 0.6f)) continue;
 
 		Obstacle obstacle = new()
 		{
 			Name = $"Obstacle_{coordinate.X}_{coordinate.Y}_{i}",
 			Position = _objects.ToLocal(globalPoint),
-			Kind = crate ? Obstacle.ObstacleKind.Crate : Obstacle.ObstacleKind.Rock,
+			Kind = crate ? Obstacle.ObstacleKind.Crate
+				: Obstacle.ObstacleKind.Rock,
 			Footprint = new Vector2(width, width * 0.5f),
-			Height = height
+			Height = height,
+			VisualOverride = crate ? CrateVisual : RockVisual
 		};
 		_objects.AddChild(obstacle);
 		chunk.Obstacles.Add(obstacle);
