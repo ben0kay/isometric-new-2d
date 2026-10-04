@@ -1,50 +1,59 @@
-// Defines the canonical rock artwork independently of atlas layout and gameplay.
-// The baker supplies the atmosphere used to shade its facets.
+// Defines eight deterministic rock silhouettes with independently shaded facets.
+// Surface grain and fractures are applied by the shader during atlas baking.
 using Godot;
 
 public static class RockDrawing
 {
+    #region Configuration
+    public const int VariantCount = 8;
+    #endregion
+
     #region Drawing
     // =========================================================
-    // Bake the rock with a sun-facing facet and brighter upper-left edge.
-    public static void Draw(CanvasItem canvas, WorldAtmosphere atmosphere)
+    // Draw an irregular boulder with terrain-independent, sun-shaded facets.
+    public static void Draw(CanvasItem canvas, WorldAtmosphere atmosphere, int variant)
     {
-        const float w = 62.4f, d = 24f, height = 72f;
-        DrawingHelpers.Shadow(canvas, w, 0.5f, 0.3f);
+        uint state = 0x9E3779B9u ^ ((uint)variant + 1u) * 7919u;
+        float w = DrawingHelpers.Range(ref state, 50f, 61f);
+        float h = DrawingHelpers.Range(ref state, 58f, 80f);
+        float d = DrawingHelpers.Range(ref state, 19f, 24f);
 
-        Color dark = new("#47505c"), light = new("#5c6876");
-        if (atmosphere != null)
+        Vector2[] outline =
         {
-            dark = atmosphere.ShadeFace(dark, new Vector2(1f, 0.35f));
-            light = atmosphere.ShadeFace(light, new Vector2(-1f, -0.4f));
+            new(-w, -d * 0.35f),
+            new(-w * 0.92f, -h * 0.55f),
+            new(-w * 0.60f, -h * DrawingHelpers.Range(ref state, 0.92f, 1.10f)),
+            new(w * DrawingHelpers.Range(ref state, -0.10f, 0.15f),
+                -h * DrawingHelpers.Range(ref state, 1.05f, 1.18f)),
+            new(w * 0.62f, -h * DrawingHelpers.Range(ref state, 0.80f, 1.00f)),
+            new(w, -h * 0.36f),
+            new(w * 0.88f, d * 0.25f),
+            new(w * 0.10f, d),
+            new(-w * 0.72f, d * 0.45f)
+        };
+
+        Vector2 hub = new(-w * 0.08f, -h * 0.48f);
+        Color stone = variant % 3 switch
+        {
+            0 => new Color("#484b4b"),
+            1 => new Color("#4c4943"),
+            _ => new Color("#41494e")
+        };
+
+        for (int i = 0; i < outline.Length; i++)
+        {
+            Vector2 a = outline[i], b = outline[(i + 1) % outline.Length];
+            Vector2 normal = ((a + b) * 0.5f - hub).Normalized();
+            float variation = DrawingHelpers.Range(ref state, 0.88f, 1.12f);
+            Color face = new(stone.R * variation, stone.G * variation,
+                stone.B * variation, 1f);
+            if (atmosphere != null) face = atmosphere.ShadeFace(face, normal);
+
+            canvas.DrawColoredPolygon(new Vector2[] { hub, a, b }, face);
         }
 
-        canvas.DrawColoredPolygon(new Vector2[]
-        {
-            new(-w, -d), new(-w * 0.75f, -height),
-            new(-w * 0.15f, -height - 16), new(w * 0.65f, -height + 4),
-            new(w, -d), new(w * 0.55f, d), new(-w * 0.55f, d)
-        }, dark);
-
-        canvas.DrawColoredPolygon(new Vector2[]
-        {
-            new(-w, -d), new(-w * 0.75f, -height),
-            new(-w * 0.15f, -height - 16), new(w * 0.1f, -d * 0.4f),
-            new(-w * 0.55f, d)
-        }, light);
-
-        canvas.DrawPolyline(new Vector2[]
-        {
-            new(-w, -d), new(-w * 0.75f, -height),
-            new(-w * 0.15f, -height - 16)
-        }, new Color("#a2b2b7"), 2f, true);
-
-        canvas.DrawPolyline(new Vector2[]
-        {
-            new(-w * 0.4f, -height * 0.8f),
-            new(-w * 0.1f, -height * 0.5f),
-            new(w * 0.3f, -height * 0.35f)
-        }, new Color("#71b5c4"), 3f, true);
+        canvas.DrawPolyline(new Vector2[] { outline[0], outline[1], outline[2] },
+            new Color(0.56f, 0.57f, 0.53f, 0.30f), 1f, true);
     }
     #endregion
 }

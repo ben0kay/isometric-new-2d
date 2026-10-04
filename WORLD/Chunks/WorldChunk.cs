@@ -38,7 +38,7 @@ public partial class WorldChunk : Node2D
 	#region Lifecycle
 
 // =========================================================
-// Order ravine floors below walls, then draw all walkable ground above both.
+// Build terrain and ravine visuals, then attach the shared ground-mist layer.
 public override void _Ready()
 {
 	TextureFilter = TextureFilterEnum.Nearest;
@@ -83,6 +83,8 @@ public override void _Ready()
 		});
 	}
 
+	GroundFog groundFog = GetTree().GetFirstNodeInGroup("ground_fog") as GroundFog;
+	groundFog?.Attach(this, _mesh);
 	QueueRedraw();
 }
 

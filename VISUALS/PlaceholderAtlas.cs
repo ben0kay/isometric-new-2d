@@ -1,15 +1,18 @@
-// Bakes independently defined props and characters into one shared texture.
-// Ground surfaces are handled separately by the continuous terrain material.
+// Bakes varied rocks, crates and characters into one reusable texture atlas.
+// Rock shaders run during capture; gameplay draws their resulting sprites.
 using Godot;
 using System.Threading.Tasks;
 
 public partial class PlaceholderAtlas : Node2D
 {
     #region Layout
+    private const int RockColumns = 4;
+    private const int RockStride = 164;
+
     public static readonly Rect2 RockRegion = new(2, 2, 160, 160);
-    public static readonly Rect2 CrateRegion = new(166, 2, 160, 160);
-    public static readonly Rect2 PlayerRegion = new(330, 2, 64, 96);
-    public static readonly Rect2 EnemyRegion = new(398, 2, 96, 96);
+    public static readonly Rect2 CrateRegion = new(2, 332, 160, 160);
+    public static readonly Rect2 PlayerRegion = new(166, 332, 64, 96);
+    public static readonly Rect2 EnemyRegion = new(234, 332, 96, 96);
     #endregion
 
     #region Shared Resources
@@ -25,7 +28,7 @@ public partial class PlaceholderAtlas : Node2D
 
     #region Baking
     // =========================================================
-    // Share one initial bake task between all atlas consumers.
+    // Share one initial atlas capture between all consumers.
     public static Task EnsureReady(Node host)
     {
         if (Texture != null) return Task.CompletedTask;
@@ -33,13 +36,23 @@ public partial class PlaceholderAtlas : Node2D
     }
 
     // =========================================================
-    // Capture the prop and character artwork once, then remove the viewport.
+    // Locate a rock variant within the atlas.
+    public static Rect2 GetRockRegion(int variant)
+    {
+        variant = Mathf.Clamp(variant, 0, RockDrawing.VariantCount - 1);
+        return new Rect2(
+            2 + variant % RockColumns * RockStride,
+            2 + variant / RockColumns * RockStride, 160, 160);
+    }
+
+    // =========================================================
+    // Render the artwork once, capture it and remove the temporary nodes.
     private static async Task BakeAsync(Node host)
     {
         SubViewport viewport = new()
         {
             Name = "PlaceholderBake",
-            Size = new Vector2I(512, 192),
+            Size = new Vector2I(768, 512),
             TransparentBg = true,
             Disable3D = true,
             World2D = new World2D(),
@@ -51,7 +64,6 @@ public partial class PlaceholderAtlas : Node2D
             _atmosphere = host.GetTree().GetFirstNodeInGroup("world_atmosphere")
                 as WorldAtmosphere
         };
-
         host.AddChild(viewport);
         viewport.AddChild(painter);
 
@@ -77,11 +89,31 @@ public partial class PlaceholderAtlas : Node2D
 
     #region Drawing
     // =========================================================
-    // Dispatch each independent drawing into its assigned sprite region.
+    // Create temporary rock painters whose shader output becomes baked artwork.
+    public override void _Ready()
+    {
+        for (int variant = 0; variant < RockDrawing.VariantCount; variant++)
+        {
+            AddChild(new RockBakePainter
+            {
+                Name = $"Rock_{variant}",
+                Variant = variant,
+                Atmosphere = _atmosphere,
+                Position = GetRockRegion(variant).Position + new Vector2(80, 120)
+            });
+        }
+        SetProcess(false);
+    }
+
+    // =========================================================
+    // Draw feet shadows and the remaining independently defined artwork.
     public override void _Draw()
     {
-        DrawSetTransform(RockRegion.Position + new Vector2(80, 120));
-        RockDrawing.Draw(this, _atmosphere);
+        for (int variant = 0; variant < RockDrawing.VariantCount; variant++)
+        {
+            DrawSetTransform(GetRockRegion(variant).Position + new Vector2(80, 120));
+            DrawingHelpers.Shadow(this, 58f, 0.42f, 0.26f);
+        }
 
         DrawSetTransform(CrateRegion.Position + new Vector2(80, 120));
         CrateDrawing.Draw(this, _atmosphere);

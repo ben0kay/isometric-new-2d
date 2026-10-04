@@ -8,21 +8,22 @@
 [ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Terrain/TerrainElevation.cs" id="6_elevation"]
 [ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="7_projectiles"]
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="8_atmosphere"]
+[ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 
-[node name="WorldTest" type="Node2D" unique_id=431731908]
+[node name="WorldTest" type="Node2D" unique_id=809724083]
 
-[node name="GroundChunks" type="Node2D" parent="." unique_id=1108695803]
+[node name="GroundChunks" type="Node2D" parent="." unique_id=1725811198]
 z_index = -2
 
-[node name="WorldObjects" type="Node2D" parent="." unique_id=1207413728]
+[node name="WorldObjects" type="Node2D" parent="." unique_id=263400682]
 y_sort_enabled = true
 
-[node name="Player" parent="WorldObjects" unique_id=661890026 instance=ExtResource("1_player")]
+[node name="Player" parent="WorldObjects" unique_id=432636805 instance=ExtResource("1_player")]
 position = Vector2(0, 180)
 
-[node name="Systems" type="Node" parent="." unique_id=714722143]
+[node name="Systems" type="Node" parent="." unique_id=519031447]
 
-[node name="Atmosphere" type="Node" parent="Systems" unique_id=597471848]
+[node name="Atmosphere" type="Node" parent="Systems" unique_id=13545254]
 script = ExtResource("8_atmosphere")
 FaceAmbient = 0.35
 FaceSunStrength = 1.05
@@ -32,27 +33,34 @@ FogColor = Color(0.16, 0.31, 0.43, 1)
 FogDensity = 0.72
 FogNoiseScale = 0.0012
 
-[node name="TerrainElevation" type="Node" parent="Systems" unique_id=410560499]
+[node name="GroundFog" type="Node" parent="Systems" unique_id=1656411285]
+script = ExtResource("9_ground_fog")
+CloudColor = Color(0.52, 0.61, 0.65, 1)
+Opacity = 0.1
+Coverage = 0.48
+Wind = Vector2(10, -3)
+
+[node name="TerrainElevation" type="Node" parent="Systems" unique_id=139849959]
 script = ExtResource("6_elevation")
 MaxHeight = 128.0
 FeatureSize = 8.0
 ShadeStrength = 0.08
 
-[node name="WorldNavigation" type="Node" parent="Systems" unique_id=94911667]
+[node name="WorldNavigation" type="Node" parent="Systems" unique_id=1190736670]
 script = ExtResource("4_navigation")
 
-[node name="ChunkController" type="Node" parent="Systems" unique_id=904557050]
+[node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
 
-[node name="EnemyTest" type="Node" parent="Systems" unique_id=93003131]
+[node name="EnemyTest" type="Node" parent="Systems" unique_id=1277297044]
 script = ExtResource("5_enemy_test")
 
-[node name="ProjectilePool" type="Node" parent="Systems" unique_id=1432337272]
+[node name="ProjectilePool" type="Node" parent="Systems" unique_id=1460707211]
 script = ExtResource("7_projectiles")
 
-[node name="HUD" type="CanvasLayer" parent="." unique_id=1221681675]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1796982900]
 
-[node name="ChunkInfo" type="Label" parent="HUD" unique_id=126984497]
+[node name="ChunkInfo" type="Label" parent="HUD" unique_id=1021907104]
 offset_left = 16.0
 offset_top = 40.0
 offset_right = 660.0
@@ -64,7 +72,7 @@ theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 text = "Loading world..."
 
-[node name="FPS" type="Label" parent="HUD" unique_id=1980447795]
+[node name="FPS" type="Label" parent="HUD" unique_id=91556665]
 offset_left = 16.0
 offset_top = 12.0
 offset_right = 180.0

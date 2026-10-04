@@ -1,20 +1,21 @@
-// Creates obstacle collision, terrain-adjusted artwork and a cached sun shadow.
-// All obstacles share the baked atlas and the world's atmosphere settings.
+// Creates obstacle collision, terrain-adjusted baked artwork and a cached shadow.
+// Rocks select a stable atlas variant without running a surface shader in gameplay.
 using Godot;
 
 public partial class Obstacle : StaticBody2D
 {
-    #region Configuration
-    public enum ObstacleKind { Rock, Crate }
+	#region Configuration
+	public enum ObstacleKind { Rock, Crate }
 
-    [Export] public ObstacleKind Kind { get; set; } = ObstacleKind.Rock;
-    [Export] public Vector2 Footprint { get; set; } = new(96, 48);
-    [Export] public float Height { get; set; } = 72f;
-    #endregion
+	[Export] public ObstacleKind Kind { get; set; } = ObstacleKind.Rock;
+	[Export] public Vector2 Footprint { get; set; } = new(96, 48);
+	[Export] public float Height { get; set; } = 72f;
+	[Export] public int RockVariant { get; set; } = -1;
+	#endregion
 
-    #region Lifecycle
-    // =========================================================
-    // Build the footprint, attach baked artwork and project its static shadow.
+	#region Lifecycle
+	// =========================================================
+	// Build collision, select baked artwork and project the obstacle's shadow.
     public override async void _Ready()
     {
         AddChild(new CollisionShape2D
@@ -28,11 +29,20 @@ public partial class Obstacle : StaticBody2D
             await PlaceholderAtlas.EnsureReady(this);
             if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-            Rect2 region = Kind == ObstacleKind.Rock
-                ? PlaceholderAtlas.RockRegion : PlaceholderAtlas.CrateRegion;
+            int variant = RockVariant;
+            if (variant < 0)
+            {
+                variant = (int)(IsoGrid.Hash(
+                    Mathf.RoundToInt(GlobalPosition.X),
+                    Mathf.RoundToInt(GlobalPosition.Y), 64127u)
+                    % (uint)RockDrawing.VariantCount);
+            }
 
-            TerrainVisual.Attach(
-                this, region, new Vector2(-80, -120),
+            Rect2 region = Kind == ObstacleKind.Rock
+                ? PlaceholderAtlas.GetRockRegion(variant)
+                : PlaceholderAtlas.CrateRegion;
+
+            TerrainVisual.Attach(this, region, new Vector2(-80, -120),
                 new Vector2(Footprint.X / 96f, Height / 72f), false);
 
             WorldAtmosphere atmosphere =
