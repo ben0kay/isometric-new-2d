@@ -1,61 +1,54 @@
-// Draws low spreading alien shrubs with charcoal branches and curled blue foliage.
-// Uses fewer crowns so individual leaves remain readable against the ground.
+// Draws low spreading alien shrub clusters using small leaves and dark branching stems.
+// Shares vegetation palettes while keeping its own shape-generation code.
 using Godot;
 
 public static class AlienShrubDrawing
 {
     #region Drawing
     // =========================================================
-    // Build three irregular branching crowns with broad drooping leaves.
+    // Build a low irregular cluster with several spreading leafy branches.
     public static void Draw(Node2D painter, int variant)
     {
+        int shape = variant % VegetationPalette.ShapeCount;
+        int palette = variant / VegetationPalette.ShapeCount;
         using RandomNumberGenerator rng = new();
-        rng.Seed = (ulong)(33179 + variant * 1237);
+        rng.Seed = (ulong)(33179 + shape * 1237);
 
-        for (int branch = 0; branch < 3; branch++)
+        for (int branch = 0; branch < 11; branch++)
         {
-            float side = branch - 1;
-            Vector2 crown = new(
-                side * rng.RandfRange(33, 48),
-                -rng.RandfRange(40, 65));
-            Vector2 bend = new(crown.X * 0.45f, crown.Y * 0.6f);
+            float spread = (branch - 5) / 5f;
+            Vector2 root = new(rng.RandfRange(-9, 9), rng.RandfRange(-4, 1));
+            Vector2 tip = new(
+                spread * rng.RandfRange(48, 78),
+                -rng.RandfRange(32, 76) + Mathf.Abs(spread) * 14f);
+            Vector2 direction = (tip - root).Normalized();
+            Vector2 normal = new(-direction.Y, direction.X);
 
-            painter.DrawPolyline(
-                new Vector2[] { new(0, 0), bend, crown },
-                new Color("#142127"), 5f, true);
-            painter.DrawPolyline(new Vector2[]
+            painter.DrawLine(root, tip, new Color("#1b3037"), 1.2f, true);
+
+            for (int leaf = 0; leaf < 6; leaf++)
             {
-                new(-1, -1), bend + new Vector2(-1, 0),
-                crown + new Vector2(-1, 0)
-            }, new Color("#2c3e45"), 1f, true);
+                float t = 0.2f + leaf * 0.12f;
+                float side = leaf % 2 == 0 ? -1f : 1f;
+                Vector2 start = root.Lerp(tip, t);
+                float length = rng.RandfRange(12, 21) * (1f - t * 0.35f);
+                Vector2 end = start
+                    + normal * side * length
+                    + direction * length * 0.65f;
 
-            for (int leaf = 0; leaf < 4; leaf++)
-            {
-                float direction = (leaf - 1.5f) / 1.5f;
-                Vector2 start = crown + new Vector2(0, 5);
-                Vector2 control = crown + new Vector2(
-                    direction * 40f, -rng.RandfRange(37, 57));
-                Vector2 end = crown + new Vector2(
-                    direction * rng.RandfRange(33, 47),
-                    -rng.RandfRange(7, 27));
+                Color colour = VegetationPalette.GetLeaf(
+                    palette, rng.RandfRange(0.1f, 0.8f),
+                    leaf > 3 && rng.Randf() < 0.18f);
+                if (branch < 4) colour = colour.Darkened(0.2f);
 
-                Color colour = new Color("#314b59").Lerp(
-                    new Color("#527481"), rng.RandfRange(0.1f, 0.65f));
-                VegetationDrawingHelpers.Leaf(
-                    painter, start, control, end,
-                    rng.RandfRange(12, 18), colour,
-                    branch * 3f + leaf + variant);
+                VegetationDrawingHelpers.Leaflet(
+                    painter, start, end, rng.RandfRange(2.7f, 4.5f), colour);
             }
-        }
 
-        VegetationDrawingHelpers.Leaf(
-            painter, new Vector2(-2, -3),
-            new Vector2(-41, -45), new Vector2(-65, -15),
-            16f, new Color("#35525f"), variant + 14);
-        VegetationDrawingHelpers.Leaf(
-            painter, new Vector2(3, -3),
-            new Vector2(39, -48), new Vector2(62, -22),
-            17f, new Color("#456571"), variant + 18);
+            VegetationDrawingHelpers.Leaflet(
+                painter, root.Lerp(tip, 0.78f), tip, 3f,
+                VegetationPalette.GetLeaf(palette, 0.3f));
+        }
     }
     #endregion
 }

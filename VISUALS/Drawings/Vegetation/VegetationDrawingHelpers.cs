@@ -161,5 +161,45 @@ private static void DrawSurfaceTriangle(
         new Vector2[] { a, b, c },
         new Color[] { ca, cb, cc });
 }
+
+// =========================================================
+// Draw a small tapered leaflet with a dark base and directional face shading.
+public static void Leaflet(
+    Node2D painter, Vector2 start, Vector2 end, float width, Color shade)
+{
+    Vector2 direction = end - start;
+    if (direction.LengthSquared() < 0.01f) return;
+    Vector2 normal = new Vector2(-direction.Y, direction.X).Normalized();
+    Vector2 light = new Vector2(-1f, -0.7f).Normalized();
+
+    float facing = normal.Dot(light);
+    float firstSide = 0.62f + facing * 0.23f;
+    float secondSide = 0.62f - facing * 0.23f;
+    Color baseColour = shade.Darkened(0.68f);
+    Color tipColour = shade.Lightened(0.06f);
+
+    Vector2[] points =
+    {
+        start,
+        start + direction * 0.28f + normal * width,
+        start + direction * 0.7f + normal * width * 0.65f,
+        end,
+        start + direction * 0.7f - normal * width * 0.55f,
+        start + direction * 0.28f - normal * width * 0.85f
+    };
+    Color[] colours =
+    {
+        baseColour,
+        shade.Darkened(1f - firstSide),
+        shade.Darkened(1f - firstSide * 1.08f),
+        tipColour,
+        shade.Darkened(1f - secondSide * 1.08f),
+        shade.Darkened(1f - secondSide)
+    };
+
+    painter.DrawPolygon(points, colours);
+    painter.DrawLine(start.Lerp(end, 0.15f), start.Lerp(end, 0.88f),
+        new Color(shade.R, shade.G, shade.B, 0.25f), 0.55f, true);
+}
     #endregion
 }
