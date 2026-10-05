@@ -54,42 +54,42 @@ public partial class Player : CharacterBody2D
 // Combine attributes, inventory weight and surface effects before moving.
 public override void _PhysicsProcess(double delta)
 {
-    _weapon.Tick(delta);
-    bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-    if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
+	_weapon.Tick(delta);
+	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
+	if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
 
-    _surfaceEffects ??=
-        GetNode<PlayerSurfaceEffects>("Systems/SurfaceEffects");
-    _surfaceEffects.UpdateState(_visual);
+	_surfaceEffects ??=
+		GetNode<PlayerSurfaceEffects>("Systems/SurfaceEffects");
+	_surfaceEffects.UpdateState(_visual);
 
-    Vector2 direction = _inventoryHud.BlocksWorldMovement
-        ? Vector2.Zero : ReadMovement();
+	Vector2 direction = _inventoryHud.BlocksWorldMovement
+		? Vector2.Zero : ReadMovement();
 
-    Velocity = direction.Normalized() *
-        _stats.Get(PlayerStat.MovementSpeed) *
-        _inventory.MovementFactor *
-        _surfaceEffects.MovementMultiplier;
+	Velocity = direction.Normalized() *
+		_stats.Get(PlayerStat.MovementSpeed) *
+		_inventory.MovementFactor *
+		_surfaceEffects.MovementMultiplier;
 
-    MoveAndSlide();
-    _visual.UpdateHeight();
-    _surfaceEffects.UpdateState(_visual);
+	MoveAndSlide();
+	_visual.UpdateHeight();
+	_surfaceEffects.UpdateState(_visual);
 
-    bool firing = !attackBlocked && _weapon.Attack != null &&
-        Input.IsMouseButtonPressed(MouseButton.Left);
-    float horizontal = firing
-        ? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+	bool firing = !attackBlocked && _weapon.Attack != null &&
+		Input.IsMouseButtonPressed(MouseButton.Left);
+	float horizontal = firing
+		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
-    if (Mathf.Abs(horizontal) > 0.001f)
-    {
-        float nextFacing = horizontal > 0f ? 1f : -1f;
-        if (nextFacing != _facing)
-        {
-            _facing = nextFacing;
-            _visual.Scale = new Vector2(_facing, 1f);
-        }
-    }
+	if (Mathf.Abs(horizontal) > 0.001f)
+	{
+		float nextFacing = horizontal > 0f ? 1f : -1f;
+		if (nextFacing != _facing)
+		{
+			_facing = nextFacing;
+			_visual.Scale = new Vector2(_facing, 1f);
+		}
+	}
 
-    if (firing) _weapon.TryFireAtCursor();
+	if (firing) _weapon.TryFireAtCursor();
 }
 
 	// =========================================================

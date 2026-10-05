@@ -45,8 +45,8 @@ public partial class GroundResourceWorld : Node
         _elevation = GetNode<TerrainElevation>("../TerrainElevation");
         _ground = GetNode<Node2D>("../../GroundChunks");
         _resources = ResourceWorld.Find(this);
-        _catalog = GD.Load<GroundResourceCatalog>(
-            "res://WORLD/GroundResources/GroundResourceCatalog.tres");
+_catalog = GD.Load<GroundResourceCatalog>(
+    "res://WORLD/Contents/GroundResources/GroundResourceCatalog.tres");
 
         if (_resources == null || _catalog == null)
             throw new InvalidOperationException(

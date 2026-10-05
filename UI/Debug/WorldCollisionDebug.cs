@@ -109,92 +109,92 @@ public partial class WorldCollisionDebug : Node2D
 // Draw collisions, ground deposits and water boundaries in separate passes.
 public override void _Draw()
 {
-    if (!Enabled) return;
+	if (!Enabled) return;
 
-    foreach (Node2D node in _collisions)
-    {
-        if (!GodotObject.IsInstanceValid(node) ||
-            !node.IsInsideTree() || node.IsQueuedForDeletion())
-            continue;
+	foreach (Node2D node in _collisions)
+	{
+		if (!GodotObject.IsInstanceValid(node) ||
+			!node.IsInsideTree() || node.IsQueuedForDeletion())
+			continue;
 
-        if (node.GetParent() is not CollisionObject2D owner ||
-            (owner.CollisionLayer == 0 && owner.CollisionMask == 0))
-            continue;
+		if (node.GetParent() is not CollisionObject2D owner ||
+			(owner.CollisionLayer == 0 && owner.CollisionMask == 0))
+			continue;
 
-        if (owner is Enemy enemy && !enemy.IsActivated)
-            continue;
+		if (owner is Enemy enemy && !enemy.IsActivated)
+			continue;
 
-        Vector2[] collisionPoints;
-        bool fill = true;
+		Vector2[] collisionPoints;
+		bool fill = true;
 
-        if (node is CollisionShape2D shape)
-        {
-            if (shape.Disabled || shape.Shape == null) continue;
-            collisionPoints = MakeOutline(shape.Shape);
-            fill = shape.Shape is not ConcavePolygonShape2D &&
-                shape.Shape is not SegmentShape2D;
-        }
-        else if (node is CollisionPolygon2D polygon)
-        {
-            if (polygon.Disabled) continue;
-            collisionPoints = polygon.Polygon;
-            fill = polygon.BuildMode ==
-                CollisionPolygon2D.BuildModeEnum.Solids;
-        }
-        else continue;
+		if (node is CollisionShape2D shape)
+		{
+			if (shape.Disabled || shape.Shape == null) continue;
+			collisionPoints = MakeOutline(shape.Shape);
+			fill = shape.Shape is not ConcavePolygonShape2D &&
+				shape.Shape is not SegmentShape2D;
+		}
+		else if (node is CollisionPolygon2D polygon)
+		{
+			if (polygon.Disabled) continue;
+			collisionPoints = polygon.Polygon;
+			fill = polygon.BuildMode ==
+				CollisionPolygon2D.BuildModeEnum.Solids;
+		}
+		else continue;
 
-        if (collisionPoints.Length < 2) continue;
+		if (collisionPoints.Length < 2) continue;
 
-        Vector2 offset = Vector2.Zero;
-        if (AlignWithArtwork &&
-            owner.GetNodeOrNull<Node2D>("Visual") is Node2D visual)
-            offset = visual.GlobalPosition - owner.GlobalPosition;
+		Vector2 offset = Vector2.Zero;
+		if (AlignWithArtwork &&
+			owner.GetNodeOrNull<Node2D>("Visual") is Node2D visual)
+			offset = visual.GlobalPosition - owner.GlobalPosition;
 
-        Vector2[] projected = new Vector2[collisionPoints.Length];
-        for (int i = 0; i < collisionPoints.Length; i++)
-            projected[i] = ToLocal(node.ToGlobal(collisionPoints[i]) + offset);
+		Vector2[] projected = new Vector2[collisionPoints.Length];
+		for (int i = 0; i < collisionPoints.Length; i++)
+			projected[i] = ToLocal(node.ToGlobal(collisionPoints[i]) + offset);
 
-        if (node is CollisionShape2D segmentShape &&
-            segmentShape.Shape is ConcavePolygonShape2D)
-        {
-            for (int i = 0; i + 1 < projected.Length; i += 2)
-                DrawLine(projected[i], projected[i + 1],
-                    OutlineColor, 2f, true);
-        }
-        else
-            Paint(projected, fill);
-    }
+		if (node is CollisionShape2D segmentShape &&
+			segmentShape.Shape is ConcavePolygonShape2D)
+		{
+			for (int i = 0; i + 1 < projected.Length; i += 2)
+				DrawLine(projected[i], projected[i + 1],
+					OutlineColor, 2f, true);
+		}
+		else
+			Paint(projected, fill);
+	}
 
-    GroundResourceWorld resources = GroundResourceWorld.Find(this);
-    if (resources != null)
-    {
-        foreach (var patch in resources.GetDebugFootprints())
-        {
-            Vector2[] depositPoints = new Vector2[patch.Points.Length];
-            for (int i = 0; i < depositPoints.Length; i++)
-                depositPoints[i] = ToLocal(patch.Points[i]);
+	GroundResourceWorld resources = GroundResourceWorld.Find(this);
+	if (resources != null)
+	{
+		foreach (var patch in resources.GetDebugFootprints())
+		{
+			Vector2[] depositPoints = new Vector2[patch.Points.Length];
+			for (int i = 0; i < depositPoints.Length; i++)
+				depositPoints[i] = ToLocal(patch.Points[i]);
 
-            Paint(depositPoints, true);
-            DrawString(ThemeDB.FallbackFont, ToLocal(patch.Centre),
-                patch.Label, HorizontalAlignment.Left, -1, 16, OutlineColor);
-        }
-    }
+			Paint(depositPoints, true);
+			DrawString(ThemeDB.FallbackFont, ToLocal(patch.Centre),
+				patch.Label, HorizontalAlignment.Left, -1, 16, OutlineColor);
+		}
+	}
 
-    SurfaceWorld surfaces = SurfaceWorld.Find(this);
-    if (surfaces != null)
-    {
-        foreach (SurfacePatch patch in surfaces.GetDebugPatches())
-        {
-            Vector2[] surfacePoints = patch.GetDebugOutline();
-            for (int i = 0; i < surfacePoints.Length; i++)
-                surfacePoints[i] = ToLocal(surfacePoints[i]);
+	SurfaceWorld surfaces = SurfaceWorld.Find(this);
+	if (surfaces != null)
+	{
+		foreach (SurfacePatch patch in surfaces.GetDebugPatches())
+		{
+			Vector2[] surfacePoints = patch.GetDebugOutline();
+			for (int i = 0; i < surfacePoints.Length; i++)
+				surfacePoints[i] = ToLocal(surfacePoints[i]);
 
-            Paint(surfacePoints, true);
-            DrawString(ThemeDB.FallbackFont, ToLocal(patch.GlobalPosition),
-                patch.Definition.Id, HorizontalAlignment.Left, -1, 16,
-                OutlineColor);
-        }
-    }
+			Paint(surfacePoints, true);
+			DrawString(ThemeDB.FallbackFont, ToLocal(patch.GlobalPosition),
+				patch.Definition.Id, HorizontalAlignment.Left, -1, 16,
+				OutlineColor);
+		}
+	}
 }
 
 // =========================================================

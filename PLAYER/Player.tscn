@@ -24,7 +24,7 @@
 [ext_resource type="Script" path="res://PLAYER/Gathering/PlayerDigging.cs" id="22_digging"]
 [ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelItem.tres" id="23_shovel"]
 [ext_resource type="Script" path="res://PLAYER/Movement/PlayerSurfaceEffects.cs" id="24_surface_effects"]
-[ext_resource type="Shader" path="res://WORLD/Surfaces/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
+[ext_resource type="Shader" path="res://WORLD/Contents/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
 
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
