@@ -1,11 +1,16 @@
-// Stores reusable health and damage immunity independently from actor behaviour.
-// Signals let visuals, death handling, and UI respond without owning health logic.
+// Stores per-actor vitality, immunity timing, and an optional defense profile.
+// Existing callers can still use Damage(amount); typed attacks supply a damage channel.
 using Godot;
+using System;
 
 public partial class Health : Node
 {
     #region Configuration
+    [ExportGroup("Vitality")]
     [Export] public int MaxHealth { get; set; } = 100;
+    [Export] public DefenseDefinition Defense { get; set; }
+
+    [ExportGroup("Protection")]
     [Export] public float DamageImmunity { get; set; }
     #endregion
 
@@ -18,34 +23,41 @@ public partial class Health : Node
     #region State
     public int Current { get; private set; }
     public bool IsAlive => Current > 0;
+    public string VitalityLabel => Defense?.VitalityLabel ?? "Health";
     private double _immunity;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Initialize this instance without modifying another actor's health.
+    // Initialize this actor without changing its shared defense resource.
     public override void _Ready()
     {
-        MaxHealth = System.Math.Max(1, MaxHealth);
+        MaxHealth = Math.Max(1, MaxHealth);
         Current = MaxHealth;
+        SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Count down temporary protection using physics time.
+    // Process temporary protection only while it is active.
     public override void _PhysicsProcess(double delta)
     {
-        _immunity = System.Math.Max(0.0, _immunity - delta);
+        _immunity = Math.Max(0.0, _immunity - delta);
+        if (_immunity <= 0.0) SetPhysicsProcess(false);
     }
     #endregion
 
-    #region Health Operations
+    #region Operations
     // =========================================================
-    // Apply accepted damage and emit death once when health reaches zero.
-    public bool Damage(int amount)
+    // Resolve defenses, apply accepted damage, and emit death once.
+    public bool Damage(int amount, DamageType type = DamageType.Neutral)
     {
         if (!IsAlive || amount <= 0 || _immunity > 0.0) return false;
-        Current = System.Math.Max(0, Current - amount);
-        _immunity = System.Math.Max(0.0, DamageImmunity);
+        int resolved = Defense?.ResolveDamage(amount, type) ?? amount;
+        if (resolved <= 0) return false;
+
+        Current = Math.Max(0, Current - resolved);
+        _immunity = Math.Max(0.0, DamageImmunity);
+        SetPhysicsProcess(_immunity > 0.0);
         EmitSignal(SignalName.Changed, Current, MaxHealth);
         EmitSignal(SignalName.Hit);
         if (!IsAlive) EmitSignal(SignalName.Died);
@@ -53,11 +65,22 @@ public partial class Health : Node
     }
 
     // =========================================================
-    // Restore full health and optionally grant protection after respawning.
+    // Restore full vitality with optional respawn protection.
     public void Restore(float protection = 1f)
     {
         Current = MaxHealth;
-        _immunity = System.Math.Max(0.0, protection);
+        _immunity = Math.Max(0.0, protection);
+        SetPhysicsProcess(_immunity > 0.0);
+        EmitSignal(SignalName.Changed, Current, MaxHealth);
+    }
+
+    // =========================================================
+    // Restore a living streamed actor without granting fresh immunity.
+    public void RestoreState(int current)
+    {
+        Current = Math.Clamp(current, 1, MaxHealth);
+        _immunity = 0.0;
+        SetPhysicsProcess(false);
         EmitSignal(SignalName.Changed, Current, MaxHealth);
     }
     #endregion

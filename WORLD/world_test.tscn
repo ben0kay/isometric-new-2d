@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="2_chunks"]
 [ext_resource type="Script" uid="uid://7qiets80o66t" path="res://UI/FpsLabel.cs" id="3_fps"]
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="4_navigation"]
-[ext_resource type="Script" uid="uid://bpmnjvyyqses8" path="res://ENEMIES/EnemyTest.cs" id="5_enemy_test"]
+[ext_resource type="PackedScene" path="res://ENEMIES/EnemyPopulation.tscn" id="5_enemy_population"]
 [ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="6_elevation"]
 [ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="7_projectiles"]
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="8_atmosphere"]
@@ -64,8 +64,7 @@ script = ExtResource("4_navigation")
 [node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
 
-[node name="EnemyTest" type="Node" parent="Systems" unique_id=1277297044]
-script = ExtResource("5_enemy_test")
+[node name="EnemyPopulation" parent="Systems" instance=ExtResource("5_enemy_population")]
 
 [node name="ProjectilePool" type="Node" parent="Systems" unique_id=1460707211]
 script = ExtResource("7_projectiles")

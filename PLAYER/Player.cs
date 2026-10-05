@@ -50,30 +50,33 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-	// =========================================================
-	// Apply carrying speed, move, and use the currently equipped tool.
-	public override void _PhysicsProcess(double delta)
-	{
-		_weapon.Tick(delta);
-		if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
+// =========================================================
+// Update the UI input gate every tick, then move and use the equipped tool.
+public override void _PhysicsProcess(double delta)
+{
+	_weapon.Tick(delta);
+	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
 
-		Vector2 direction = _inventoryHud.IsOpen ? Vector2.Zero : ReadMovement();
-		Velocity = direction.Normalized() * MoveSpeed * _inventory.MovementFactor;
-		MoveAndSlide();
+	if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
 
-		bool firing = Input.IsMouseButtonPressed(MouseButton.Left) &&
-			!_inventoryHud.BlocksWorldAttack() && _weapon.Attack != null;
-		if (firing) _weapon.TryFireAtCursor();
+	Vector2 direction = _inventoryHud.IsOpen ? Vector2.Zero : ReadMovement();
+	Velocity = direction.Normalized() * MoveSpeed * _inventory.MovementFactor;
+	MoveAndSlide();
 
-		float horizontal = firing
-			? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
-		if (Mathf.Abs(horizontal) < 0.001f) return;
+	bool firing = !attackBlocked && _weapon.Attack != null &&
+		Input.IsMouseButtonPressed(MouseButton.Left);
+	if (firing) _weapon.TryFireAtCursor();
 
-		float nextFacing = horizontal > 0f ? 1f : -1f;
-		if (nextFacing == _facing) return;
-		_facing = nextFacing;
-		_visual.Scale = new Vector2(_facing, 1f);
-	}
+	float horizontal = firing
+		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+	if (Mathf.Abs(horizontal) < 0.001f) return;
+
+	float nextFacing = horizontal > 0f ? 1f : -1f;
+	if (nextFacing == _facing) return;
+
+	_facing = nextFacing;
+	_visual.Scale = new Vector2(_facing, 1f);
+}
 
 	// =========================================================
 	// Read four-direction arrow input independently from carrying rules.

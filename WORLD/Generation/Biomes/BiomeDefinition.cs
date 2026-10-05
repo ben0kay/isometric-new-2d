@@ -50,6 +50,11 @@ public partial class BiomeDefinition : Resource
     [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; } = new();
     #endregion
 
+    #region Enemies
+[ExportGroup("Enemies")]
+[Export] public BiomeEnemies Enemies { get; set; }
+#endregion
+
     #region Climate Queries
     // =========================================================
     // Return the natural selection weight only when the climate fits this biome.

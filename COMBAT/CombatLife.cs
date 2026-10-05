@@ -85,14 +85,14 @@ public partial class CombatLife : Node
         SetProcess(true);
     }
 
-    // =========================================================
-    // Update health text whenever damage or restoration changes the value.
-    private void OnChanged(int current, int maximum)
-    {
-        if (_label == null) return;
-        _label.Text = $"HEALTH {current} / {maximum}";
-        _label.Modulate = current <= maximum / 3 ? new Color("#ff7164") : Colors.White;
-    }
+// =========================================================
+// Display the actor's vitality terminology and current value.
+private void OnChanged(int current, int maximum)
+{
+    if (_label == null) return;
+    _label.Text = $"{_health.VitalityLabel.ToUpperInvariant()} {current} / {maximum}";
+    _label.Modulate = current <= maximum / 3 ? new Color("#ff7164") : Colors.White;
+}
     #endregion
 
     #region Death And Respawn

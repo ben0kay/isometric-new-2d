@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BiomeEnemies" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeEnemies.cs" id="1_population"]
+[ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="2_definition"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/MeleeRobot.tres" id="3_melee"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/RangedRobot.tres" id="4_ranged"]
+
+[resource]
+script = ExtResource("1_population")
+MinimumPerChunk = 0
+MaximumPerChunk = 2
+Definitions = Array[ExtResource("2_definition")]([ExtResource("3_melee"), ExtResource("4_ranged")])

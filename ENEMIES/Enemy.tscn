@@ -1,11 +1,14 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://ENEMIES/Enemy.cs" id="1_enemy"]
 [ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
 [ext_resource type="Script" path="res://COMBAT/CombatLife.cs" id="3_life"]
-[ext_resource type="Script" path="res://COMBAT/Attacks/ContactAttack.cs" id="4_contact"]
+[ext_resource type="Script" path="res://ENEMIES/EnemyMotor.cs" id="4_motor"]
+[ext_resource type="Script" path="res://ENEMIES/EnemyCombat.cs" id="5_combat"]
+[ext_resource type="Script" path="res://COMBAT/Weapons/Weapon.cs" id="6_weapon"]
+[ext_resource type="Resource" path="res://ENEMIES/Simulant/MeleeSimulant.tres" id="7_definition"]
 
-[sub_resource type="CircleShape2D" id="CircleShape_enemy"]
+[sub_resource type="CircleShape2D" id="EnemyShape"]
 radius = 10.0
 
 [node name="Enemy" type="CharacterBody2D" groups=["enemies"]]
@@ -13,21 +16,25 @@ collision_layer = 4
 collision_mask = 9
 motion_mode = 1
 script = ExtResource("1_enemy")
+Definition = ExtResource("7_definition")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape_enemy")
+shape = SubResource("EnemyShape")
 
 [node name="Systems" type="Node" parent="."]
 
 [node name="Health" type="Node" parent="Systems"]
 script = ExtResource("2_health")
-MaxHealth = 60
 
 [node name="CombatLife" type="Node" parent="Systems"]
 script = ExtResource("3_life")
 
-[node name="ContactAttack" type="Node" parent="Systems"]
-script = ExtResource("4_contact")
-Damage = 15
-Range = 34.0
-Cooldown = 0.8
+[node name="Weapon" type="Node" parent="Systems"]
+script = ExtResource("6_weapon")
+Team = 1
+
+[node name="Motor" type="Node" parent="Systems"]
+script = ExtResource("4_motor")
+
+[node name="Combat" type="Node" parent="Systems"]
+script = ExtResource("5_combat")

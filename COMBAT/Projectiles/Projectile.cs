@@ -13,6 +13,7 @@ public partial class Projectile : Node2D
     private Vector2 _direction;
     private float _speed, _remaining, _visualHeight;
     private int _damage;
+    private DamageType _damageType;
     private bool _active;
     #endregion
 
@@ -42,56 +43,55 @@ public partial class Projectile : Node2D
         _query.Dispose();
     }
 
-    // =========================================================
-    // Sweep the complete movement segment and resolve its first impact.
-    public override void _PhysicsProcess(double delta)
+// =========================================================
+// Sweep the complete travel segment and deliver typed damage at impact.
+public override void _PhysicsProcess(double delta)
+{
+    if (!_active) return;
+    float step = Mathf.Min((float)delta, _remaining);
+    Vector2 next = GlobalPosition + _direction * _speed * step;
+    _query.From = GlobalPosition;
+    _query.To = next;
+
+    var hit = GetWorld2D().DirectSpaceState.IntersectRay(_query);
+    if (hit.Count > 0)
     {
-        if (!_active) return;
-        float step = Mathf.Min((float)delta, _remaining);
-        Vector2 next = GlobalPosition + _direction * _speed * step;
-        _query.From = GlobalPosition;
-        _query.To = next;
-
-        var hit = GetWorld2D().DirectSpaceState.IntersectRay(_query);
-        if (hit.Count > 0)
-        {
-            Node collider = hit["collider"].AsGodotObject() as Node;
-            Health health = collider?.GetNodeOrNull<Health>("Systems/Health");
-            health?.Damage(_damage);
-            Release();
-            return;
-        }
-
-        GlobalPosition = next;
-        _remaining -= (float)delta;
-        if (_remaining <= 0f) { Release(); return; }
-        UpdateArtwork();
+        Node collider = hit["collider"].AsGodotObject() as Node;
+        Health health = collider?.GetNodeOrNull<Health>("Systems/Health");
+        health?.Damage(_damage, _damageType);
+        Release();
+        return;
     }
-    #endregion
 
-    #region Pool Operations
-    // =========================================================
-    // Snapshot attack settings so existing bullets do not change with the resource.
-    public void Launch(
-        ProjectilePool pool, Vector2 origin, Vector2 direction,
-        ProjectileAttack attack, uint mask)
-    {
-        _pool = pool;
-        GlobalPosition = origin;
-        _direction = direction.Normalized();
-        _speed = Mathf.Max(1f, attack.Speed);
-        _remaining = Mathf.Max(0.05f, attack.Lifetime);
-        _visualHeight = attack.VisualHeight;
-        _damage = System.Math.Max(0, attack.Damage);
-        _query.CollisionMask = mask;
-        _sprite.Modulate = attack.Tint;
-        _sprite.Rotation = _direction.Angle();
-        _elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
-        _active = true;
-        UpdateArtwork();
-        Show();
-        SetPhysicsProcess(true);
-    }
+    GlobalPosition = next;
+    _remaining -= (float)delta;
+    if (_remaining <= 0f) { Release(); return; }
+    UpdateArtwork();
+}
+
+// =========================================================
+// Snapshot attack settings so pooled projectiles retain their own damage type.
+public void Launch(
+    ProjectilePool pool, Vector2 origin, Vector2 direction,
+    ProjectileAttack attack, uint mask)
+{
+    _pool = pool;
+    GlobalPosition = origin;
+    _direction = direction.Normalized();
+    _speed = Mathf.Max(1f, attack.Speed);
+    _remaining = Mathf.Max(0.05f, attack.Lifetime);
+    _visualHeight = attack.VisualHeight;
+    _damage = System.Math.Max(0, attack.Damage);
+    _damageType = attack.Type;
+    _query.CollisionMask = mask;
+    _sprite.Modulate = attack.Tint;
+    _sprite.Rotation = _direction.Angle();
+    _elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
+    _active = true;
+    UpdateArtwork();
+    Show();
+    SetPhysicsProcess(true);
+}
 
     // =========================================================
     // Deactivate once and return this instance for a later shot.
