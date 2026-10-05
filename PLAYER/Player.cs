@@ -17,6 +17,7 @@ public partial class Player : CharacterBody2D
 	private PlayerInventory _inventory;
 	private InventoryHud _inventoryHud;
 	private float _facing = 1f;
+	#endregion
 
 	#region Lifecycle
 	// =========================================================
