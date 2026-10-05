@@ -23,6 +23,8 @@
 [ext_resource type="Script" uid="uid://vbfabib50dpv" path="res://PLAYER/Inventory/PlayerHotbar.cs" id="21_hotbar"]
 [ext_resource type="Script" path="res://PLAYER/Gathering/PlayerDigging.cs" id="22_digging"]
 [ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelItem.tres" id="23_shovel"]
+[ext_resource type="Script" path="res://PLAYER/Movement/PlayerSurfaceEffects.cs" id="24_surface_effects"]
+[ext_resource type="Shader" path="res://WORLD/Surfaces/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
 
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
@@ -98,6 +100,10 @@ GatheringInterval = 0.35
 [node name="Digging" type="Node" parent="Systems"]
 script = ExtResource("22_digging")
 
+[node name="SurfaceEffects" type="Node" parent="Systems"]
+script = ExtResource("24_surface_effects")
+SubmersionShader = ExtResource("25_submersion_shader")
+
 [node name="InventoryHud" type="CanvasLayer" parent="."]
 layer = 20
 script = ExtResource("8_hud")
@@ -106,3 +112,4 @@ script = ExtResource("8_hud")
 [node name="StorageHud" type="CanvasLayer" parent="."]
 layer = 21
 script = ExtResource("19_storage_hud")
+

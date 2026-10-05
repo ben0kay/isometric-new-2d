@@ -163,6 +163,21 @@ public partial class WorldCollisionDebug : Node2D
 			}
 			else
 				Paint(projected, fill);
+
+                SurfaceWorld surfaces = SurfaceWorld.Find(this);
+if (surfaces != null)
+{
+    foreach (SurfacePatch patch in surfaces.GetDebugPatches())
+    {
+        Vector2[] points = patch.GetDebugOutline();
+        for (int i = 0; i < points.Length; i++)
+            points[i] = ToLocal(points[i]);
+
+        Paint(points, true);
+        DrawString(ThemeDB.FallbackFont, ToLocal(patch.GlobalPosition),
+            patch.Definition.Id, HorizontalAlignment.Left, -1, 16, OutlineColor);
+    }
+}
 		}
 
 		GroundResourceWorld resources = GroundResourceWorld.Find(this);

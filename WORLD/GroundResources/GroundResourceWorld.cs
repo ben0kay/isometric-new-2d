@@ -162,32 +162,12 @@ public partial class GroundResourceWorld : Node
         }
     }
 
-    // =========================================================
-    // Check every half-tile sample covering the footprint and its safety margin.
-    private bool IsFlat(Vector2 centre, float radius, float tolerance)
-    {
-        int left = Mathf.FloorToInt((centre.X - radius) * 2f);
-        int right = Mathf.CeilToInt((centre.X + radius) * 2f);
-        int top = Mathf.FloorToInt((centre.Y - radius) * 2f);
-        int bottom = Mathf.CeilToInt((centre.Y + radius) * 2f);
-        float minimum = float.PositiveInfinity;
-        float maximum = float.NegativeInfinity;
-
-        for (int y = top; y <= bottom; y++)
-        for (int x = left; x <= right; x++)
-        {
-            Vector2 tile = new(x * 0.5f, y * 0.5f);
-            int tx = Mathf.FloorToInt(tile.X + 0.5f);
-            int ty = Mathf.FloorToInt(tile.Y + 0.5f);
-            if (ChasmFeature.IsVoidTile(tx, ty)) return false;
-
-            float height = _elevation.GetHeight(tile);
-            minimum = Mathf.Min(minimum, height);
-            maximum = Mathf.Max(maximum, height);
-            if (maximum - minimum > tolerance) return false;
-        }
-        return true;
-    }
+// =========================================================
+// Use the shared surface placement check without changing deposit eligibility.
+private bool IsFlat(Vector2 centre, float radius, float tolerance)
+{
+    return SurfaceGeometry.IsFlat(_elevation, centre, radius, tolerance);
+}
 
     // =========================================================
     // Give chunks containing deposits their own small set of shader parameters.
@@ -220,17 +200,13 @@ public partial class GroundResourceWorld : Node
             deposit.Remaining / (float)deposit.Definition.UnitsPerDeposit);
     }
 
-    // =========================================================
-    // Match the shader's irregular outline using the same angular formula.
-    private static float ShapeRadius(Deposit deposit, Vector2 difference)
-    {
-        float angle = difference.Angle();
-        float edge = 1f +
-            Mathf.Sin(angle * 3f + deposit.Phase) * 0.06f +
-            Mathf.Sin(angle * 5f - deposit.Phase * 1.7f) * 0.04f;
-        return CurrentRadius(deposit) * edge;
-    }
-
+// =========================================================
+// Keep deposit boundaries consistent with the shared surface shape formula.
+private static float ShapeRadius(Deposit deposit, Vector2 difference)
+{
+    return CurrentRadius(deposit) *
+        SurfaceGeometry.Edge(difference.Angle(), deposit.Phase);
+}
     // =========================================================
     // Update four small shader records only when a deposit changes.
     private static void UpdateMaterial(ChunkData data)
