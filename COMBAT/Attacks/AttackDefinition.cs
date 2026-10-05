@@ -3,7 +3,7 @@
 using Godot;
 
 public enum CombatTeam { Player, Enemy }
-
+[Tool]
 public abstract partial class AttackDefinition : Resource
 {
     #region Configuration

@@ -2,7 +2,7 @@
 // Shared resources hold settings; weapons hold their own cooldowns.
 using Godot;
 
-[GlobalClass]
+[Tool,GlobalClass]
 public partial class ProjectileAttack : AttackDefinition
 {
     public enum ShotPattern { Cone, Ring }
