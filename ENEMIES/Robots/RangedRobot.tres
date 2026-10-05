@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" format=3]
+
+[ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/RobotBlaster.tres" id="3_attack"]
+
+[resource]
+script = ExtResource("1_enemy")
+Id = "ranged_robot"
+DisplayName = "Ranged Robot"
+Defense = ExtResource("2_hull")
+MaxVitality = 75
+MoveSpeed = 145.0
+StopDistance = 24.0
+DetectionRange = 650.0
+ForgetRange = 1000.0
+CombatRange = 360.0
+PreferredRange = 240.0
+BackAwayRange = 120.0
+CombatStyle = 1
+RangedAttack = ExtResource("3_attack")
+WanderSpeed = 40.0
+WanderRadius = 240.0
+VisualTint = Color(1, 0.65, 0.4, 1)
+VisualScale = 1.1

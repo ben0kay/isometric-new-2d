@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://ENEMIES/EnemyMotor.cs" id="4_motor"]
 [ext_resource type="Script" path="res://ENEMIES/EnemyCombat.cs" id="5_combat"]
 [ext_resource type="Script" path="res://COMBAT/Weapons/Weapon.cs" id="6_weapon"]
-[ext_resource type="Resource" path="res://ENEMIES/Simulant/MeleeSimulant.tres" id="7_definition"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/MeleeRobots.tres" id="7_definition"]
 
 [sub_resource type="CircleShape2D" id="EnemyShape"]
 radius = 10.0

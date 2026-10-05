@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="DefenseDefinition" format=3]
+
+[ext_resource type="Script" path="res://COMBAT/DefenseDefinition.cs" id="1_defense"]
+
+[resource]
+script = ExtResource("1_defense")
+Kind = 1
+Kinetic = 0.8
+Energy = 1.0
+Explosive = 1.25
+Electric = 1.5
+Thermal = 0.6
+Corrosive = 0.8

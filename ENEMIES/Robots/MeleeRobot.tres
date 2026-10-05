@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" format=3]
+
+[ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
+
+[resource]
+script = ExtResource("1_enemy")
+Id = "melee_robot"
+DisplayName = "Melee Robot"
+Defense = ExtResource("2_hull")
+MaxVitality = 60
+MoveSpeed = 170.0
+StopDistance = 28.0
+DetectionRange = 650.0
+ForgetRange = 1000.0
+CombatRange = 34.0
+CombatStyle = 0
+MeleeDamage = 15
+MeleeDamageType = 1
+MeleeCooldown = 0.8
+WanderSpeed = 45.0
+WanderRadius = 240.0
+VisualTint = Color(0.7, 0.9, 1, 1)
