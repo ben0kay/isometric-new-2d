@@ -22,7 +22,7 @@ z_index = -2
 [node name="WorldObjects" type="Node2D" parent="." unique_id=263400682]
 y_sort_enabled = true
 
-[node name="LandingSite" parent="WorldObjects" instance=ExtResource("21_landing_site")]
+[node name="LandingSite" parent="WorldObjects" unique_id=1797479411 instance=ExtResource("21_landing_site")]
 position = Vector2(0, 180)
 
 [node name="Player" parent="WorldObjects" unique_id=432636805 instance=ExtResource("1_player")]
