@@ -25,8 +25,8 @@ public partial class EnemyCombat : Node
     #endregion
 
     #region Combat
-    // =========================================================
-    // Advance cooldowns each physics tick and check new attacks at ten hertz.
+      // =========================================================
+    // Advance weapon timing and check attacks at ten hertz; notify accepted melee hits.
     public void Tick(double delta)
     {
         if (!_actor.Initialized || !_actor.IsActivated || _actor.SpawnPending ||
@@ -65,8 +65,14 @@ public partial class EnemyCombat : Node
             !_navigation.CanTravelDirectly(_actor.GlobalPosition, point)) return;
 
         Health targetHealth = _actor.Target.GetNodeOrNull<Health>("Systems/Health");
-        if (targetHealth?.Damage(melee.Damage, melee.DamageType) == true)
-            _timer = Math.Max(0.1, melee.Cooldown);
+        if (targetHealth?.Damage(melee.Damage, melee.DamageType) != true) return;
+
+        _timer = Math.Max(0.1, melee.Cooldown);
+        MeleeExecuted?.Invoke();
     }
+    #endregion
+
+        #region Events
+    public event Action MeleeExecuted;
     #endregion
 }

@@ -61,47 +61,60 @@ public override void _EnterTree()
     if (SpawnPending) { Hide(); CollisionLayer = 0; }
 }
 
-// =========================================================
-// Initialize components while keeping hidden prepared enemies inactive.
-public override async void _Ready()
-{
-    SetPhysicsProcess(false);
-
-    Health = GetNode<Health>("Systems/Health");
-    _motor = GetNode<EnemyMotor>("Systems/Motor");
-    _combat = GetNode<EnemyCombat>("Systems/Combat");
-    _sequence = GetNode<EnemySequence>("Systems/Sequence");
-    Health.Died += OnDeath;
-    Home = SpawnHome ?? GlobalPosition;
-    _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
-    _targetTimer = _rng.Randf() * Definition.TargetInterval;
-    _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
-    _wanderTimer = _rng.RandfRange(Definition.WanderWait.X, Definition.WanderWait.Y);
-    _sightQuery.CollisionMask = 1u;
-    _sightQuery.CollideWithAreas = false;
-    _sightQuery.HitFromInside = true;
-
-    try
+    // =========================================================
+    // Prepare artwork and bind replaceable presentation before activating the enemy.
+    public override async void _Ready()
     {
-        await PlaceholderAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        SetPhysicsProcess(false);
 
-        TerrainVisual visual = TerrainVisual.Attach(
-            this, PlaceholderAtlas.EnemyRegion,
-            new Vector2(-48, -64), Vector2.One, true, Definition.VisualOverride);
-        CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
-        artwork.Modulate = Definition.VisualTint;
-        if (artwork is Node2D node) node.Scale *= Definition.VisualScale;
+        Health = GetNode<Health>("Systems/Health");
+        _motor = GetNode<EnemyMotor>("Systems/Motor");
+        _combat = GetNode<EnemyCombat>("Systems/Combat");
+        _sequence = GetNode<EnemySequence>("Systems/Sequence");
+        Health.Died += OnDeath;
+        Home = SpawnHome ?? GlobalPosition;
+        _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
+        _targetTimer = _rng.Randf() * Definition.TargetInterval;
+        _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
+        _wanderTimer = _rng.RandfRange(
+            Definition.WanderWait.X, Definition.WanderWait.Y);
+        _sightQuery.CollisionMask = 1u;
+        _sightQuery.CollideWithAreas = false;
+        _sightQuery.HitFromInside = true;
 
-        Initialized = true;
-        if (!SpawnPending) Activate();
+        try
+        {
+            await PlaceholderAtlas.EnsureReady(this);
+            if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+            TerrainVisual visual = TerrainVisual.Attach(
+                this, PlaceholderAtlas.EnemyRegion,
+                new Vector2(-48, -64), Vector2.One, true,
+                Definition.VisualOverride);
+            CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
+            artwork.Modulate = Definition.VisualTint;
+            if (artwork is Node2D node)
+                node.Scale *= Definition.VisualScale;
+
+            Node systems = GetNode("Systems");
+            EnemyPresentation presentation =
+                systems.GetNodeOrNull<EnemyPresentation>("Presentation");
+            if (presentation == null)
+            {
+                presentation = new EnemyPresentation { Name = "Presentation" };
+                systems.AddChild(presentation);
+            }
+            presentation.Bind(this, artwork);
+
+            Initialized = true;
+            if (!SpawnPending) Activate();
+        }
+        catch (Exception error)
+        {
+            GD.PushError($"Enemy '{Definition.Id}' initialization failed: {error}");
+            QueueFree();
+        }
     }
-    catch (Exception error)
-    {
-        GD.PushError($"Enemy '{Definition.Id}' initialization failed: {error}");
-        QueueFree();
-    }
-}
 
     // =========================================================
     // Remove subscriptions and dispose this actor's reusable query resources.

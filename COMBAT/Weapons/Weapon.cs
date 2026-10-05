@@ -63,27 +63,31 @@ public bool TryFireAtCursor()
     return TryFireAt(target);
 }
 
-	// =========================================================
-	// Fire from every configured muzzle toward a logical ground target.
-	public bool TryFireAt(Vector2 groundTarget)
-	{
-		if (Attack == null || !_health.IsAlive || _cooldown > 0.0) return false;
-		Vector2 difference = groundTarget - Source.GlobalPosition;
-		if (difference.LengthSquared() < 0.0001f) return false;
+    // =========================================================
+    // Deliver the attack, then notify presentation without giving it combat control.
+    public bool TryFireAt(Vector2 groundTarget)
+    {
+        if (Attack == null || !_health.IsAlive || _cooldown > 0.0) return false;
+        Vector2 difference = groundTarget - Source.GlobalPosition;
+        if (difference.LengthSquared() < 0.0001f) return false;
 
-		Vector2 direction = difference.Normalized();
-		float angle = direction.Angle();
-		_cooldown = System.Math.Max(0.03, Attack.Cooldown);
+        AttackDefinition attack = Attack;
+        Vector2 direction = difference.Normalized();
+        float angle = direction.Angle();
+        _cooldown = System.Math.Max(0.03, attack.Cooldown);
 
-		if (Attack.MuzzleOffsets == null || Attack.MuzzleOffsets.Count == 0)
-			Attack.Deliver(this, Source.GlobalPosition, direction);
-		else
-		{
-			foreach (Vector2 muzzle in Attack.MuzzleOffsets)
-				Attack.Deliver(this, Source.GlobalPosition + muzzle.Rotated(angle), direction);
-		}
-		return true;
-	}
+        if (attack.MuzzleOffsets == null || attack.MuzzleOffsets.Count == 0)
+            attack.Deliver(this, Source.GlobalPosition, direction);
+        else
+        {
+            foreach (Vector2 muzzle in attack.MuzzleOffsets)
+                attack.Deliver(this,
+                    Source.GlobalPosition + muzzle.Rotated(angle), direction);
+        }
+
+        AttackFired?.Invoke(attack);
+        return true;
+    }
 
 // =========================================================
 // Launch pooled shots using the firing actor's terrain elevation.
@@ -98,4 +102,8 @@ public void EmitProjectile(Vector2 origin, Vector2 direction, ProjectileAttack a
 	_pool.Fire(origin, direction, attack, mask, sourceHeight);
 }
 	#endregion
+
+	    #region Events
+    public event System.Action<AttackDefinition> AttackFired;
+    #endregion
 }
