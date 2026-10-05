@@ -13,9 +13,20 @@
 [ext_resource type="Resource" path="res://PLAYER/Weapons/MiningLaserItem.tres" id="11_laser"]
 [ext_resource type="Resource" path="res://PLAYER/Equipment/Backpacks/StarterBackpack.tres" id="12_pack"]
 [ext_resource type="Resource" path="res://PLAYER/Inventory/DefaultCarryingRules.tres" id="13_rules"]
+[ext_resource type="Script" path="res://PLAYER/Stats/PlayerStats.cs" id="14_stats"]
+[ext_resource type="Script" path="res://PLAYER/Stats/PlayerVitals.cs" id="15_vitals"]
+[ext_resource type="Script" path="res://UI/Debug/PlayerStatsHud.cs" id="16_stats_hud"]
+[ext_resource type="Resource" path="res://PLAYER/Stats/DefaultPlayerStats.tres" id="17_profile"]
+[ext_resource type="Script" path="res://PLAYER/Stats/StatModifier.cs" id="18_modifier"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 radius = 10.0
+
+[sub_resource type="Resource" id="TestMiningModifier"]
+script = ExtResource("18_modifier")
+Stat = 8
+Operation = 1
+Amount = 0.25
 
 [node name="Player" type="CharacterBody2D" groups=["players"]]
 collision_layer = 2
@@ -37,6 +48,15 @@ position_smoothing_speed = 8.0
 script = ExtResource("2_health")
 MaxHealth = 100
 DamageImmunity = 0.35
+
+[node name="Stats" type="Node" parent="Systems"]
+script = ExtResource("14_stats")
+Profile = ExtResource("17_profile")
+TestModifiersEnabled = false
+TestModifiers = Array[ExtResource("18_modifier")]([SubResource("TestMiningModifier")])
+
+[node name="Vitals" type="Node" parent="Systems"]
+script = ExtResource("15_vitals")
 
 [node name="CombatLife" type="Node" parent="Systems"]
 script = ExtResource("3_life")
@@ -63,3 +83,7 @@ BeamHoldTime = 0.14
 [node name="InventoryHud" type="CanvasLayer" parent="."]
 layer = 20
 script = ExtResource("8_hud")
+
+[node name="StatsHud" type="CanvasLayer" parent="."]
+layer = 3
+script = ExtResource("16_stats_hud")

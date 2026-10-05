@@ -83,5 +83,17 @@ public partial class Health : Node
         SetPhysicsProcess(false);
         EmitSignal(SignalName.Changed, Current, MaxHealth);
     }
+
+    // =========================================================
+// Change maximum vitality while preserving current health unless explicitly filled.
+public void SetMaximum(int maximum, bool fill = false)
+{
+    maximum = Math.Max(1, maximum);
+    if (MaxHealth == maximum && !fill) return;
+
+    MaxHealth = maximum;
+    Current = fill ? MaxHealth : Math.Min(Current, MaxHealth);
+    EmitSignal(SignalName.Changed, Current, MaxHealth);
+}
     #endregion
 }

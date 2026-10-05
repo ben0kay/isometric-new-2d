@@ -174,42 +174,39 @@ public override void _PhysicsProcess(double delta)
             player.GetNodeOrNull<Health>("Systems/Health")?.IsAlive == true;
     }
 
-    // =========================================================
-    // Acquire visible players nearby while retaining a target to the forget range.
-    private void SelectTarget()
+// =========================================================
+// Acquire nearby players and retain a living target until it exceeds ForgetRange.
+private void SelectTarget()
+{
+    Player next = HasTarget ? Target : null;
+    if (next != null &&
+        GlobalPosition.DistanceSquaredTo(next.GlobalPosition) >
+            Definition.ForgetRange * Definition.ForgetRange)
+        next = null;
+
+    float best = next != null
+        ? GlobalPosition.DistanceSquaredTo(next.GlobalPosition) * 0.64f
+        : Definition.DetectionRange * Definition.DetectionRange;
+
+    foreach (Node node in GetTree().GetNodesInGroup("players"))
     {
-        Player next = HasTarget ? Target : null;
-        if (next != null &&
-            (GlobalPosition.DistanceSquaredTo(next.GlobalPosition) >
-                Definition.ForgetRange * Definition.ForgetRange ||
-             Home.DistanceSquaredTo(next.GlobalPosition) >
-                Definition.HomeLeash * Definition.HomeLeash))
-            next = null;
+        if (node is not Player player || !IsLiving(player)) continue;
 
-        float best = next != null
-            ? GlobalPosition.DistanceSquaredTo(next.GlobalPosition) * 0.64f
-            : Definition.DetectionRange * Definition.DetectionRange;
+        float distance = GlobalPosition.DistanceSquaredTo(player.GlobalPosition);
+        if (distance > Definition.DetectionRange * Definition.DetectionRange ||
+            distance >= best || !CanSee(player.GlobalPosition)) continue;
 
-        foreach (Node node in GetTree().GetNodesInGroup("players"))
-        {
-            if (node is not Player player || !IsLiving(player)) continue;
-            float distance = GlobalPosition.DistanceSquaredTo(player.GlobalPosition);
-            if (distance > Definition.DetectionRange * Definition.DetectionRange ||
-                distance >= best ||
-                Home.DistanceSquaredTo(player.GlobalPosition) >
-                    Definition.HomeLeash * Definition.HomeLeash ||
-                !CanSee(player.GlobalPosition)) continue;
-            next = player;
-            best = distance;
-        }
-
-        if (next == Target) return;
-        Target = next;
-        _targetHealth = next?.GetNodeOrNull<Health>("Systems/Health");
-        _retreating = false;
-        _motor.Stop();
-        _decisionTimer = 0.0;
+        next = player;
+        best = distance;
     }
+
+    if (next == Target) return;
+    Target = next;
+    _targetHealth = next?.GetNodeOrNull<Health>("Systems/Health");
+    _retreating = false;
+    _motor.Stop();
+    _decisionTimer = 0.0;
+}
 
     // =========================================================
     // Test sight against solid obstacles; ranged shots may cross open chasms.
@@ -277,37 +274,48 @@ private void DecideMovement()
         _motor.Stop();
     }
 
-    // =========================================================
-    // Wander between valid home-zone points with pauses and stuck recovery.
-    private void DecideWandering()
+// =========================================================
+// Use HomeLeash only for idle return; choose wandering destinations within WanderRadius.
+private void DecideWandering()
+{
+    if (!Definition.WanderingEnabled) { _motor.Stop(); return; }
+
+    // After a long chase, return toward home before resuming normal wandering.
+    if (GlobalPosition.DistanceSquaredTo(Home) >
+        Definition.HomeLeash * Definition.HomeLeash)
     {
-        if (!Definition.WanderingEnabled) { _motor.Stop(); return; }
-        if (_motor.HasGoal && !_motor.Arrived && !_motor.IsStuck) return;
-
-        if (_motor.HasGoal)
-        {
-            _motor.Stop();
-            _wanderTimer = _rng.RandfRange(Definition.WanderWait.X, Definition.WanderWait.Y);
-        }
-        if (_wanderTimer > 0.0) return;
-
-        if (GlobalPosition.DistanceSquaredTo(Home) >
-            Definition.WanderRadius * Definition.WanderRadius)
-        {
-            _motor.SetGoal(Home, Definition.WanderSpeed, 8f);
-            return;
-        }
-
-        for (int i = 0; i < 4; i++)
-        {
-            float angle = _rng.Randf() * Mathf.Tau;
-            float radius = Mathf.Sqrt(_rng.Randf()) * Definition.WanderRadius;
-            Vector2 point = Home + Vector2.Right.Rotated(angle) * radius;
-            if (!_navigation.CanTravelDirectly(point, point)) continue;
-            _motor.SetGoal(point, Definition.WanderSpeed, 8f);
-            return;
-        }
-        _wanderTimer = 1.0;
+        _wanderTimer = 0.0;
+        _motor.SetGoal(Home, Definition.WanderSpeed, 8f);
+        return;
     }
+
+    if (_motor.HasGoal && !_motor.Arrived && !_motor.IsStuck) return;
+
+    if (_motor.HasGoal)
+    {
+        _motor.Stop();
+        _wanderTimer = _rng.RandfRange(Definition.WanderWait.X, Definition.WanderWait.Y);
+    }
+    if (_wanderTimer > 0.0) return;
+
+    if (GlobalPosition.DistanceSquaredTo(Home) >
+        Definition.WanderRadius * Definition.WanderRadius)
+    {
+        _motor.SetGoal(Home, Definition.WanderSpeed, 8f);
+        return;
+    }
+
+    for (int i = 0; i < 4; i++)
+    {
+        float angle = _rng.Randf() * Mathf.Tau;
+        float radius = Mathf.Sqrt(_rng.Randf()) * Definition.WanderRadius;
+        Vector2 point = Home + Vector2.Right.Rotated(angle) * radius;
+        if (!_navigation.CanTravelDirectly(point, point)) continue;
+
+        _motor.SetGoal(point, Definition.WanderSpeed, 8f);
+        return;
+    }
+    _wanderTimer = 1.0;
+}
     #endregion
 }

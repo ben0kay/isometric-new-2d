@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PlayerStatProfile" format=3]
+
+[ext_resource type="Script" path="res://PLAYER/Stats/PlayerStatProfile.cs" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+MaxHealth = 100.0
+MaxStamina = 100.0
+MaxOxygen = 100.0
+MaxEnergy = 100.0
+MaxFood = 100.0
+MaxWater = 100.0
+MaxFatigue = 100.0
+MovementSpeed = 240.0
+MiningEfficiency = 1.0

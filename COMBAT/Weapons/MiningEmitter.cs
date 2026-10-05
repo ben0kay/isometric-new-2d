@@ -21,25 +21,27 @@ public partial class MiningEmitter : Node
     private Vector2 _direction;
     private float _visualHeight;
     private double _remaining;
+    private PlayerStats _stats;
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Cache actor references and create reusable query and beam objects.
-    public override void _Ready()
+// =========================================================
+// Cache actor systems and create reusable mining query and beam objects.
+public override void _Ready()
+{
+    _source = GetParent().GetParent<CharacterBody2D>();
+    _stats = GetNodeOrNull<PlayerStats>("../Stats");
+    _collect = GetNode<PlayerInventory>("../Inventory").TryCollect;
+    _query = new PhysicsRayQueryParameters2D
     {
-        _source = GetParent().GetParent<CharacterBody2D>();
-        _collect = GetNode<PlayerInventory>("../Inventory").TryCollect;
-        _query = new PhysicsRayQueryParameters2D
-        {
-            CollisionMask = 9,
-            HitFromInside = true
-        };
+        CollisionMask = 9,
+        HitFromInside = true
+    };
 
-        _glow = CreateLine("Glow", 9f);
-        _core = CreateLine("Core", 2f);
-        Stop();
-    }
+    _glow = CreateLine("Glow", 9f);
+    _core = CreateLine("Core", 2f);
+    Stop();
+}
 
     // =========================================================
     // Keep an active beam attached to the actor and stop after its short hold time.
@@ -81,42 +83,43 @@ public partial class MiningEmitter : Node
     #endregion
 
     #region Mining
-    // =========================================================
-    // Stop at the first solid obstacle and mine only compatible targets.
-    public void Emit(MiningAttack attack, Vector2 direction)
+// =========================================================
+// Apply calculated mining efficiency without modifying the shared tool resource.
+public void Emit(MiningAttack attack, Vector2 direction)
+{
+    if (direction.LengthSquared() < 0.0001f) return;
+
+    _direction = direction.Normalized();
+    Vector2 origin = _source.GlobalPosition;
+    _endpoint = origin + _direction * Mathf.Max(8f, attack.Range);
+    _query.From = origin;
+    _query.To = _endpoint;
+
+    Godot.Collections.Dictionary hit = _source.GetWorld2D()
+        .DirectSpaceState.IntersectRay(_query);
+    Color color = attack.Tint;
+
+    if (hit.Count > 0)
     {
-        if (direction.LengthSquared() < 0.0001f) return;
-
-        _direction = direction.Normalized();
-        Vector2 origin = _source.GlobalPosition;
-        _endpoint = origin + _direction * Mathf.Max(8f, attack.Range);
-        _query.From = origin;
-        _query.To = _endpoint;
-
-        Godot.Collections.Dictionary hit = _source.GetWorld2D()
-            .DirectSpaceState.IntersectRay(_query);
-        Color color = attack.Tint;
-
-        if (hit.Count > 0)
+        _endpoint = hit["position"].AsVector2();
+        if (hit["collider"].AsGodotObject() is IMiningTarget target)
         {
-            _endpoint = hit["position"].AsVector2();
-            if (hit["collider"].AsGodotObject() is IMiningTarget target)
-            {
-                if (!target.Mine(attack.MiningPower, _collect))
-                    color = new Color("#ffbd77");
-            }
-            else color = new Color("#ffbd77");
+            float efficiency = _stats?.Get(PlayerStat.MiningEfficiency) ?? 1f;
+            if (!target.Mine(attack.MiningPower * efficiency, _collect))
+                color = new Color("#ffbd77");
         }
-
-        _visualHeight = attack.VisualHeight;
-        _remaining = Mathf.Max(0.05f, BeamHoldTime);
-        _core.DefaultColor = color;
-        _glow.DefaultColor = new Color(color.R, color.G, color.B, 0.18f);
-        _core.Show();
-        _glow.Show();
-        UpdateBeam();
-        SetPhysicsProcess(true);
+        else color = new Color("#ffbd77");
     }
+
+    _visualHeight = attack.VisualHeight;
+    _remaining = Mathf.Max(0.05f, BeamHoldTime);
+    _core.DefaultColor = color;
+    _glow.DefaultColor = new Color(color.R, color.G, color.B, 0.18f);
+    _core.Show();
+    _glow.Show();
+    UpdateBeam();
+    SetPhysicsProcess(true);
+}
 
     // =========================================================
     // Hide the beam when switching tools or opening the backpack.
