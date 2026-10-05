@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PlantDefinition" format=3 uid="uid://cpeiyy1s4tq7s"]
 
-[ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Vegetation/Plants/PlantDefinition.cs" id="1"]
+[ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1"]
 
 [resource]
 script = ExtResource("1")

@@ -1,7 +1,8 @@
 [gd_resource type="Resource" script_class="GroundResourceCatalog" format=3]
 
-[ext_resource type="Script" path="res://WORLD/GroundResources/GroundResourceCatalog.cs" id="1_catalog"]
-[ext_resource type="Script" path="res://WORLD/GroundResources/GroundResourceDefinition.cs" id="2_definition"]
+[ext_resource type="Script" uid="uid://b7cs6ikbxhtl7" path="res://WORLD/Contents/GroundResources/GroundResourceCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" uid="uid://e07iewnvkpc4" path="res://WORLD/Contents/GroundResources/GroundResourceDefinition.cs" id="2_definition"]
+
 
 [sub_resource type="Resource" id="Sand"]
 script = ExtResource("2_definition")

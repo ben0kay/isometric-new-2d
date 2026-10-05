@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="RockDefinition" format=3 uid="uid://cc1qahlla4c3g"]
 
-[ext_resource type="Script" uid="uid://c8r6uxctpkg6f" path="res://WORLD/Rocks/RockDefinition.cs" id="1"]
+[ext_resource type="Script" uid="uid://c8r6uxctpkg6f" path="res://WORLD/Contents/Rocks/RockDefinition.cs" id="1"]
 
 [resource]
 script = ExtResource("1")

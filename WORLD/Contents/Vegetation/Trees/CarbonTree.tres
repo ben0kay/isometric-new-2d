@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="TreeDefinition" format=3]
 
-[ext_resource type="Script" path="res://WORLD/Vegetation/Trees/TreeDefinition.cs" id="1"]
+[ext_resource type="Script" uid="uid://cdhmu0j632olf" path="res://WORLD/Contents/Vegetation/Trees/TreeDefinition.cs" id="1"]
+
 
 [resource]
 script = ExtResource("1")
