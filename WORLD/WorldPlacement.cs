@@ -7,14 +7,17 @@ public static class WorldPlacement
 {
     #region Obstacles
     // =========================================================
-    // Snapshot loaded solid objects once before checking placement candidates.
+    // Collect solids throughout the world hierarchy, including nested presets.
     public static List<Obstacle> CollectObstacles(Node2D objects)
     {
         List<Obstacle> result = new();
         foreach (Node node in objects.GetTree().GetNodesInGroup("world_obstacles"))
-            if (node is Obstacle obstacle && obstacle.GetParent() == objects
-                && !obstacle.IsQueuedForDeletion())
-                result.Add(obstacle);
+        {
+            if (node is not Obstacle obstacle ||
+                obstacle.IsQueuedForDeletion() ||
+                !objects.IsAncestorOf(obstacle)) continue;
+            result.Add(obstacle);
+        }
         return result;
     }
 

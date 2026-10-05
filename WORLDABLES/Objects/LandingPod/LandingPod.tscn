@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Artwork/BakedObstacle.cs" id="1_object"]
+[ext_resource type="PackedScene" path="res://WORLDABLES/Objects/LandingPod/LandingPodDrawing.tscn" id="2_drawing"]
+[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="3_visual"]
+
+[sub_resource type="Resource" id="PodVisual"]
+script = ExtResource("3_visual")
+
+[node name="LandingPod" type="StaticBody2D"]
+script = ExtResource("1_object")
+Kind = 1
+Footprint = Vector2(180, 80)
+Height = 110.0
+VisualOverride = SubResource("PodVisual")
+DrawingScene = ExtResource("2_drawing")
+BakeName = "landing_pod"
+BakeRevision = 1
+BakeSize = Vector2i(320, 240)
+ArtworkOrigin = Vector2(-160, -204)

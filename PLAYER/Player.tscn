@@ -18,6 +18,8 @@
 [ext_resource type="Script" path="res://UI/Debug/PlayerStatsHud.cs" id="16_stats_hud"]
 [ext_resource type="Resource" path="res://PLAYER/Stats/DefaultPlayerStats.tres" id="17_profile"]
 [ext_resource type="Script" path="res://PLAYER/Stats/StatModifier.cs" id="18_modifier"]
+[ext_resource type="Script" path="res://WORLDABLES/Objects/Storage/UI/StorageHud.cs" id="19_storage_hud"]
+
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 radius = 10.0
@@ -87,3 +89,7 @@ script = ExtResource("8_hud")
 [node name="StatsHud" type="CanvasLayer" parent="."]
 layer = 3
 script = ExtResource("16_stats_hud")
+
+[node name="StorageHud" type="CanvasLayer" parent="."]
+layer = 21
+script = ExtResource("19_storage_hud")

@@ -24,6 +24,11 @@ public partial class InventoryHud : CanvasLayer
 
     private readonly List<InventorySlot> _slots = new();
     private readonly List<InventorySlot> _bagSlots = new();
+        public bool ExternalWindowOpen { get; private set; }
+    public bool BlocksWorldMovement => IsOpen || ExternalWindowOpen;
+        public bool ExternalWindowOpen { get; private set; }
+    public bool BlocksWorldMovement => IsOpen || ExternalWindowOpen;
+    
     #endregion
 
     #region Lifecycle
@@ -259,9 +264,11 @@ public partial class InventoryHud : CanvasLayer
 
     #region Input
     // =========================================================
-    // Open the backpack with Delete and cycle equipped tools while it is closed.
+    // Handle equipment input only when no external inventory window is active.
     public override void _Input(InputEvent input)
     {
+        if (ExternalWindowOpen) return;
+
         if (input is InputEventKey key && key.Pressed && !key.Echo)
         {
             if (key.PhysicalKeycode == Key.Delete)
@@ -302,7 +309,7 @@ public partial class InventoryHud : CanvasLayer
     }
 
     // =========================================================
-    // Block tool use during inventory interaction and until a held click is released.
+    // Block tools during inventory use and until a closing click is released.
     public bool BlocksWorldAttack()
     {
         if (_blockUntilRelease)
@@ -311,7 +318,17 @@ public partial class InventoryHud : CanvasLayer
                 _blockUntilRelease = false;
             return true;
         }
-        return IsOpen || _viewport.GuiIsDragging();
+        return IsOpen || ExternalWindowOpen || _viewport.GuiIsDragging();
+    }
+
+    // =========================================================
+    // Protect world input while another inventory interface is open.
+    public void SetExternalWindowOpen(bool open)
+    {
+        if (ExternalWindowOpen == open) return;
+        ExternalWindowOpen = open;
+        _blockUntilRelease = true;
+        _mining.Stop();
     }
     #endregion
 

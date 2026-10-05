@@ -1,0 +1,29 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Artwork/BakedObstacle.cs" id="1_object"]
+[ext_resource type="PackedScene" path="res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrateDrawing.tscn" id="2_drawing"]
+[ext_resource type="Script" path="res://SYSTEMS/Storage/WorldStorage.cs" id="3_storage"]
+[ext_resource type="Resource" path="res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrate.tres" id="4_definition"]
+[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="5_visual"]
+
+[sub_resource type="Resource" id="CrateVisual"]
+script = ExtResource("5_visual")
+
+[node name="ArmouredCrate" type="StaticBody2D"]
+script = ExtResource("1_object")
+Kind = 1
+Footprint = Vector2(96, 48)
+Height = 62.0
+VisualOverride = SubResource("CrateVisual")
+DrawingScene = ExtResource("2_drawing")
+BakeName = "armoured_crate"
+BakeRevision = 1
+BakeSize = Vector2i(160, 140)
+ArtworkOrigin = Vector2(-80, -112)
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Storage" type="Node" parent="Systems"]
+script = ExtResource("3_storage")
+Definition = ExtResource("4_definition")
+HostPath = NodePath("../..")

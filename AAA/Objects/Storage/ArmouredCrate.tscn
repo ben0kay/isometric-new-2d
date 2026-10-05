@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://WORLD/Obstacle.cs" id="1_obstacle"]
+[ext_resource type="Script" path="res://WORLDOBJECTS/Shared/Storage/WorldStorage.cs" id="2_storage"]
+[ext_resource type="Resource" path="res://WORLDOBJECTS/Storage/ArmouredCrate/ArmouredCrate.tres" id="3_definition"]
+[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="4_visual"]
+[ext_resource type="Texture2D" path="res://WORLDOBJECTS/Storage/ArmouredCrate/ArmouredCrate.svg" id="5_image"]
+
+[sub_resource type="Resource" id="CrateVisual"]
+script = ExtResource("4_visual")
+Image = ExtResource("5_image")
+ImageAnchor = Vector2(0.5, 0.8)
+
+[node name="ArmouredCrate" type="StaticBody2D"]
+script = ExtResource("1_obstacle")
+Kind = 1
+Footprint = Vector2(96, 48)
+Height = 62.0
+VisualOverride = SubResource("CrateVisual")
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Storage" type="Node" parent="Systems"]
+script = ExtResource("2_storage")
+Definition = ExtResource("3_definition")
+HostPath = NodePath("../..")

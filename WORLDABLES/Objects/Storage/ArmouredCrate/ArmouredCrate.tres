@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StorageDefinition" format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Storage/StorageDefinition.cs" id="1_storage"]
+
+[resource]
+script = ExtResource("1_storage")
+DisplayName = "Armoured Supply Crate"
+SlotCount = 24
+MaximumWeightKg = 250.0
+CapacityLitres = 180.0
+InteractionRange = 110.0

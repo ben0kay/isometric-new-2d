@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
 [ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
 [ext_resource type="PackedScene" path="res://WORLD/Ores/Iron/IronDeposit.tscn" id="20_iron_deposit"]
+[ext_resource type="PackedScene" path="res://WORLDABLES/Presets/LandingSite/LandingSite.tscn" id="21_landing_site"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -20,6 +21,9 @@ z_index = -2
 
 [node name="WorldObjects" type="Node2D" parent="." unique_id=263400682]
 y_sort_enabled = true
+
+[node name="LandingSite" parent="WorldObjects" instance=ExtResource("21_landing_site")]
+position = Vector2(0, 180)
 
 [node name="Player" parent="WorldObjects" unique_id=432636805 instance=ExtResource("1_player")]
 position = Vector2(0, 180)
