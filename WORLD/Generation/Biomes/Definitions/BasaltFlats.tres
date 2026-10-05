@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Resource" uid="uid://bu7qi0rm8436f" path="res://WORLD/Vegetation/Plants/Frond.tres" id="4_frond"]
+[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Vegetation/Plants/Frond.tres" id="4_frond"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Vegetation/Plants/AlienShrub.tres" id="5_shrub"]
 [ext_resource type="Resource" path="res://WORLD/Vegetation/Grass/ShortGrass.tres" id="6_short"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Rocks/SmallRock.tres" id="7_small"]
@@ -53,7 +53,7 @@ Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry")])
 script = ExtResource("1_biome")
 Tags = PackedStringArray("Alien", "Barren", "Rocky")
 MoistureRange = Vector2(0, 0.55)
-RollingHeight = 8.0
+RollingHeight = 0.0
 RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")

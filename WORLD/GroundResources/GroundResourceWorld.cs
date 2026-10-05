@@ -291,4 +291,66 @@ public partial class GroundResourceWorld : Node
         return false;
     }
     #endregion
+
+        #region Debug
+    // =========================================================
+    // Report generated deposits without counting depleted patches as available.
+    public string GetDebugSummary()
+    {
+        int available = 0;
+        int visible = 0;
+
+        foreach (ChunkData data in _loaded.Values)
+        foreach (Deposit deposit in data.Deposits)
+        {
+            if (deposit.Remaining <= 0) continue;
+            available++;
+            if (data.Material != null) visible++;
+        }
+
+        return $"Ground resources: {visible} rendered patches | " +
+            $"{available} generated patches | {_loaded.Count} tracked chunks";
+    }
+
+    // =========================================================
+    // Match the digging boundary and project it onto the existing terrain surface.
+    public IEnumerable<(string Label, Vector2 Centre, Vector2[] Points)>
+        GetDebugFootprints()
+    {
+        const int segments = 48;
+
+        foreach (ChunkData data in _loaded.Values)
+        {
+            if (data.Material == null) continue;
+
+            foreach (Deposit deposit in data.Deposits)
+            {
+                if (deposit.Remaining <= 0) continue;
+
+                Vector2[] points = new Vector2[segments];
+                for (int i = 0; i < segments; i++)
+                {
+                    float angle = Mathf.Tau * i / segments;
+                    Vector2 direction = new(
+                        Mathf.Cos(angle), Mathf.Sin(angle));
+                    Vector2 tile = deposit.Centre +
+                        direction * ShapeRadius(deposit, direction);
+
+                    Vector2 point = _ground.ToGlobal(
+                        IsoGrid.TileToWorld(tile, _chunks.TileSize));
+                    points[i] = point +
+                        Vector2.Up * _elevation.SampleWorldHeight(point);
+                }
+
+                Vector2 centre = _ground.ToGlobal(
+                    IsoGrid.TileToWorld(deposit.Centre, _chunks.TileSize));
+                centre += Vector2.Up * _elevation.SampleWorldHeight(centre);
+
+                yield return (
+                    $"{deposit.Definition.Id}: {deposit.Remaining}",
+                    centre, points);
+            }
+        }
+    }
+    #endregion
 }

@@ -1,17 +1,12 @@
-[gd_resource type="Resource" script_class="BackpackDefinition" format=3]
+[gd_resource type="Resource" script_class="BackpackDefinition" format=3 uid="uid://bbcn8cr7287fw"]
 
-[ext_resource type="Script" path="res://PLAYER/Equipment/Backpacks/BackpackDefinition.cs" id="1"]
+[ext_resource type="Script" uid="uid://bvmgmhayvpu5o" path="res://PLAYER/Equipment/Backpacks/BackpackDefinition.cs" id="1"]
 
 [resource]
 script = ExtResource("1")
 Id = "starter_backpack"
 DisplayName = "Field Backpack"
 ShortName = "FIELD PACK"
-MaxStack = 1
 WeightKg = 1.2
 VolumeLitres = 4.0
 Tint = Color(0.64, 0.77, 0.72, 1)
-SlotCount = 24
-CapacityLitres = 30.0
-ComfortableWeightKg = 12.0
-MaximumWeightKg = 28.0

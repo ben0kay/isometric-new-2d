@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
 [ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
+[ext_resource type="Script" uid="uid://b4ssrp88221n3" path="res://UI/Debug/WorldCollisionDebug.cs" id="16_4857e"]
 [ext_resource type="PackedScene" path="res://WORLD/Ores/Iron/IronDeposit.tscn" id="20_iron_deposit"]
 [ext_resource type="PackedScene" path="res://WORLDABLES/Presets/LandingSite/LandingSite.tscn" id="21_landing_site"]
 [ext_resource type="Script" uid="uid://b4ie12vtnyf60" path="res://ITEMS/World/ResourceWorld.cs" id="22_resources"]
@@ -103,3 +104,6 @@ theme_override_constants/shadow_offset_x = 1
 theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 script = ExtResource("3_fps")
+
+[node name="CollisionDebug" type="Node2D" parent="." unique_id=612285967]
+script = ExtResource("16_4857e")
