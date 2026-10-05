@@ -61,11 +61,11 @@ Definition = ExtResource("6_tree")
 script = ExtResource("2_vegetation")
 PlantPatches = 10
 PlantsPerPatch = 7
-Plants = [SubResource("FrondEntry"), SubResource("ShrubEntry")]
-Trees = [SubResource("TreeEntry")]
+Plants = Array[ExtResource("3_entry")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
+Trees = Array[ExtResource("3_entry")]([SubResource("TreeEntry")])
 GrassPatches = 14
 GrassTuftsPerPatch = 12
-Grass = [SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")]
+Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
 
 [resource]
 script = ExtResource("1_biome")
@@ -79,5 +79,5 @@ RollingFeatureSize = 10.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 3
-Rocks = [SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")]
+Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
 Enemies = ExtResource("20_enemies")

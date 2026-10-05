@@ -18,8 +18,8 @@ config/icon="res://icon.svg"
 
 [display]
 
-window/size/viewport_width=2300
-window/size/viewport_height=1200
+window/size/viewport_width=1920
+window/size/viewport_height=890
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
@@ -29,7 +29,7 @@ project/assembly_name="isometric-new-2d"
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/biome_catalog/plugin.cfg")
 
 [physics]
 
