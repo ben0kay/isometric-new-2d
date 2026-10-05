@@ -13,6 +13,8 @@
 [ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="11_biome_catalog"]
 [ext_resource type="PackedScene" path="res://WORLD/Ores/Iron/IronDeposit.tscn" id="20_iron_deposit"]
 [ext_resource type="PackedScene" path="res://WORLDABLES/Presets/LandingSite/LandingSite.tscn" id="21_landing_site"]
+[ext_resource type="Script" uid="uid://b4ie12vtnyf60" path="res://ITEMS/World/ResourceWorld.cs" id="22_resources"]
+[ext_resource type="Resource" path="res://ITEMS/ItemCatalog.tres" id="23_item_catalog"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -40,6 +42,10 @@ position = Vector2(220, 310)
 InstanceSize = 1.1
 
 [node name="Systems" type="Node" parent="." unique_id=519031447]
+
+[node name="Resources" type="Node" parent="Systems" unique_id=11026331]
+script = ExtResource("22_resources")
+Catalog = ExtResource("23_item_catalog")
 
 [node name="Atmosphere" type="Node" parent="Systems" unique_id=895886985]
 script = ExtResource("8_atmosphere")

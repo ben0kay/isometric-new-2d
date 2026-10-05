@@ -48,38 +48,38 @@ public partial class Player : CharacterBody2D
 		}
 	}
 
-    // =========================================================
-    // Respect inventory windows while applying movement and terrain-aware tool use.
-    public override void _PhysicsProcess(double delta)
-    {
-        _weapon.Tick(delta);
-        bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-        if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
+	// =========================================================
+	// Respect inventory windows while applying movement and terrain-aware tool use.
+	public override void _PhysicsProcess(double delta)
+	{
+		_weapon.Tick(delta);
+		bool attackBlocked = _inventoryHud.BlocksWorldAttack();
+		if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
 
-        Vector2 direction = _inventoryHud.BlocksWorldMovement
-            ? Vector2.Zero : ReadMovement();
-        Velocity = direction.Normalized() *
-            _stats.Get(PlayerStat.MovementSpeed) * _inventory.MovementFactor;
-        MoveAndSlide();
-        _visual.UpdateHeight();
+		Vector2 direction = _inventoryHud.BlocksWorldMovement
+			? Vector2.Zero : ReadMovement();
+		Velocity = direction.Normalized() *
+			_stats.Get(PlayerStat.MovementSpeed) * _inventory.MovementFactor;
+		MoveAndSlide();
+		_visual.UpdateHeight();
 
-        bool firing = !attackBlocked && _weapon.Attack != null &&
-            Input.IsMouseButtonPressed(MouseButton.Left);
-        float horizontal = firing
-            ? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+		bool firing = !attackBlocked && _weapon.Attack != null &&
+			Input.IsMouseButtonPressed(MouseButton.Left);
+		float horizontal = firing
+			? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
-        if (Mathf.Abs(horizontal) > 0.001f)
-        {
-            float nextFacing = horizontal > 0f ? 1f : -1f;
-            if (nextFacing != _facing)
-            {
-                _facing = nextFacing;
-                _visual.Scale = new Vector2(_facing, 1f);
-            }
-        }
+		if (Mathf.Abs(horizontal) > 0.001f)
+		{
+			float nextFacing = horizontal > 0f ? 1f : -1f;
+			if (nextFacing != _facing)
+			{
+				_facing = nextFacing;
+				_visual.Scale = new Vector2(_facing, 1f);
+			}
+		}
 
-        if (firing) _weapon.TryFireAtCursor();
-    }
+		if (firing) _weapon.TryFireAtCursor();
+	}
 
 	// =========================================================
 	// Read four-direction arrow input independently from attributes and carrying rules.

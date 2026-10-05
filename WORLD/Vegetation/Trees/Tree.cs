@@ -26,6 +26,7 @@ public partial class Tree : Obstacle
         Height = Definition.VisualHeight * SizeMultiplier;
         VisualOverride = Definition.Visual;
         Kind = ObstacleKind.Rock;
+        ResourceHarvest.Attach(this, Definition, "carbon");
     }
     #endregion
 

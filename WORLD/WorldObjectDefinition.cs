@@ -22,6 +22,14 @@ public partial class WorldObjectDefinition : Resource
 	[Export] public VisualDefinition Visual { get; set; }
 	#endregion
 
+		#region Harvesting
+	[ExportGroup("Harvesting")]
+	[Export] public string HarvestItemId { get; set; } = "";
+	[Export] public int HarvestUnits { get; set; } = 1;
+	[Export] public float HarvestWork { get; set; } = 18f;
+	[Export] public int RequiredMiningStrength { get; set; } = 1;
+	#endregion
+
 	#region Instance Variation
 	// =========================================================
 	// Choose one instance size without changing the shared species resource.

@@ -10,3 +10,4 @@ MuzzleOffsets = Array[Vector2]([Vector2(0, 0)])
 Range = 180.0
 MiningPower = 6.0
 Tint = Color(0.51, 0.96, 1, 1)
+MiningStrength = 2

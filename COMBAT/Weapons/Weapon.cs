@@ -103,7 +103,7 @@ public void EmitProjectile(Vector2 origin, Vector2 direction, ProjectileAttack a
 }
 	#endregion
 
-	    #region Events
-    public event System.Action<AttackDefinition> AttackFired;
-    #endregion
+		#region Events
+	public event System.Action<AttackDefinition> AttackFired;
+	#endregion
 }

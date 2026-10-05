@@ -35,6 +35,7 @@ public partial class Rock : Obstacle
         Height = BaseHeight * SizeMultiplier;
         Kind = ObstacleKind.Rock;
         VisualOverride = Definition.Visual;
+        ResourceHarvest.Attach(this, Definition, "rock");
     }
     #endregion
 

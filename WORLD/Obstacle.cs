@@ -28,44 +28,44 @@ public partial class Obstacle : StaticBody2D
 // Build collision/artwork and wait for all world systems before creating shadows.
 public override async void _Ready()
 {
-    try
-    {
-        ConfigureInstance();
-        Footprint = new Vector2(
-            Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
-        CollisionLayer = 1;
-        CollisionMask = 0;
+	try
+	{
+		ConfigureInstance();
+		Footprint = new Vector2(
+			Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
+		CollisionLayer = 1;
+		CollisionMask = 0;
 
-        AddChild(new CollisionShape2D
-        {
-            Name = "Footprint",
-            Shape = new RectangleShape2D { Size = Footprint }
-        });
+		AddChild(new CollisionShape2D
+		{
+			Name = "Footprint",
+			Shape = new RectangleShape2D { Size = Footprint }
+		});
 
-        await AttachArtworkAsync();
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+		await AttachArtworkAsync();
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-        WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
-            "world_atmosphere") as WorldAtmosphere;
+		WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
+			"world_atmosphere") as WorldAtmosphere;
 
-        if (GodotObject.IsInstanceValid(atmosphere))
-        {
-            Node systems = atmosphere.GetParent();
-            if (!systems.IsNodeReady())
-                await ToSignal(systems, Node.SignalName.Ready);
+		if (GodotObject.IsInstanceValid(atmosphere))
+		{
+			Node systems = atmosphere.GetParent();
+			if (!systems.IsNodeReady())
+				await ToSignal(systems, Node.SignalName.Ready);
 
-            if (!IsInsideTree() || IsQueuedForDeletion() ||
-                !GodotObject.IsInstanceValid(atmosphere)) return;
+			if (!IsInsideTree() || IsQueuedForDeletion() ||
+				!GodotObject.IsInstanceValid(atmosphere)) return;
 
-            atmosphere.CreateObstacleShadow(this);
-        }
+			atmosphere.CreateObstacleShadow(this);
+		}
 
-        SetProcess(false);
-    }
-    catch (System.Exception error)
-    {
-        GD.PushError($"Obstacle '{Name}' initialization failed: {error}");
-    }
+		SetProcess(false);
+	}
+	catch (System.Exception error)
+	{
+		GD.PushError($"Obstacle '{Name}' initialization failed: {error}");
+	}
 }
 
 	// =========================================================

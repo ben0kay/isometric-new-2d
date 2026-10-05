@@ -19,6 +19,7 @@
 [ext_resource type="Resource" path="res://PLAYER/Stats/DefaultPlayerStats.tres" id="17_profile"]
 [ext_resource type="Script" path="res://PLAYER/Stats/StatModifier.cs" id="18_modifier"]
 [ext_resource type="Script" path="res://WORLDABLES/Objects/Storage/UI/StorageHud.cs" id="19_storage_hud"]
+[ext_resource type="Script" path="res://PLAYER/Gathering/PlayerGathering.cs" id="20_gathering"]
 
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
@@ -81,6 +82,11 @@ Rules = ExtResource("13_rules")
 [node name="MiningEmitter" type="Node" parent="Systems"]
 script = ExtResource("7_mining")
 BeamHoldTime = 0.14
+
+[node name="Gathering" type="Node" parent="Systems"]
+script = ExtResource("20_gathering")
+GatheringRange = 64.0
+GatheringInterval = 0.35
 
 [node name="InventoryHud" type="CanvasLayer" parent="."]
 layer = 20

@@ -15,6 +15,7 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 	#region State
 	public int RemainingUnits { get; private set; }
 	private float _work;
+	public int RequiredStrength => Definition.RequiredMiningStrength;
 	#endregion
 
 	#region Configuration

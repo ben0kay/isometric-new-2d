@@ -14,7 +14,7 @@ public partial class MiningEmitter : Node
     private CharacterBody2D _source;
     private TerrainElevation _elevation;
     private PhysicsRayQueryParameters2D _query;
-    private Func<ItemDefinition, int, bool> _collect;
+
     private Line2D _glow;
     private Line2D _core;
     private Vector2 _endpoint;
@@ -31,7 +31,6 @@ public override void _Ready()
 {
     _source = GetParent().GetParent<CharacterBody2D>();
     _stats = GetNodeOrNull<PlayerStats>("../Stats");
-    _collect = GetNode<PlayerInventory>("../Inventory").TryCollect;
     _query = new PhysicsRayQueryParameters2D
     {
         CollisionMask = 9,
@@ -84,7 +83,7 @@ public override void _Ready()
 
     #region Mining
 // =========================================================
-// Apply calculated mining efficiency without modifying the shared tool resource.
+// Check strength, apply extraction work and spawn rewards at the struck resource.
 public void Emit(MiningAttack attack, Vector2 direction)
 {
     if (direction.LengthSquared() < 0.0001f) return;
@@ -102,13 +101,31 @@ public void Emit(MiningAttack attack, Vector2 direction)
     if (hit.Count > 0)
     {
         _endpoint = hit["position"].AsVector2();
-        if (hit["collider"].AsGodotObject() is IMiningTarget target)
+        Node2D collider = hit["collider"].AsGodotObject() as Node2D;
+        bool worked = false;
+        float efficiency = _stats?.Get(PlayerStat.MiningEfficiency) ?? 1f;
+        float power = attack.MiningPower * efficiency;
+
+        if (collider is IMiningTarget target &&
+            attack.MiningStrength >= target.RequiredStrength)
         {
-            float efficiency = _stats?.Get(PlayerStat.MiningEfficiency) ?? 1f;
-            if (!target.Mine(attack.MiningPower * efficiency, _collect))
-                color = new Color("#ffbd77");
+            ResourceWorld resources = ResourceWorld.Find(this);
+            if (GodotObject.IsInstanceValid(resources))
+            {
+                Vector2 position = collider.GlobalPosition;
+                worked = target.Mine(power, (item, count) =>
+                    resources.Spawn(item.Id, count, position));
+            }
         }
-        else color = new Color("#ffbd77");
+        else if (collider != null)
+        {
+            ResourceHarvest harvest = collider.GetNodeOrNull<ResourceHarvest>(
+                "Harvest");
+            if (harvest != null)
+                worked = harvest.Mine(attack.MiningStrength, power);
+        }
+
+        if (!worked) color = new Color("#ffbd77");
     }
 
     _visualHeight = attack.VisualHeight;

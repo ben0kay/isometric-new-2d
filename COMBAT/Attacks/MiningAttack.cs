@@ -1,21 +1,21 @@
-// Defines mining attack data and the shared mining-target contract.
-// Targets receive a collection callback rather than depending on player storage.
+// Defines mining eligibility separately from extraction speed.
+// Ore targets receive a drop callback instead of accessing player inventory.
 using Godot;
 using System;
 
 public interface IMiningTarget
 {
-    // =========================================================
-    // Apply extraction work and request collection when a batch is ready.
-    bool Mine(float power, Func<ItemDefinition, int, bool> collect);
+    int RequiredStrength { get; }
+    bool Mine(float power, Func<ItemDefinition, int, bool> drop);
 }
 
-[GlobalClass]
+[Tool, GlobalClass]
 public partial class MiningAttack : AttackDefinition
 {
     #region Mining
     [ExportGroup("Mining")]
     [Export] public float Range { get; set; } = 180f;
+    [Export] public int MiningStrength { get; set; } = 1;
     [Export] public float MiningPower { get; set; } = 6f;
     #endregion
 
@@ -26,7 +26,7 @@ public partial class MiningAttack : AttackDefinition
 
     #region Delivery
     // =========================================================
-    // Dispatch mining through the owning actor's reusable emitter.
+    // Dispatch through the owning actor's reusable mining emitter.
     public override void Deliver(Weapon weapon, Vector2 origin, Vector2 direction)
     {
         weapon.Source.GetNodeOrNull<MiningEmitter>(
