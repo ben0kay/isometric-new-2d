@@ -6,7 +6,7 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/BasaltSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/DustSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/MineralSurface.gdshaderinc"
-#include "res://VISUALS/Drawings/Ground/GroundResources.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/GroundResource.gdshaderinc"
 
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
 uniform float dust_amount : hint_range(0.0, 1.0) = 0.55;

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ItemDefinition" format=3]
 
 [ext_resource type="Script" path="res://ITEMS/ItemDefinition.cs" id="1"]
-[ext_resource type="Resource" path="res://PLAYER/Tools/ShovelAttack.tres" id="2"]
+[ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelAttack.tres" id="2"]
 
 [resource]
 script = ExtResource("1")

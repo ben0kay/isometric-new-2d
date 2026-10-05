@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="BackpackDefinition" format=3]
 
-[ext_resource type="Script" path="res://PLAYER/Equipment/BackpackDefinition.cs" id="1"]
+[ext_resource type="Script" path="res://PLAYER/Equipment/Backpacks/BackpackDefinition.cs" id="1"]
 
 [resource]
 script = ExtResource("1")

@@ -21,8 +21,8 @@
 [ext_resource type="Script" uid="uid://jxg0ic0aduk1" path="res://WORLDABLES/Objects/Storage/UI/StorageHud.cs" id="19_storage_hud"]
 [ext_resource type="Script" uid="uid://ds5ncg0hxvpqc" path="res://PLAYER/Gathering/PlayerGathering.cs" id="20_gathering"]
 [ext_resource type="Script" uid="uid://vbfabib50dpv" path="res://PLAYER/Inventory/PlayerHotbar.cs" id="21_hotbar"]
-[ext_resource type="Script" path="res://PLAYER/Digging/PlayerDigging.cs" id="22_digging"]
-[ext_resource type="Resource" path="res://PLAYER/Tools/ShovelItem.tres" id="23_shovel"]
+[ext_resource type="Script" path="res://PLAYER/Gathering/PlayerDigging.cs" id="22_digging"]
+[ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelItem.tres" id="23_shovel"]
 
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
