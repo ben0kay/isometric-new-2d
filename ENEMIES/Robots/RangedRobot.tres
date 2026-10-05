@@ -3,6 +3,15 @@
 [ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotBlaster.tres" id="3_attack"]
+[ext_resource type="Script" path="res://ENEMIES/RangedCombatSettings.cs" id="4_combat"]
+
+[sub_resource type="Resource" id="RangedCombat"]
+script = ExtResource("4_combat")
+AttackRange = 360.0
+StopDistance = 24.0
+PreferredRange = 240.0
+BackAwayRange = 120.0
+Attack = ExtResource("3_attack")
 
 [resource]
 script = ExtResource("1_enemy")
@@ -11,14 +20,9 @@ DisplayName = "Ranged Robot"
 Defense = ExtResource("2_hull")
 MaxVitality = 75
 MoveSpeed = 145.0
-StopDistance = 24.0
 DetectionRange = 650.0
 ForgetRange = 1000.0
-CombatRange = 360.0
-PreferredRange = 240.0
-BackAwayRange = 120.0
-CombatStyle = 1
-RangedAttack = ExtResource("3_attack")
+Combat = SubResource("RangedCombat")
 WanderSpeed = 40.0
 WanderRadius = 240.0
 VisualTint = Color(1, 0.65, 0.4, 1)

@@ -1,9 +1,7 @@
-// Defines an enemy type without storing targeting, cooldown, or movement state.
-// Melee and ranged enemies share these settings and the same runtime scene.
+// Defines shared enemy identity, movement, awareness, defense, and visuals.
+// One combat resource supplies either melee or ranged settings.
 using Godot;
 using System;
-
-public enum EnemyCombatStyle { Melee, Ranged }
 
 [Tool, GlobalClass]
 public partial class EnemyDefinition : Resource
@@ -25,7 +23,6 @@ public partial class EnemyDefinition : Resource
     [ExportGroup("Movement")]
     [ExportSubgroup("Chasing")]
     [Export] public float MoveSpeed { get; set; } = 170f;
-    [Export] public float StopDistance { get; set; } = 28f;
     [Export] public float HomeLeash { get; set; } = 1400f;
 
     [ExportSubgroup("Wandering")]
@@ -37,27 +34,13 @@ public partial class EnemyDefinition : Resource
 
     #region Awareness
     [ExportGroup("Awareness")]
-    [ExportSubgroup("Targeting")]
     [Export] public float DetectionRange { get; set; } = 650f;
     [Export] public float ForgetRange { get; set; } = 1000f;
-
-    [ExportSubgroup("Combat Distances")]
-    [Export] public float CombatRange { get; set; } = 34f;
-    [Export] public float PreferredRange { get; set; } = 240f;
-    [Export] public float BackAwayRange { get; set; } = 120f;
     #endregion
 
     #region Combat
     [ExportGroup("Combat")]
-    [Export] public EnemyCombatStyle CombatStyle { get; set; }
-
-    [ExportSubgroup("Melee")]
-    [Export] public int MeleeDamage { get; set; } = 15;
-    [Export] public DamageType MeleeDamageType { get; set; } = DamageType.Kinetic;
-    [Export] public double MeleeCooldown { get; set; } = 0.8;
-
-    [ExportSubgroup("Ranged")]
-    [Export] public AttackDefinition RangedAttack { get; set; }
+    [Export] public EnemyCombatSettings Combat { get; set; }
     #endregion
 
     #region Updates
@@ -80,25 +63,22 @@ public partial class EnemyDefinition : Resource
 
     #region Validation
     // =========================================================
-    // Reject contradictory settings before this definition becomes an actor.
+    // Validate shared settings and the assigned concrete combat resource.
     public void Validate()
     {
         if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
             DetectionRange <= 0f || ForgetRange < DetectionRange ||
-            CombatRange <= 0f || StopDistance < 0f ||
             TargetInterval < 0.1 || DecisionInterval < 0.1 ||
             PathInterval < 0.1 || VisualScale <= 0f ||
             WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
             WanderRadius <= 0f || HomeLeash < WanderRadius)
             throw new InvalidOperationException($"Enemy '{Id}' has invalid settings.");
 
-        if (CombatStyle == EnemyCombatStyle.Melee && StopDistance > CombatRange)
-            throw new InvalidOperationException($"Enemy '{Id}': StopDistance exceeds CombatRange.");
+        if (Combat is not MeleeCombatSettings && Combat is not RangedCombatSettings)
+            throw new InvalidOperationException(
+                $"Enemy '{Id}' requires MeleeCombatSettings or RangedCombatSettings.");
 
-        if (CombatStyle == EnemyCombatStyle.Ranged &&
-            (RangedAttack == null || BackAwayRange < 0f ||
-             PreferredRange <= BackAwayRange || PreferredRange > CombatRange))
-            throw new InvalidOperationException($"Enemy '{Id}' has invalid ranged settings.");
+        Combat.Validate(Id);
     }
     #endregion
 }

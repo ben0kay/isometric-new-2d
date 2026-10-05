@@ -135,16 +135,24 @@ public static TerrainVisual Attach(
     }
 
 // =========================================================
-// Synchronize artwork elevation immediately when its owner moves.
+// Resolve late-starting elevation services and synchronize the owner's artwork.
 public void UpdateHeight()
 {
+    if (_elevation == null)
+    {
+        _elevation = GetTree().GetFirstNodeInGroup(
+            "terrain_elevation") as TerrainElevation;
+
+        // Resample even if the owner stood still while the service initialized.
+        if (_elevation != null) _sampled = false;
+    }
+
     Vector2 point = _host.GlobalPosition;
     if (_sampled && point == _lastPosition) return;
 
     _sampled = true;
     _lastPosition = point;
-    float height = _elevation != null
-        ? _elevation.SampleWorldHeight(point) : 0f;
+    float height = _elevation?.SampleWorldHeight(point) ?? 0f;
     Position = new Vector2(0f, -height);
 }
     #endregion

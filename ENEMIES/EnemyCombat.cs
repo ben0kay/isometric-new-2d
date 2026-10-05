@@ -23,34 +23,41 @@ public partial class EnemyCombat : Node
     #endregion
 
     #region Combat
-    // =========================================================
-    // Check attacks at ten hertz while keeping weapon cooldowns in physics time.
-    public void Tick(double delta)
+// =========================================================
+// Check the selected combat resource at ten hertz and deliver its attack.
+public void Tick(double delta)
+{
+    if (!_actor.Initialized || !_actor.IsActivated || _actor.SpawnPending ||
+        _actor.IsQueuedForDeletion() || _actor.Health?.IsAlive != true)
+        return;
+
+    _weapon.Tick(delta);
+    _timer -= delta;
+    if (_timer > 0.0) return;
+    _timer = 0.1;
+
+    if (!_actor.HasTarget || !_actor.HasSight) return;
+
+    EnemyCombatSettings combat = _actor.Definition.Combat;
+    Vector2 point = _actor.Target.GlobalPosition;
+    if (_actor.GlobalPosition.DistanceSquaredTo(point) >
+        combat.AttackRange * combat.AttackRange) return;
+
+    if (combat is RangedCombatSettings)
     {
-        _weapon.Tick(delta);
-        _timer -= delta;
-        if (_timer > 0.0) return;
-        _timer = 0.1;
-
-        if (!_actor.Health.IsAlive || !_actor.HasTarget || !_actor.HasSight) return;
-        EnemyDefinition definition = _actor.Definition;
-        Vector2 point = _actor.Target.GlobalPosition;
-        if (_actor.GlobalPosition.DistanceSquaredTo(point) >
-            definition.CombatRange * definition.CombatRange) return;
-
-        if (definition.CombatStyle == EnemyCombatStyle.Ranged)
-        {
-            _weapon.TryFireAt(point);
-            return;
-        }
-
-        _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
-        if (_navigation == null ||
-            !_navigation.CanTravelDirectly(_actor.GlobalPosition, point)) return;
-
-        Health targetHealth = _actor.Target.GetNodeOrNull<Health>("Systems/Health");
-        if (targetHealth?.Damage(definition.MeleeDamage, definition.MeleeDamageType) == true)
-            _timer = Math.Max(0.1, definition.MeleeCooldown);
+        _weapon.TryFireAt(point);
+        return;
     }
+
+    if (combat is not MeleeCombatSettings melee) return;
+
+    _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
+    if (_navigation == null ||
+        !_navigation.CanTravelDirectly(_actor.GlobalPosition, point)) return;
+
+    Health targetHealth = _actor.Target.GetNodeOrNull<Health>("Systems/Health");
+    if (targetHealth?.Damage(melee.Damage, melee.DamageType) == true)
+        _timer = Math.Max(0.1, melee.Cooldown);
+}
     #endregion
 }

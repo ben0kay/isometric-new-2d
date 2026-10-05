@@ -160,21 +160,25 @@ public bool CanTravelDirectly(Vector2 from, Vector2 to)
     return result.Length >= 2 && result[0] >= 0.9999f;
 }
 
-    // =========================================================
-    // Find a path through loaded ground with clearance around obstacle bases.
-    public Vector2[] FindPath(Vector2 from, Vector2 to)
-    {
-        if (!_chunks.IsNavigationPointAvailable(from) || !_chunks.IsNavigationPointAvailable(to))
-            return System.Array.Empty<Vector2>();
+// =========================================================
+// Request a complete shared grid before finding a route between loaded points.
+public Vector2[] FindPath(Vector2 from, Vector2 to)
+{
+    if (!_chunks.IsNavigationPointAvailable(from) ||
+        !_chunks.IsNavigationPointAvailable(to))
+        return System.Array.Empty<Vector2>();
 
-        if (!PrepareGrid(from)) return System.Array.Empty<Vector2>();
-        if (!FindOpenCell(from, out Vector2I start) || !FindOpenCell(to, out Vector2I goal))
-            return System.Array.Empty<Vector2>();
+    if (!PrepareGrid(from, to)) return System.Array.Empty<Vector2>();
+    if (!FindOpenCell(from, out Vector2I start) ||
+        !FindOpenCell(to, out Vector2I goal))
+        return System.Array.Empty<Vector2>();
 
-        Vector2 startPoint = _grid.GetPointPosition(start);
-        if (!CanTravelDirectly(from, startPoint)) return System.Array.Empty<Vector2>();
-        return _grid.GetPointPath(start, goal);
-    }
+    Vector2 startPoint = _grid.GetPointPosition(start);
+    if (!CanTravelDirectly(from, startPoint))
+        return System.Array.Empty<Vector2>();
+
+    return _grid.GetPointPath(start, goal);
+}
 
 // =========================================================
 // Find the closest open cell that can actually be reached from
@@ -205,9 +209,18 @@ private bool FindOpenCell(Vector2 point, out Vector2I result)
 
     #region Grid
 // =========================================================
-// Request an incremental grid rebuild when its region or relevant topology changes.
-private bool PrepareGrid(Vector2 source)
+// Reuse a covering grid and allow pending construction to finish without cancellation.
+private bool PrepareGrid(Vector2 source, Vector2 destination)
 {
+    Vector2I start = WorldToCell(source);
+    Vector2I goal = WorldToCell(destination);
+
+    if (_gridReady && _builtRevision == _revision &&
+        _cachedRegion.HasPoint(start) && _cachedRegion.HasPoint(goal))
+        return true;
+
+    if (_build != null) return false;
+
     int bucket = CellSize * 8;
     Vector2 anchor = new(
         Mathf.Floor(source.X / bucket) * bucket,
@@ -215,10 +228,11 @@ private bool PrepareGrid(Vector2 source)
     Vector2I low = WorldToCell(anchor - Vector2.One * SearchRadius);
     Vector2I high = WorldToCell(anchor + Vector2.One * SearchRadius);
     Rect2I region = new(low, high - low + Vector2I.One);
-    if (_gridReady && _builtRevision == _revision && region == _cachedRegion) return true;
-    if (_build != null && region == _cachedRegion) return false;
-    _build?.Dispose();
-    _cachedRegion = region; _gridReady = false;
+
+    if (!region.HasPoint(start) || !region.HasPoint(goal)) return false;
+
+    _cachedRegion = region;
+    _gridReady = false;
     _build = BuildGridSteps(region, _revision).GetEnumerator();
     SetProcess(true);
     return false;

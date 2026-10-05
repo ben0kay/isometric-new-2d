@@ -36,66 +36,70 @@ public partial class Enemy : CharacterBody2D
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Apply definition settings before child components initialize.
-    public override void _EnterTree()
+// =========================================================
+// Apply shared stats and the selected ranged attack before children initialize.
+public override void _EnterTree()
+{
+    if (Definition == null)
+        throw new InvalidOperationException("Enemy requires a Definition.");
+
+    Definition.Validate();
+    AddToGroup("enemies");
+    MotionMode = MotionModeEnum.Floating;
+    SetPhysicsProcess(false);
+
+    _activeLayer = CollisionLayer;
+    Health health = GetNode<Health>("Systems/Health");
+    health.MaxHealth = Definition.MaxVitality;
+    health.Defense = Definition.Defense;
+
+    Weapon weapon = GetNode<Weapon>("Systems/Weapon");
+    weapon.Team = CombatTeam.Enemy;
+    weapon.Attack = (Definition.Combat as RangedCombatSettings)?.Attack;
+
+    if (SpawnPending) { Hide(); CollisionLayer = 0; }
+}
+
+// =========================================================
+// Keep prepared enemies inactive until artwork and spawn activation are complete.
+public override async void _Ready()
+{
+    SetPhysicsProcess(false);
+
+    Health = GetNode<Health>("Systems/Health");
+    _motor = GetNode<EnemyMotor>("Systems/Motor");
+    _combat = GetNode<EnemyCombat>("Systems/Combat");
+    Health.Died += OnDeath;
+    Home = SpawnHome ?? GlobalPosition;
+    _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
+    _targetTimer = _rng.Randf() * Definition.TargetInterval;
+    _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
+    _wanderTimer = _rng.RandfRange(Definition.WanderWait.X, Definition.WanderWait.Y);
+    _sightQuery.CollisionMask = 1u;
+    _sightQuery.CollideWithAreas = false;
+    _sightQuery.HitFromInside = true;
+
+    try
     {
-        if (Definition == null) throw new InvalidOperationException("Enemy requires a Definition.");
-        Definition.Validate();
-        AddToGroup("enemies");
-        MotionMode = MotionModeEnum.Floating;
-        SetPhysicsProcess(false);
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-        _activeLayer = CollisionLayer;
-        Health health = GetNode<Health>("Systems/Health");
-        health.MaxHealth = Definition.MaxVitality;
-        health.Defense = Definition.Defense;
+        TerrainVisual visual = TerrainVisual.Attach(
+            this, PlaceholderAtlas.EnemyRegion,
+            new Vector2(-48, -64), Vector2.One, true, Definition.VisualOverride);
+        CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
+        artwork.Modulate = Definition.VisualTint;
+        if (artwork is Node2D node) node.Scale *= Definition.VisualScale;
 
-        Weapon weapon = GetNode<Weapon>("Systems/Weapon");
-        weapon.Team = CombatTeam.Enemy;
-        weapon.Attack = Definition.RangedAttack;
-
-        if (SpawnPending) { Hide(); CollisionLayer = 0; }
+        Initialized = true;
+        if (!SpawnPending) Activate();
     }
-
-    // =========================================================
-    // Prepare runtime state and attach the existing custom-or-baked artwork.
-    public override async void _Ready()
+    catch (Exception error)
     {
-        Health = GetNode<Health>("Systems/Health");
-        _motor = GetNode<EnemyMotor>("Systems/Motor");
-        _combat = GetNode<EnemyCombat>("Systems/Combat");
-        Health.Died += OnDeath;
-        Home = SpawnHome ?? GlobalPosition;
-        _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
-        _targetTimer = _rng.Randf() * Definition.TargetInterval;
-        _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
-        _wanderTimer = _rng.RandfRange(Definition.WanderWait.X, Definition.WanderWait.Y);
-        _sightQuery.CollisionMask = 1u;
-        _sightQuery.CollideWithAreas = false;
-        _sightQuery.HitFromInside = true;
-
-        try
-        {
-            await PlaceholderAtlas.EnsureReady(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
-
-            TerrainVisual visual = TerrainVisual.Attach(
-                this, PlaceholderAtlas.EnemyRegion,
-                new Vector2(-48, -64), Vector2.One, true, Definition.VisualOverride);
-            CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
-            artwork.Modulate = Definition.VisualTint;
-            if (artwork is Node2D node) node.Scale *= Definition.VisualScale;
-
-            Initialized = true;
-            if (!SpawnPending) Activate();
-        }
-        catch (Exception error)
-        {
-            GD.PushError($"Enemy '{Definition.Id}' initialization failed: {error}");
-            QueueFree();
-        }
+        GD.PushError($"Enemy '{Definition.Id}' initialization failed: {error}");
+        QueueFree();
     }
+}
 
     // =========================================================
     // Remove subscriptions and dispose this actor's reusable query resources.
@@ -118,33 +122,39 @@ public partial class Enemy : CharacterBody2D
         SetPhysicsProcess(true);
     }
 
-    // =========================================================
-    // Run cheap physical updates while decimating targeting and decision work.
-    public override void _PhysicsProcess(double delta)
+// =========================================================
+// Update only activated, living enemies; stagger targeting and movement decisions.
+public override void _PhysicsProcess(double delta)
+{
+    if (!Initialized || !IsActivated || SpawnPending ||
+        IsQueuedForDeletion() || Health?.IsAlive != true)
     {
-        if (!Health.IsAlive) return;
-        _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
-        if (_navigation == null) return;
-
-        _targetTimer -= delta;
-        _decisionTimer -= delta;
-        _wanderTimer -= delta;
-
-        if (_targetTimer <= 0.0)
-        {
-            _targetTimer = Definition.TargetInterval;
-            SelectTarget();
-        }
-
-        if (_decisionTimer <= 0.0)
-        {
-            _decisionTimer = Definition.DecisionInterval;
-            DecideMovement();
-        }
-
-        _motor.Tick(delta);
-        _combat.Tick(delta);
+        SetPhysicsProcess(false);
+        return;
     }
+
+    _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
+    if (_navigation == null) return;
+
+    _targetTimer -= delta;
+    _decisionTimer -= delta;
+    _wanderTimer -= delta;
+
+    if (_targetTimer <= 0.0)
+    {
+        _targetTimer = Definition.TargetInterval;
+        SelectTarget();
+    }
+
+    if (_decisionTimer <= 0.0)
+    {
+        _decisionTimer = Definition.DecisionInterval;
+        DecideMovement();
+    }
+
+    _motor.Tick(delta);
+    _combat.Tick(delta);
+}
 
     // =========================================================
     // Notify population ownership without duplicating CombatLife death handling.
@@ -212,33 +222,41 @@ public partial class Enemy : CharacterBody2D
     #endregion
 
     #region Decisions
-    // =========================================================
-    // Choose wandering, chasing, holding range, or retreating.
-    private void DecideMovement()
+// =========================================================
+// Approach for melee; use preferred spacing and retreat only for ranged enemies.
+private void DecideMovement()
+{
+    HasSight = HasTarget && CanSee(Target.GlobalPosition);
+    if (!HasTarget) { DecideWandering(); return; }
+
+    Vector2 point = Target.GlobalPosition;
+    EnemyCombatSettings combat = Definition.Combat;
+
+    if (combat is MeleeCombatSettings)
     {
-        HasSight = HasTarget && CanSee(Target.GlobalPosition);
-        if (!HasTarget) { DecideWandering(); return; }
-
-        Vector2 point = Target.GlobalPosition;
-        float distance = GlobalPosition.DistanceTo(point);
-
-        if (Definition.CombatStyle == EnemyCombatStyle.Melee)
-        {
-            _motor.SetGoal(point, Definition.MoveSpeed, Definition.StopDistance);
-            return;
-        }
-
-        if (distance < Definition.BackAwayRange) _retreating = true;
-        if (distance >= Definition.PreferredRange) _retreating = false;
-
-        if (_retreating) { DecideRetreat(point); return; }
-        if (HasSight && distance <= Definition.PreferredRange)
-        {
-            _motor.Stop();
-            return;
-        }
-        _motor.SetGoal(point, Definition.MoveSpeed, Definition.StopDistance);
+        _motor.SetGoal(point, Definition.MoveSpeed, combat.StopDistance);
+        return;
     }
+
+    if (combat is not RangedCombatSettings ranged)
+    {
+        _motor.Stop();
+        return;
+    }
+
+    float distance = GlobalPosition.DistanceTo(point);
+    if (distance < ranged.BackAwayRange) _retreating = true;
+    if (distance >= ranged.PreferredRange) _retreating = false;
+
+    if (_retreating) { DecideRetreat(point); return; }
+    if (HasSight && distance <= ranged.PreferredRange)
+    {
+        _motor.Stop();
+        return;
+    }
+
+    _motor.SetGoal(point, Definition.MoveSpeed, ranged.StopDistance);
+}
 
     // =========================================================
     // Find a short clear retreat, trying nearby directions around obstacles.

@@ -44,10 +44,11 @@ public partial class Projectile : Node2D
     }
 
 // =========================================================
-// Sweep the complete travel segment and deliver typed damage at impact.
+// Sweep each movement segment; artwork placement is configured once at launch.
 public override void _PhysicsProcess(double delta)
 {
     if (!_active) return;
+
     float step = Mathf.Min((float)delta, _remaining);
     Vector2 next = GlobalPosition + _direction * _speed * step;
     _query.From = GlobalPosition;
@@ -64,9 +65,8 @@ public override void _PhysicsProcess(double delta)
     }
 
     GlobalPosition = next;
-    _remaining -= (float)delta;
-    if (_remaining <= 0f) { Release(); return; }
-    UpdateArtwork();
+    _remaining -= step;
+    if (_remaining <= 0f) Release();
 }
 
 // =========================================================

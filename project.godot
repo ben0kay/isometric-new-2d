@@ -13,6 +13,7 @@ config_version=5
 config/name="isometric-new-2d"
 run/main_scene="uid://dlx7kblpf5oro"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+run/max_fps=60
 config/icon="res://icon.svg"
 
 [display]
