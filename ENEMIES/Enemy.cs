@@ -33,6 +33,7 @@ public partial class Enemy : CharacterBody2D
     private double _targetTimer, _decisionTimer, _wanderTimer;
     private bool _retreating;
     private uint _activeLayer;
+    private EnemySequence _sequence;
     #endregion
 
     #region Lifecycle
@@ -61,7 +62,7 @@ public override void _EnterTree()
 }
 
 // =========================================================
-// Keep prepared enemies inactive until artwork and spawn activation are complete.
+// Initialize components while keeping hidden prepared enemies inactive.
 public override async void _Ready()
 {
     SetPhysicsProcess(false);
@@ -69,6 +70,7 @@ public override async void _Ready()
     Health = GetNode<Health>("Systems/Health");
     _motor = GetNode<EnemyMotor>("Systems/Motor");
     _combat = GetNode<EnemyCombat>("Systems/Combat");
+    _sequence = GetNode<EnemySequence>("Systems/Sequence");
     Health.Died += OnDeath;
     Home = SpawnHome ?? GlobalPosition;
     _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
@@ -123,12 +125,13 @@ public override async void _Ready()
     }
 
 // =========================================================
-// Update only activated, living enemies; stagger targeting and movement decisions.
+// Stage awareness, movement decisions, attack execution, then physical movement.
 public override void _PhysicsProcess(double delta)
 {
     if (!Initialized || !IsActivated || SpawnPending ||
         IsQueuedForDeletion() || Health?.IsAlive != true)
     {
+        _sequence?.Cancel();
         SetPhysicsProcess(false);
         return;
     }
@@ -140,28 +143,40 @@ public override void _PhysicsProcess(double delta)
     _decisionTimer -= delta;
     _wanderTimer -= delta;
 
+    // Stage 1: periodic awareness and target selection.
     if (_targetTimer <= 0.0)
     {
         _targetTimer = Definition.TargetInterval;
         SelectTarget();
     }
 
+    // Stage 2: refresh sight; ordinary movement yields to an active sequence.
     if (_decisionTimer <= 0.0)
     {
         _decisionTimer = Definition.DecisionInterval;
-        DecideMovement();
+        if (_sequence.IsRunning)
+            HasSight = HasTarget && CanSee(Target.GlobalPosition);
+        else
+            DecideMovement();
     }
 
-    _motor.Tick(delta);
+    // Stage 3: advance weapon timing, then the current sequence action.
     _combat.Tick(delta);
+    bool wasRunning = _sequence.IsRunning;
+    _sequence.Tick(delta);
+    if (wasRunning && !_sequence.IsRunning) _decisionTimer = 0.0;
+
+    // Stage 4: execute the goal chosen by the current movement owner.
+    _motor.Tick(delta);
 }
 
-    // =========================================================
-    // Notify population ownership without duplicating CombatLife death handling.
-    private void OnDeath()
-    {
-        Died?.Invoke();
-    }
+// =========================================================
+// Cancel remaining sequence actions and notify population ownership on death.
+private void OnDeath()
+{
+    _sequence?.Cancel();
+    Died?.Invoke();
+}
     #endregion
 
     #region Targeting
@@ -175,7 +190,7 @@ public override void _PhysicsProcess(double delta)
     }
 
 // =========================================================
-// Acquire nearby players and retain a living target until it exceeds ForgetRange.
+// Acquire nearby players, retaining a target by ForgetRange rather than home distance.
 private void SelectTarget()
 {
     Player next = HasTarget ? Target : null;
@@ -201,8 +216,11 @@ private void SelectTarget()
     }
 
     if (next == Target) return;
+
+    _sequence.Cancel();
     Target = next;
     _targetHealth = next?.GetNodeOrNull<Health>("Systems/Health");
+    HasSight = false;
     _retreating = false;
     _motor.Stop();
     _decisionTimer = 0.0;

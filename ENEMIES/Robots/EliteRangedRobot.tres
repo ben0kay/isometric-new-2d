@@ -1,9 +1,10 @@
-[gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://d0lklphub468y"]
+[gd_resource type="Resource" script_class="EnemyDefinition" format=3]
 
 [ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotBlaster.tres" id="3_attack"]
 [ext_resource type="Script" path="res://ENEMIES/RangedCombatSettings.cs" id="4_combat"]
+[ext_resource type="Resource" path="res://ENEMIES/Sequences/ShootDodgeShoot.tres" id="5_sequence"]
 
 [sub_resource type="Resource" id="RangedCombat"]
 script = ExtResource("4_combat")
@@ -15,12 +16,14 @@ Attack = ExtResource("3_attack")
 
 [resource]
 script = ExtResource("1_enemy")
-Id = "ranged_robot"
-DisplayName = "Ranged Robot"
-MaxVitality = 75
+Id = "elite_ranged_robot"
+DisplayName = "Elite Ranged Robot"
+SpawnWeight = 1.0
+MaxVitality = 100
 Defense = ExtResource("2_hull")
 MoveSpeed = 145.0
 WanderSpeed = 40.0
 Combat = SubResource("RangedCombat")
-VisualTint = Color(1, 0.65, 0.4, 1)
-VisualScale = 1.1
+Sequence = ExtResource("5_sequence")
+VisualTint = Color(0.8, 0.45, 1, 1)
+VisualScale = 1.15

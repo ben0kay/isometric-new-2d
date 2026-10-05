@@ -41,6 +41,7 @@ public partial class EnemyDefinition : Resource
     #region Combat
     [ExportGroup("Combat")]
     [Export] public EnemyCombatSettings Combat { get; set; }
+    [Export] public EnemySequenceDefinition Sequence { get; set; }
     #endregion
 
     #region Updates
@@ -62,23 +63,29 @@ public partial class EnemyDefinition : Resource
     #endregion
 
     #region Validation
-    // =========================================================
-    // Validate shared settings and the assigned concrete combat resource.
-    public void Validate()
-    {
-        if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
-            DetectionRange <= 0f || ForgetRange < DetectionRange ||
-            TargetInterval < 0.1 || DecisionInterval < 0.1 ||
-            PathInterval < 0.1 || VisualScale <= 0f ||
-            WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
-            WanderRadius <= 0f || HomeLeash < WanderRadius)
-            throw new InvalidOperationException($"Enemy '{Id}' has invalid settings.");
+// =========================================================
+// Validate shared settings, combat configuration, and an optional action sequence.
+public void Validate()
+{
+    if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
+        DetectionRange <= 0f || ForgetRange < DetectionRange ||
+        TargetInterval < 0.1 || DecisionInterval < 0.1 ||
+        PathInterval < 0.1 || VisualScale <= 0f ||
+        WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
+        WanderRadius <= 0f || HomeLeash < WanderRadius)
+        throw new InvalidOperationException($"Enemy '{Id}' has invalid settings.");
 
-        if (Combat is not MeleeCombatSettings && Combat is not RangedCombatSettings)
-            throw new InvalidOperationException(
-                $"Enemy '{Id}' requires MeleeCombatSettings or RangedCombatSettings.");
+    if (Combat is not MeleeCombatSettings && Combat is not RangedCombatSettings)
+        throw new InvalidOperationException(
+            $"Enemy '{Id}' requires MeleeCombatSettings or RangedCombatSettings.");
 
-        Combat.Validate(Id);
-    }
+    Combat.Validate(Id);
+    Sequence?.Validate();
+
+    // This first pass's Fire action uses the existing ranged weapon.
+    if (Sequence != null && Combat is not RangedCombatSettings)
+        throw new InvalidOperationException(
+            $"Enemy '{Id}': this sequence pass requires ranged combat settings.");
+}
     #endregion
 }
