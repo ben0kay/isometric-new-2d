@@ -1,23 +1,14 @@
 [gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://dg6k3y10ofscf"]
 
-[ext_resource type="Script" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
-[ext_resource type="Script" path="res://ENEMIES/MeleeCombatSettings.cs" id="3_combat"]
+[ext_resource type="Script" uid="uid://bjrfda2v750sh" path="res://ENEMIES/MeleeCombatSettings.cs" id="3_combat"]
 
 [sub_resource type="Resource" id="MeleeCombat"]
 script = ExtResource("3_combat")
-AttackRange = 34.0
-StopDistance = 28.0
-Damage = 15
-DamageType = 1
-Cooldown = 0.8
 
 [resource]
 script = ExtResource("1_enemy")
-Id = "melee_robot"
-DisplayName = "Melee Robot"
 Defense = ExtResource("2_hull")
-MaxVitality = 60
-MoveSpeed = 170.0
 Combat = SubResource("MeleeCombat")
 VisualTint = Color(0.7, 0.9, 1, 1)

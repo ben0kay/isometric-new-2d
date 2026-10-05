@@ -12,7 +12,7 @@
 [ext_resource type="Resource" path="res://WORLD/Rocks/SmallRock.tres" id="10_small"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/Boulder.tres" id="11_boulder"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/CliffRock.tres" id="12_cliff"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
+[ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -61,11 +61,11 @@ Definition = ExtResource("6_tree")
 script = ExtResource("2_vegetation")
 PlantPatches = 10
 PlantsPerPatch = 7
-Plants = Array[ExtResource("3_entry")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
-Trees = Array[ExtResource("3_entry")]([SubResource("TreeEntry")])
+Plants = [SubResource("FrondEntry"), SubResource("ShrubEntry")]
+Trees = [SubResource("TreeEntry")]
 GrassPatches = 14
 GrassTuftsPerPatch = 12
-Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
+Grass = [SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")]
 
 [resource]
 script = ExtResource("1_biome")
@@ -79,5 +79,5 @@ RollingFeatureSize = 10.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 3
-Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+Rocks = [SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")]
 Enemies = ExtResource("20_enemies")

@@ -1,27 +1,20 @@
-[gd_resource type="Resource" script_class="EnemySequenceDefinition" format=3]
+[gd_resource type="Resource" script_class="EnemySequenceDefinition" format=3 uid="uid://dsbmsst6x8fq8"]
 
-[ext_resource type="Script" path="res://ENEMIES/Sequences/EnemySequenceDefinition.cs" id="1_sequence"]
-[ext_resource type="Script" path="res://ENEMIES/Sequences/EnemyAction.cs" id="2_action"]
-[ext_resource type="Script" path="res://ENEMIES/Sequences/FireEnemyAction.cs" id="3_fire"]
-[ext_resource type="Script" path="res://ENEMIES/Sequences/DodgeEnemyAction.cs" id="4_dodge"]
-[ext_resource type="Script" path="res://ENEMIES/Sequences/WaitEnemyAction.cs" id="5_wait"]
+[ext_resource type="Script" uid="uid://b3b07y60374hm" path="res://ENEMIES/Sequences/EnemySequenceDefinition.cs" id="1_sequence"]
+[ext_resource type="Script" uid="uid://c7j0d1lu7ac8" path="res://ENEMIES/Sequences/FireEnemyAction.cs" id="3_fire"]
+[ext_resource type="Script" uid="uid://ctorw172sioe8" path="res://ENEMIES/Sequences/DodgeEnemyAction.cs" id="4_dodge"]
+[ext_resource type="Script" uid="uid://s6dtdu1i04eu" path="res://ENEMIES/Sequences/WaitEnemyAction.cs" id="5_wait"]
 
 [sub_resource type="Resource" id="Fire"]
 script = ExtResource("3_fire")
-MaximumWait = 2.0
 
 [sub_resource type="Resource" id="Dodge"]
 script = ExtResource("4_dodge")
 OnFailure = 1
-Distance = 110.0
-SpeedMultiplier = 2.2
-Timeout = 1.2
 
 [sub_resource type="Resource" id="Wait"]
 script = ExtResource("5_wait")
-Duration = 0.5
 
 [resource]
 script = ExtResource("1_sequence")
-Actions = Array[ExtResource("2_action")]([SubResource("Fire"), SubResource("Dodge"), SubResource("Fire"), SubResource("Wait")])
-Cooldown = 0.75
+Actions = [SubResource("Fire"), SubResource("Dodge"), SubResource("Fire"), SubResource("Wait")]

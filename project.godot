@@ -29,7 +29,7 @@ project/assembly_name="isometric-new-2d"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/biome_catalog/plugin.cfg")
+enabled=PackedStringArray()
 
 [physics]
 

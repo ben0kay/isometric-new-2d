@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="4_navigation"]
 [ext_resource type="PackedScene" path="res://ENEMIES/EnemyPopulation.tscn" id="5_enemy_population"]
 [ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="6_elevation"]
-[ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="7_projectiles"]
+[ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/projectilePool.cs" id="7_projectiles"]
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="8_atmosphere"]
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
@@ -24,14 +24,14 @@ y_sort_enabled = true
 [node name="Player" parent="WorldObjects" unique_id=432636805 instance=ExtResource("1_player")]
 position = Vector2(0, 180)
 
-[node name="IronDepositA" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+[node name="IronDepositA" parent="WorldObjects" unique_id=447065109 instance=ExtResource("20_iron_deposit")]
 position = Vector2(110, 230)
 
-[node name="IronDepositB" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+[node name="IronDepositB" parent="WorldObjects" unique_id=753641252 instance=ExtResource("20_iron_deposit")]
 position = Vector2(-140, 250)
 InstanceSize = 0.9
 
-[node name="IronDepositC" parent="WorldObjects" instance=ExtResource("20_iron_deposit")]
+[node name="IronDepositC" parent="WorldObjects" unique_id=1677625700 instance=ExtResource("20_iron_deposit")]
 position = Vector2(220, 310)
 InstanceSize = 1.1
 
@@ -64,7 +64,7 @@ script = ExtResource("4_navigation")
 [node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
 
-[node name="EnemyPopulation" parent="Systems" instance=ExtResource("5_enemy_population")]
+[node name="EnemyPopulation" parent="Systems" unique_id=2067786256 instance=ExtResource("5_enemy_population")]
 
 [node name="ProjectilePool" type="Node" parent="Systems" unique_id=1460707211]
 script = ExtResource("7_projectiles")
