@@ -10,6 +10,7 @@
 [ext_resource type="Resource" path="res://WORLD/Vegetation/Grass/MediumGrass.tres" id="8_medium"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/SmallRock.tres" id="9_small"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/Boulder.tres" id="10_boulder"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -69,3 +70,4 @@ PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry")])
+Enemies = ExtResource("20_enemies")

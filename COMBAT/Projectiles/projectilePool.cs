@@ -43,16 +43,18 @@ public partial class ProjectilePool : Node
 	#endregion
 
 	#region Pool Operations
-	// =========================================================
-	// Launch a recycled instance or expand the pool within its configured limit.
-	public bool Fire(Vector2 origin, Vector2 direction, ProjectileAttack attack, uint mask)
-	{
-		if (_available.Count == 0 && _created >= Capacity) return false;
-		Projectile projectile = _available.Count > 0
-			? _available.Pop() : CreateProjectile();
-		projectile.Launch(this, origin, direction, attack, mask);
-		return true;
-	}
+// =========================================================
+// Launch a reusable projectile with the shooter's captured terrain elevation.
+public bool Fire(
+    Vector2 origin, Vector2 direction, ProjectileAttack attack,
+    uint mask, float sourceHeight)
+{
+    if (_available.Count == 0 && _created >= Capacity) return false;
+    Projectile projectile = _available.Count > 0
+        ? _available.Pop() : CreateProjectile();
+    projectile.Launch(this, origin, direction, attack, mask, sourceHeight);
+    return true;
+}
 
 	// =========================================================
 	// Return a deactivated projectile to the available reserve.

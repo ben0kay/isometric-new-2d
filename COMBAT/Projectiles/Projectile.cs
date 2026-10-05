@@ -8,13 +8,13 @@ public partial class Projectile : Node2D
     private static ImageTexture _texture;
     private readonly PhysicsRayQueryParameters2D _query = new();
     private ProjectilePool _pool;
-    private TerrainElevation _elevation;
     private Sprite2D _sprite;
     private Vector2 _direction;
     private float _speed, _remaining, _visualHeight;
     private int _damage;
     private DamageType _damageType;
     private bool _active;
+    private float _launchHeight;
     #endregion
 
     #region Lifecycle
@@ -70,10 +70,10 @@ public override void _PhysicsProcess(double delta)
 }
 
 // =========================================================
-// Snapshot attack settings so pooled projectiles retain their own damage type.
+// Capture launch elevation and attack settings independently for each pooled shot.
 public void Launch(
     ProjectilePool pool, Vector2 origin, Vector2 direction,
-    ProjectileAttack attack, uint mask)
+    ProjectileAttack attack, uint mask, float sourceHeight)
 {
     _pool = pool;
     GlobalPosition = origin;
@@ -81,12 +81,12 @@ public void Launch(
     _speed = Mathf.Max(1f, attack.Speed);
     _remaining = Mathf.Max(0.05f, attack.Lifetime);
     _visualHeight = attack.VisualHeight;
+    _launchHeight = sourceHeight;
     _damage = System.Math.Max(0, attack.Damage);
     _damageType = attack.Type;
     _query.CollisionMask = mask;
     _sprite.Modulate = attack.Tint;
     _sprite.Rotation = _direction.Angle();
-    _elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
     _active = true;
     UpdateArtwork();
     Show();
@@ -106,14 +106,12 @@ public void Launch(
     #endregion
 
     #region Artwork
-    // =========================================================
-    // Position the sprite above its logical ground location.
-    private void UpdateArtwork()
-    {
-        float height = _elevation != null
-            ? _elevation.SampleWorldHeight(GlobalPosition) : 0f;
-        _sprite.Position = new Vector2(0f, -height - _visualHeight);
-    }
+// =========================================================
+// Keep the shot on its launch elevation without sampling terrain during flight.
+private void UpdateArtwork()
+{
+    _sprite.Position = new Vector2(0f, -_launchHeight - _visualHeight);
+}
 
     // =========================================================
     // Generate one small white bolt texture for all projectile instances.

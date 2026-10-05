@@ -9,6 +9,7 @@
 [ext_resource type="Resource" path="res://WORLD/Rocks/SmallRock.tres" id="7_small"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/Boulder.tres" id="8_boulder"]
 [ext_resource type="Resource" path="res://WORLD/Rocks/CliffRock.tres" id="9_cliff"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -57,3 +58,4 @@ RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+Enemies = ExtResource("20_enemies")

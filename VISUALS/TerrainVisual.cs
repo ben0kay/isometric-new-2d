@@ -134,18 +134,18 @@ public static TerrainVisual Attach(
         UpdateHeight();
     }
 
-    // =========================================================
-    // Sample elevation only when the owner's world position changes.
-    private void UpdateHeight()
-    {
-        Vector2 point = _host.GlobalPosition;
-        if (_sampled && point == _lastPosition) return;
+// =========================================================
+// Synchronize artwork elevation immediately when its owner moves.
+public void UpdateHeight()
+{
+    Vector2 point = _host.GlobalPosition;
+    if (_sampled && point == _lastPosition) return;
 
-        _sampled = true;
-        _lastPosition = point;
-        float height = _elevation != null
-            ? _elevation.SampleWorldHeight(point) : 0f;
-        Position = new Vector2(0f, -height);
-    }
+    _sampled = true;
+    _lastPosition = point;
+    float height = _elevation != null
+        ? _elevation.SampleWorldHeight(point) : 0f;
+    Position = new Vector2(0f, -height);
+}
     #endregion
 }

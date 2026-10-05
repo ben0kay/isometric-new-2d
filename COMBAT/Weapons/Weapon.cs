@@ -35,28 +35,33 @@ public partial class Weapon : Node
 	#endregion
 
 	#region Aiming And Firing
-	// =========================================================
-	// Convert the visible cursor position back into logical ground coordinates.
-	public bool TryFireAtCursor()
-	{
-		if (Attack == null || !_health.IsAlive || _cooldown > 0.0) return false;
-		_elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
+// =========================================================
+// Aim projectiles on their launch plane; keep terrain-aware aiming for other tools.
+public bool TryFireAtCursor()
+{
+    if (Attack == null || !_health.IsAlive || _cooldown > 0.0) return false;
+    _elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
 
-		Vector2 cursor = Source.GetGlobalMousePosition();
-		Vector2 target = cursor + Vector2.Down * Attack.VisualHeight;
+    Vector2 cursor = Source.GetGlobalMousePosition();
+    if (Attack is ProjectileAttack)
+    {
+        float height = _elevation?.SampleWorldHeight(Source.GlobalPosition) ?? 0f;
+        return TryFireAt(cursor + Vector2.Down * (height + Attack.VisualHeight));
+    }
 
-		if (_elevation != null)
-		{
-			for (int i = 0; i < 12; i++)
-			{
-				Vector2 next = cursor + Vector2.Down *
-					(_elevation.SampleWorldHeight(target) + Attack.VisualHeight);
-				if (next.DistanceSquaredTo(target) < 0.0001f) { target = next; break; }
-				target = next;
-			}
-		}
-		return TryFireAt(target);
-	}
+    Vector2 target = cursor + Vector2.Down * Attack.VisualHeight;
+    if (_elevation != null)
+    {
+        for (int i = 0; i < 12; i++)
+        {
+            Vector2 next = cursor + Vector2.Down *
+                (_elevation.SampleWorldHeight(target) + Attack.VisualHeight);
+            if (next.DistanceSquaredTo(target) < 0.0001f) { target = next; break; }
+            target = next;
+        }
+    }
+    return TryFireAt(target);
+}
 
 	// =========================================================
 	// Fire from every configured muzzle toward a logical ground target.
@@ -80,14 +85,17 @@ public partial class Weapon : Node
 		return true;
 	}
 
-	// =========================================================
-	// Route projectile delivery through the world's shared reusable pool.
-	public void EmitProjectile(Vector2 origin, Vector2 direction, ProjectileAttack attack)
-	{
-		_pool ??= GetTree().GetFirstNodeInGroup("projectile_pool") as ProjectilePool;
-		if (_pool == null) { GD.PushError("Weapon requires ProjectilePool."); return; }
-		uint mask = Team == CombatTeam.Player ? 5u : 3u;
-		_pool.Fire(origin, direction, attack, mask);
-	}
+// =========================================================
+// Launch pooled shots using the firing actor's terrain elevation.
+public void EmitProjectile(Vector2 origin, Vector2 direction, ProjectileAttack attack)
+{
+	_pool ??= GetTree().GetFirstNodeInGroup("projectile_pool") as ProjectilePool;
+	if (_pool == null) { GD.PushError("Weapon requires ProjectilePool."); return; }
+
+	_elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation") as TerrainElevation;
+	float sourceHeight = _elevation?.SampleWorldHeight(Source.GlobalPosition) ?? 0f;
+	uint mask = Team == CombatTeam.Player ? 5u : 3u;
+	_pool.Fire(origin, direction, attack, mask, sourceHeight);
+}
 	#endregion
 }

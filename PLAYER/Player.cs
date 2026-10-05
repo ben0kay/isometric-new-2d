@@ -51,31 +51,34 @@ public partial class Player : CharacterBody2D
 	}
 
 // =========================================================
-// Update the UI input gate every tick, then move and use the equipped tool.
+// Move and synchronize artwork before aiming and using the equipped tool.
 public override void _PhysicsProcess(double delta)
 {
 	_weapon.Tick(delta);
 	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-
 	if (!_health.IsAlive) { Velocity = Vector2.Zero; return; }
 
 	Vector2 direction = _inventoryHud.IsOpen ? Vector2.Zero : ReadMovement();
 	Velocity = direction.Normalized() * MoveSpeed * _inventory.MovementFactor;
 	MoveAndSlide();
+	_visual.UpdateHeight();
 
 	bool firing = !attackBlocked && _weapon.Attack != null &&
 		Input.IsMouseButtonPressed(MouseButton.Left);
-	if (firing) _weapon.TryFireAtCursor();
-
 	float horizontal = firing
 		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
-	if (Mathf.Abs(horizontal) < 0.001f) return;
 
-	float nextFacing = horizontal > 0f ? 1f : -1f;
-	if (nextFacing == _facing) return;
+	if (Mathf.Abs(horizontal) > 0.001f)
+	{
+		float nextFacing = horizontal > 0f ? 1f : -1f;
+		if (nextFacing != _facing)
+		{
+			_facing = nextFacing;
+			_visual.Scale = new Vector2(_facing, 1f);
+		}
+	}
 
-	_facing = nextFacing;
-	_visual.Scale = new Vector2(_facing, 1f);
+	if (firing) _weapon.TryFireAtCursor();
 }
 
 	// =========================================================
