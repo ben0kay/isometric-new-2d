@@ -83,5 +83,55 @@ public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
     _objects.CallDeferred(Node.MethodName.AddChild, pickup);
     return true;
 }
+
+// =========================================================
+// Validate every reward before spawning any part of a harvested object's yield.
+public bool SpawnHarvest(string primaryId, int primaryCount,
+    string[] bonusIds, Vector2 globalPosition)
+{
+    if (primaryCount <= 0 || !GodotObject.IsInstanceValid(_objects))
+        return false;
+
+    var rewards = new System.Collections.Generic.List<(ItemDefinition Item, int Count)>();
+    ItemDefinition primary = Catalog.Get(primaryId);
+    if (primary == null)
+    {
+        GD.PushError($"[Resources] Unknown harvest item: '{primaryId}'.");
+        return false;
+    }
+    rewards.Add((primary, primaryCount));
+
+    foreach (string id in bonusIds ?? Array.Empty<string>())
+    {
+        if (string.IsNullOrWhiteSpace(id)) continue;
+        ItemDefinition item = Catalog.Get(id);
+        if (item == null)
+        {
+            GD.PushError($"[Resources] Unknown bonus harvest item: '{id}'.");
+            return false;
+        }
+        rewards.Add((item, 1));
+    }
+
+    var pickups = new System.Collections.Generic.List<WorldPickup>();
+    for (int i = 0; i < rewards.Count; i++)
+    {
+        Vector2 offset = rewards.Count == 1 ? Vector2.Zero :
+            Vector2.FromAngle(Mathf.Tau * i / rewards.Count) * 10f;
+        pickups.Add(new WorldPickup
+        {
+            Name = "ItemDrop",
+            Item = rewards[i].Item,
+            Count = rewards[i].Count,
+            PickupRadius = Mathf.Max(8f, PickupRadius),
+            PickupDelay = Math.Max(0, PickupDelay),
+            Position = _objects.ToLocal(globalPosition + offset)
+        });
+    }
+
+    foreach (WorldPickup pickup in pickups)
+        _objects.CallDeferred(Node.MethodName.AddChild, pickup);
+    return true;
+}
     #endregion
 }

@@ -43,6 +43,36 @@ WeightKg = 0.6
 VolumeLitres = 0.35
 Tint = Color(0.85, 0.68, 0.48, 1)
 
+[sub_resource type="Resource" id="AlienResin"]
+script = ExtResource("2_item")
+Id = "alien_resin"
+DisplayName = "Alien Resin"
+ShortName = "RESIN"
+MaxStack = 30
+WeightKg = 0.1
+VolumeLitres = 0.1
+Tint = Color(0.95, 0.65, 0.25, 1)
+
+[sub_resource type="Resource" id="Biomass"]
+script = ExtResource("2_item")
+Id = "biomass"
+DisplayName = "Biomass"
+ShortName = "BIOMASS"
+MaxStack = 30
+WeightKg = 0.2
+VolumeLitres = 0.3
+Tint = Color(0.45, 0.85, 0.4, 1)
+
+[sub_resource type="Resource" id="Ice"]
+script = ExtResource("2_item")
+Id = "ice"
+DisplayName = "Ice"
+ShortName = "ICE"
+MaxStack = 20
+WeightKg = 0.5
+VolumeLitres = 0.55
+Tint = Color(0.55, 0.9, 1, 1)
+
 [resource]
 script = ExtResource("1_catalog")
-Items = Array[ExtResource("2_item")]([SubResource("Rock"), SubResource("Carbon"), SubResource("Fiber"), SubResource("Iron")])
+Items = Array[ExtResource("2_item")]([SubResource("Rock"), SubResource("Carbon"), SubResource("Fiber"), SubResource("Iron"), SubResource("AlienResin"), SubResource("Biomass"), SubResource("Ice")])

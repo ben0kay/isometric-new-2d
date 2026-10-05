@@ -79,19 +79,22 @@ public partial class ResourceHarvest : Area2D
         return Finish();
     }
 
-    // =========================================================
-    // Spawn the reward before deleting its source; invalid catalog entries preserve it.
-    private bool Finish()
-    {
-        if (!GodotObject.IsInstanceValid(_resources)) return false;
-        string id = string.IsNullOrWhiteSpace(Definition.HarvestItemId)
-            ? DefaultItemId : Definition.HarvestItemId;
-        int units = GatherByHand ? 1 : Mathf.Max(1, Definition.HarvestUnits);
-        if (!_resources.Spawn(id, units, _host.GlobalPosition)) return false;
+// =========================================================
+// Spawn primary and bonus rewards together before removing the source.
+private bool Finish()
+{
+    if (_depleted || !GodotObject.IsInstanceValid(_resources)) return false;
 
-        _depleted = true;
-        _host.QueueFree();
-        return true;
-    }
+    string id = string.IsNullOrWhiteSpace(Definition.HarvestItemId)
+        ? DefaultItemId : Definition.HarvestItemId;
+    int units = GatherByHand ? 1 : Mathf.Max(1, Definition.HarvestUnits);
+
+    if (!_resources.SpawnHarvest(id, units,
+        Definition.BonusHarvestItems, _host.GlobalPosition)) return false;
+
+    _depleted = true;
+    _host.QueueFree();
+    return true;
+}
     #endregion
 }

@@ -7,7 +7,7 @@ public partial class UIInventoryMaster : CanvasLayer
 {
     #region Configuration
     [ExportGroup("Window")]
-    [Export] public Vector2 WindowSize { get; set; } = new(1240, 640);
+[Export] public Vector2 WindowSize { get; set; } = new(1480, 700);
     [Export] public float ScreenMargin { get; set; } = 24f;
     [Export] public float PanelOpacity { get; set; } = 0.88f;
     #endregion
@@ -80,28 +80,33 @@ public partial class UIInventoryMaster : CanvasLayer
         };
     }
 
-    // =========================================================
-    // Add a labeled panel and return its vertical content container.
-    public VBoxContainer Section(Node parent, string title)
+// =========================================================
+// Build a shared panel with enough initial width for wrapped text.
+public VBoxContainer Section(Node parent, string title)
+{
+    PanelContainer panel = new()
     {
-        PanelContainer panel = new()
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill
-        };
-        panel.AddThemeStyleboxOverride("panel", Style(
-            new Color(0.025f, 0.09f, 0.12f,
-                Mathf.Clamp(PanelOpacity, 0f, 1f)),
-            new Color("#326475")));
-        parent.AddChild(panel);
-        VBoxContainer contents = new();
-        contents.AddThemeConstantOverride("separation", 10);
-        panel.AddChild(contents);
-        Label heading = new() { Text = title };
-        heading.AddThemeColorOverride("font_color", new Color("#76e5ef"));
-        contents.AddChild(heading);
-        return contents;
-    }
+        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        SizeFlagsVertical = Control.SizeFlags.ExpandFill
+    };
+    panel.AddThemeStyleboxOverride("panel", Style(
+        new Color(0.025f, 0.09f, 0.12f,
+            Mathf.Clamp(PanelOpacity, 0f, 1f)),
+        new Color("#326475")));
+    parent.AddChild(panel);
+
+    VBoxContainer contents = new()
+    {
+        CustomMinimumSize = new Vector2(240, 0)
+    };
+    contents.AddThemeConstantOverride("separation", 10);
+    panel.AddChild(contents);
+
+    Label heading = new() { Text = title };
+    heading.AddThemeColorOverride("font_color", new Color("#76e5ef"));
+    contents.AddChild(heading);
+    return contents;
+}
     #endregion
 
     #region Layout
@@ -204,33 +209,46 @@ public partial class UIInventoryMaster : CanvasLayer
         }
     }
 
-    // =========================================================
-    // Fit the wide window and hotbar without per-frame layout calculations.
-    private void FitWindow()
-    {
-        Vector2 screen = GetViewport().GetVisibleRect().Size;
-        Vector2 design = new(Mathf.Max(1000f, WindowSize.X),
-            Mathf.Max(600f, WindowSize.Y));
-        float scale = Mathf.Max(0.1f, Mathf.Min(1f,
-            Mathf.Min((screen.X - ScreenMargin * 2f) / design.X,
-                (screen.Y - 130f) / design.Y)));
+// =========================================================
+// Center the actual container size and keep it above the bottom hotbar.
+private void FitWindow()
+{
+    Vector2 screen = GetViewport().GetVisibleRect().Size;
+    float margin = Mathf.Max(8f, ScreenMargin);
 
-        _window.Size = design;
-        _window.Scale = Vector2.One * scale;
-        _window.Position = new Vector2(
-            (screen.X - design.X * scale) * 0.5f,
-            Mathf.Max(8f, (screen.Y - 110f - design.Y * scale) * 0.5f));
+    Vector2 hotbarMinimum = _hotbarPanel.GetCombinedMinimumSize();
+    Vector2 hotbarSize = new(
+        Mathf.Max(Hotbar.SlotCount * 82f + 18f, hotbarMinimum.X),
+        Mathf.Max(100f, hotbarMinimum.Y));
 
-        float width = Hotbar.SlotCount * 76f +
-            (Hotbar.SlotCount - 1) * 6f + 24f;
-        float hotbarScale = Mathf.Max(0.1f,
-            Mathf.Min(1f, (screen.X - 24f) / width));
-        _hotbarPanel.Size = new Vector2(width, 100);
-        _hotbarRoot.Scale = Vector2.One * hotbarScale;
-        _hotbarRoot.Position = new Vector2(
-            (screen.X - width * hotbarScale) * 0.5f,
-            screen.Y - 100f * hotbarScale - 8f);
-    }
+    float hotbarScale = Mathf.Min(1f,
+        Mathf.Max(1f, screen.X - margin * 2f) / hotbarSize.X);
+
+    _hotbarPanel.Size = hotbarSize;
+    _hotbarRoot.Scale = Vector2.One * hotbarScale;
+    _hotbarRoot.Position = new Vector2(
+        (screen.X - hotbarSize.X * hotbarScale) * 0.5f,
+        screen.Y - hotbarSize.Y * hotbarScale - margin);
+
+    Vector2 minimum = _window.GetCombinedMinimumSize();
+    Vector2 design = new(
+        Mathf.Max(WindowSize.X, minimum.X),
+        Mathf.Max(WindowSize.Y, minimum.Y));
+
+    float availableWidth = Mathf.Max(1f, screen.X - margin * 2f);
+    float availableHeight = Mathf.Max(1f,
+        _hotbarRoot.Position.Y - margin * 2f);
+
+    float scale = Mathf.Min(1f, Mathf.Min(
+        availableWidth / design.X,
+        availableHeight / design.Y));
+
+    _window.Size = design;
+    _window.Scale = Vector2.One * scale;
+    _window.Position = new Vector2(
+        (screen.X - design.X * scale) * 0.5f,
+        margin + (availableHeight - design.Y * scale) * 0.5f);
+}
 
     // =========================================================
     // Update quick-access labels through inventory and selection events.
@@ -281,14 +299,17 @@ public partial class UIInventoryMaster : CanvasLayer
         GetViewport().SetInputAsHandled();
     }
 
-    // =========================================================
-    // Toggle only the interface; the scene tree remains unpaused.
-    private void Toggle()
-    {
-        _window.Visible = !_window.Visible;
-        _blockUntilRelease = true;
-        _mining.Stop();
-    }
+// =========================================================
+// Open the live-world interface and refit after containers update.
+private void Toggle()
+{
+    _window.Visible = !_window.Visible;
+    _blockUntilRelease = true;
+    _mining.Stop();
+
+    if (_window.Visible)
+        Callable.From(FitWindow).CallDeferred();
+}
 
     // =========================================================
     // Detect quick-access UI clicks before they can fire into the world.

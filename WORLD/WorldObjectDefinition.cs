@@ -28,6 +28,8 @@ public partial class WorldObjectDefinition : Resource
 	[Export] public int HarvestUnits { get; set; } = 1;
 	[Export] public float HarvestWork { get; set; } = 18f;
 	[Export] public int RequiredMiningStrength { get; set; } = 1;
+	[Export] public string[] BonusHarvestItems { get; set; } =
+	System.Array.Empty<string>();
 	#endregion
 
 	#region Instance Variation
