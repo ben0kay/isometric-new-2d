@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="PlantDefinition" format=3 uid="uid://bu7qi0rm8436f"]
+[gd_resource type="Resource" script_class="PlantDefinition" format=3 uid="uid://c6m3tn2oiql7c"]
 
 [ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Vegetation/Plants/PlantDefinition.cs" id="1"]
 
@@ -6,3 +6,4 @@
 script = ExtResource("1")
 Id = "frond"
 SizeRange = Vector2(0.6, 1.05)
+BonusHarvestItems = PackedStringArray("alien_resin", "biomass")

@@ -79,6 +79,16 @@ private static Texture2D CreateIcon(string id)
             "<path d='M10 15 L24 23 L41 17 M24 23 L17 43 M28 5 L24 23' " +
             "fill='none' stroke='#e6ffff' stroke-width='2'/>" +
             "<path d='M11 19 L19 24 L12 30Z' fill='#c7f5ff'/>",
+        "sand" =>
+    "<path d='M4 37 Q12 30 17 20 Q21 12 26 22 Q33 30 44 37Z' " +
+    "fill='#c7aa73' stroke='#ecd3a0' stroke-width='2'/>" +
+    "<circle cx='19' cy='31' r='1.5' fill='#8c7043'/>" +
+    "<circle cx='29' cy='34' r='1.5' fill='#8c7043'/>",
+"clay" =>
+    "<path d='M6 31 L12 17 L28 11 L41 23 L35 39 L17 41Z' fill='#9c6248'/>" +
+    "<path d='M12 17 L28 11 L41 23 L24 27Z' fill='#c68a64'/>" +
+    "<path d='M24 27 L41 23 L35 39 L17 41Z' fill='#754431'/>",
+        
         _ =>
             "<path d='M7 26 L13 10 L29 7 L41 21 L34 38 L18 41Z' fill='#8a7261'/>" +
             "<path d='M13 10 L29 7 L41 21 L24 24Z' fill='#c0a187'/>" +

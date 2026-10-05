@@ -6,6 +6,7 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/BasaltSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/DustSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/MineralSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/GroundResources.gdshaderinc"
 
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
 uniform float dust_amount : hint_range(0.0, 1.0) = 0.55;
@@ -60,6 +61,7 @@ void fragment() {
     vec3 ground = mix(stone, dust, dust_mask);
     ground = mineral_surface(
         ground, strata, detail, mineral_mask * (1.0 - dust_mask * 0.75));
+        ground = ground_resources(ground, p, detail, grain);
 
     // Convert sunlight into the logical isometric plane.
     vec2 direction = sun_direction / max(length(sun_direction), 0.001);
