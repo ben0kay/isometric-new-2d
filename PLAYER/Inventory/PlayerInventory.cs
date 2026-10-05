@@ -216,6 +216,22 @@ public InventoryStack GetStack(InventoryAddress address)
                 break;
         }
     }
+
+        // =========================================================
+    // Remove a complete backpack stack only if it matches the expected contents.
+    public bool TryRemoveBagStack(int index, InventoryStack expected)
+    {
+        if (!_storage.HasSlot(index) || expected.IsEmpty) return false;
+
+        InventoryStack current = _storage.Get(index);
+        if (current.Count != expected.Count ||
+            !InventoryStorage.SameItem(current.Item, expected.Item))
+            return false;
+
+        _storage.Set(index, default);
+        Recalculate();
+        return true;
+    }
     #endregion
 
     #region Carrying State
