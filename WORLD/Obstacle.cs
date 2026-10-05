@@ -25,7 +25,7 @@ public partial class Obstacle : StaticBody2D
 	}
 
 // =========================================================
-// Build collision and artwork, then wait for atmosphere initialization before shadows.
+// Build collision/artwork and wait for all world systems before creating shadows.
 public override async void _Ready()
 {
     try
@@ -50,8 +50,9 @@ public override async void _Ready()
 
         if (GodotObject.IsInstanceValid(atmosphere))
         {
-            if (!atmosphere.IsNodeReady())
-                await ToSignal(atmosphere, Node.SignalName.Ready);
+            Node systems = atmosphere.GetParent();
+            if (!systems.IsNodeReady())
+                await ToSignal(systems, Node.SignalName.Ready);
 
             if (!IsInsideTree() || IsQueuedForDeletion() ||
                 !GodotObject.IsInstanceValid(atmosphere)) return;
