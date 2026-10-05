@@ -4,11 +4,15 @@
 [ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Script" uid="uid://tyast7b0c1o8" path="res://ENEMIES/RangedCombatSettings.cs" id="4_combat"]
 [ext_resource type="Resource" uid="uid://dsbmsst6x8fq8" path="res://ENEMIES/Sequences/ShootDodgeShoot.tres" id="5_sequence"]
+[ext_resource type="Resource" path="res://ENEMIES/Robots/RobotBlaster.tres" id="3_attack"]
 
 [sub_resource type="Resource" id="RangedCombat"]
 script = ExtResource("4_combat")
 AttackRange = 360.0
 StopDistance = 24.0
+PreferredRange = 240.0
+BackAwayRange = 120.0
+Attack = ExtResource("3_attack")
 
 [resource]
 script = ExtResource("1_enemy")

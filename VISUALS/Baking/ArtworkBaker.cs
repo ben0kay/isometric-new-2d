@@ -108,8 +108,8 @@ public static class ArtworkBaker
         try
         {
             painter.Material = bakeMaterial;
-            viewport.AddChild(painter);
-            host.AddChild(viewport);
+viewport.AddChild(painter);
+host.CallDeferred(Node.MethodName.AddChild, viewport);
 
             await host.ToSignal(host.GetTree(), SceneTree.SignalName.ProcessFrame);
             if (!GodotObject.IsInstanceValid(viewport)

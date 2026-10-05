@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://SYSTEMS/Artwork/BakedObstacle.cs" id="1_object"]
+[ext_resource type="Script" path="res://VISUALS/Baking/BakedObstacle.cs" id="1_object"]
 [ext_resource type="PackedScene" path="res://WORLDABLES/Objects/LandingPod/LandingPodDrawing.tscn" id="2_drawing"]
 [ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="3_visual"]
 
