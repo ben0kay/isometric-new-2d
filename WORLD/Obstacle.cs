@@ -24,37 +24,48 @@ public partial class Obstacle : StaticBody2D
 		AddToGroup("world_obstacles");
 	}
 
-	// =========================================================
-	// Configure the instance, build its collision and attach artwork and sunlight shadow.
-	public override async void _Ready()
-	{
-		try
-		{
-			ConfigureInstance();
-			Footprint = new Vector2(
-				Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
-			CollisionLayer = 1;
-			CollisionMask = 0;
+// =========================================================
+// Build collision and artwork, then wait for atmosphere initialization before shadows.
+public override async void _Ready()
+{
+    try
+    {
+        ConfigureInstance();
+        Footprint = new Vector2(
+            Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
+        CollisionLayer = 1;
+        CollisionMask = 0;
 
-			AddChild(new CollisionShape2D
-			{
-				Name = "Footprint",
-				Shape = new RectangleShape2D { Size = Footprint }
-			});
+        AddChild(new CollisionShape2D
+        {
+            Name = "Footprint",
+            Shape = new RectangleShape2D { Size = Footprint }
+        });
 
-			await AttachArtworkAsync();
-			if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await AttachArtworkAsync();
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-			WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
-				"world_atmosphere") as WorldAtmosphere;
-			atmosphere?.CreateObstacleShadow(this);
-			SetProcess(false);
-		}
-		catch (System.Exception error)
-		{
-			GD.PushError($"Obstacle '{Name}' initialization failed: {error}");
-		}
-	}
+        WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
+            "world_atmosphere") as WorldAtmosphere;
+
+        if (GodotObject.IsInstanceValid(atmosphere))
+        {
+            if (!atmosphere.IsNodeReady())
+                await ToSignal(atmosphere, Node.SignalName.Ready);
+
+            if (!IsInsideTree() || IsQueuedForDeletion() ||
+                !GodotObject.IsInstanceValid(atmosphere)) return;
+
+            atmosphere.CreateObstacleShadow(this);
+        }
+
+        SetProcess(false);
+    }
+    catch (System.Exception error)
+    {
+        GD.PushError($"Obstacle '{Name}' initialization failed: {error}");
+    }
+}
 
 	// =========================================================
 	// Let a derived family configure its footprint before collision is created.
