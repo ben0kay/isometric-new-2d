@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BiomeCatalog" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="2_biome"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="3_vegetation"]
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("3_vegetation")
+PlantPatches = 0
+TreesPerChunk = 0
+GrassPatches = 0
+
+[sub_resource type="Resource" id="SandboxBiome"]
+script = ExtResource("2_biome")
+Id = "sandbox_flat"
+DisplayName = "Feature Sandbox"
+RollingHeight = 0.0
+PlateausEnabled = false
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 0
+
+[resource]
+script = ExtResource("1_catalog")
+Biomes = Array[ExtResource("2_biome")]([SubResource("SandboxBiome")])

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WaterDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Water/WaterDefinition.cs" id="1_definition"]
+[ext_resource type="Shader" path="res://WORLD/Contents/Water/Water.gdshader" id="2_shader"]
+
+[resource]
+script = ExtResource("1_definition")
+Id = "water"
+RadiusTiles = Vector2(6, 4)
+RotationDegrees = 0.0
+ClearanceTiles = 0.75
+MaximumHeightVariation = 0.02
+MovementMultiplier = 0.65
+SubmersionPixels = 8.0
+SurfaceTint = Color(0.12, 0.30, 0.35, 1)
+WaterShader = ExtResource("2_shader")
+WaveSpeed = 0.6
+WaveStrength = 0.12
+Opacity = 0.85
