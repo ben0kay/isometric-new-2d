@@ -20,7 +20,8 @@ public partial class PlayerEquipment : Node
     public event Action SelectionChanged;
     public BackpackDefinition Backpack { get; private set; }
     public int SelectedSlot { get; private set; }
-    public ItemDefinition CurrentTool => GetTool(SelectedSlot);
+    public ItemDefinition CurrentTool =>
+    GetNodeOrNull<PlayerHotbar>("../Hotbar")?.CurrentItem;
 
     private ItemDefinition[] _tools = Array.Empty<ItemDefinition>();
     private Weapon _weapon;
@@ -100,6 +101,13 @@ public partial class PlayerEquipment : Node
         GetNodeOrNull<MiningEmitter>("../MiningEmitter")?.Stop();
         _weapon.Attack = attack;
     }
+
+    // =========================================================
+// Synchronize attacks with the selected inventory shortcut.
+public void RefreshActiveAttack()
+{
+    SyncAttack();
+}
     #endregion
 
     #region Inventory Integration

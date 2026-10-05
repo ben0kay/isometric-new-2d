@@ -13,6 +13,8 @@ public partial class PlayerInventory : Node
     #region State
     public event Action Changed;
     public event Action<string> Notice;
+    public event Action<InventoryAddress, InventoryAddress, bool> Moved;
+public event Action<InventoryAddress> Removed;
 
     public float TotalWeightKg { get; private set; }
     public float UsedVolumeLitres { get; private set; }
@@ -123,63 +125,63 @@ public InventoryStack GetStack(InventoryAddress address)
     #endregion
 
     #region Transfers
-    // =========================================================
-    // Stage a move, merge, or swap and commit only after all checks succeed.
-    public bool TryMove(InventoryAddress from, InventoryAddress to)
+// =========================================================
+// Stage a transfer and notify shortcuts after committing physical contents.
+public bool TryMove(InventoryAddress from, InventoryAddress to)
+{
+    if (!HasAddress(from) || !HasAddress(to) ||
+        (from.Area == to.Area && from.Index == to.Index)) return false;
+
+    InventoryStorage bag = _storage.Clone();
+    ItemDefinition[] tools = Equipment.CopyTools();
+    BackpackDefinition pack = Equipment.Backpack;
+    InventoryStack source = Read(from, bag, tools, pack);
+    InventoryStack target = Read(to, bag, tools, pack);
+    if (source.IsEmpty) return false;
+
+    bool merge = InventoryStorage.SameItem(source.Item, target.Item);
+    InventoryStack newSource, newTarget;
+
+    if (merge)
     {
-        if (!HasAddress(from) || !HasAddress(to) ||
-            (from.Area == to.Area && from.Index == to.Index))
-            return false;
+        int limit = to.Area == InventoryArea.Bag
+            ? Math.Max(1, target.Item.MaxStack) : 1;
+        int moved = Math.Min(source.Count, Math.Max(0, limit - target.Count));
+        if (moved == 0) return false;
 
-        InventoryStorage bag = _storage.Clone();
-        ItemDefinition[] tools = Equipment.CopyTools();
-        BackpackDefinition pack = Equipment.Backpack;
-        InventoryStack source = Read(from, bag, tools, pack);
-        InventoryStack target = Read(to, bag, tools, pack);
-        if (source.IsEmpty) return false;
-
-        InventoryStack newSource;
-        InventoryStack newTarget;
-
-        if (InventoryStorage.SameItem(source.Item, target.Item))
-        {
-            int limit = to.Area == InventoryArea.Bag
-                ? Math.Max(1, target.Item.MaxStack) : 1;
-            int moved = Math.Min(source.Count, Math.Max(0, limit - target.Count));
-            if (moved == 0) return false;
-
-            newSource = new InventoryStack(source.Item, source.Count - moved);
-            newTarget = new InventoryStack(target.Item, target.Count + moved);
-        }
-        else
-        {
-            newSource = target;
-            newTarget = source;
-        }
-
-        if (!CanPlace(from, newSource) || !CanPlace(to, newTarget))
-            return Reject("That item does not fit this equipment slot.");
-
-        Write(from, newSource, bag, tools, ref pack);
-        Write(to, newTarget, bag, tools, ref pack);
-
-        if (!bag.TryResize(PackSlots(pack)))
-            return Reject(pack == null
-                ? "A backpack cannot be stored inside itself."
-                : "Move items out of the end slots before using a smaller backpack.");
-
-        GetTotals(bag, tools, pack, out float weight, out float volume);
-        float maximum = pack?.MaximumWeightKg ?? Rules.MaximumWeightKg;
-        float capacity = pack?.CapacityLitres ?? 0f;
-
-        if (!Rules.Allows(weight, volume, maximum, capacity, out string reason))
-            return Reject(reason);
-
-        _storage = bag;
-        Equipment.ApplyContents(tools, pack);
-        Recalculate();
-        return true;
+        newSource = new InventoryStack(source.Item, source.Count - moved);
+        newTarget = new InventoryStack(target.Item, target.Count + moved);
     }
+    else
+    {
+        newSource = target;
+        newTarget = source;
+    }
+
+    if (!CanPlace(from, newSource) || !CanPlace(to, newTarget))
+        return Reject("That item does not fit this equipment slot.");
+
+    Write(from, newSource, bag, tools, ref pack);
+    Write(to, newTarget, bag, tools, ref pack);
+
+    if (!bag.TryResize(PackSlots(pack)))
+        return Reject(pack == null
+            ? "Empty the backpack before removing it."
+            : "Clear the end slots before using a smaller backpack.");
+
+    GetTotals(bag, tools, pack, out float weight, out float volume);
+    float maximum = pack?.MaximumWeightKg ?? Rules.MaximumWeightKg;
+    float capacity = pack?.CapacityLitres ?? 0f;
+
+    if (!Rules.Allows(weight, volume, maximum, capacity, out string reason))
+        return Reject(reason);
+
+    _storage = bag;
+    Equipment.ApplyContents(tools, pack);
+    Moved?.Invoke(from, to, !merge);
+    Recalculate();
+    return true;
+}
 
     // =========================================================
     // Read a slot from staged storage and equipment.
@@ -217,21 +219,58 @@ public InventoryStack GetStack(InventoryAddress address)
         }
     }
 
-        // =========================================================
-    // Remove a complete backpack stack only if it matches the expected contents.
-    public bool TryRemoveBagStack(int index, InventoryStack expected)
-    {
-        if (!_storage.HasSlot(index) || expected.IsEmpty) return false;
+// =========================================================
+// Remove a verified stack and clear shortcuts before refreshing the HUD.
+public bool TryRemoveBagStack(int index, InventoryStack expected)
+{
+    if (!_storage.HasSlot(index) || expected.IsEmpty) return false;
+    InventoryStack current = _storage.Get(index);
 
-        InventoryStack current = _storage.Get(index);
-        if (current.Count != expected.Count ||
-            !InventoryStorage.SameItem(current.Item, expected.Item))
-            return false;
+    if (current.Count != expected.Count ||
+        !InventoryStorage.SameItem(current.Item, expected.Item)) return false;
 
-        _storage.Set(index, default);
-        Recalculate();
-        return true;
-    }
+    _storage.Set(index, default);
+    Removed?.Invoke(new InventoryAddress(InventoryArea.Bag, index));
+    Recalculate();
+    return true;
+}
+
+// =========================================================
+// Drop a complete stack only after the world accepts its spawn.
+public bool TryDrop(InventoryAddress address)
+{
+    if (!HasAddress(address)) return false;
+    InventoryStack stack = GetStack(address);
+    if (stack.IsEmpty) return false;
+
+    InventoryStorage bag = _storage.Clone();
+    ItemDefinition[] tools = Equipment.CopyTools();
+    BackpackDefinition pack = Equipment.Backpack;
+    Write(address, default, bag, tools, ref pack);
+
+    if (!bag.TryResize(PackSlots(pack)))
+        return Reject("Empty the backpack before dropping it.");
+
+    Player player = GetParent().GetParent<Player>();
+    ResourceWorld world = ResourceWorld.Find(this);
+    Vector2 direction = player.GetGlobalMousePosition() - player.GlobalPosition;
+    direction = direction.LengthSquared() > 1f
+        ? direction.Normalized() : Vector2.Down;
+
+    float distance = world == null ? 80f
+        : Math.Max(80f, world.PickupRadius + 24f);
+
+    if (world == null || !world.SpawnItem(
+        stack.Item, stack.Count, player.GlobalPosition + direction * distance))
+        return Reject("Unable to place this item in the world.");
+
+    _storage = bag;
+    Equipment.ApplyContents(tools, pack);
+    Removed?.Invoke(address);
+    Recalculate();
+    Report($"Dropped {stack.Item.DisplayName} ×{stack.Count}");
+    return true;
+}
     #endregion
 
     #region Carrying State

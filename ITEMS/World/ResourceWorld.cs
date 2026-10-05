@@ -63,5 +63,25 @@ public partial class ResourceWorld : Node
         _objects.CallDeferred(Node.MethodName.AddChild, pickup);
         return true;
     }
+
+    // =========================================================
+// Spawn carried equipment or materials using their actual definition.
+public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
+{
+    if (item == null || count <= 0 ||
+        !GodotObject.IsInstanceValid(_objects)) return false;
+
+    WorldPickup pickup = new()
+    {
+        Name = "ItemDrop",
+        Item = item,
+        Count = count,
+        PickupRadius = Mathf.Max(8f, PickupRadius),
+        PickupDelay = Math.Max(0, PickupDelay),
+        Position = _objects.ToLocal(globalPosition)
+    };
+    _objects.CallDeferred(Node.MethodName.AddChild, pickup);
+    return true;
+}
     #endregion
 }

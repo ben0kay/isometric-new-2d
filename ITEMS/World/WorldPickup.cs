@@ -18,30 +18,47 @@ public partial class WorldPickup : Area2D
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Build a player-only trigger and terrain-adjusted item artwork.
-    public override void _Ready()
+// =========================================================
+// Build a player trigger and display an icon or readable fallback label.
+public override void _Ready()
+{
+    CollisionLayer = 0;
+    CollisionMask = 2;
+    Monitoring = true;
+    Monitorable = false;
+    _delay = PickupDelay;
+
+    AddChild(new CollisionShape2D
     {
-        CollisionLayer = 0;
-        CollisionMask = 2;
-        Monitoring = true;
-        Monitorable = false;
-        _delay = PickupDelay;
+        Shape = new CircleShape2D { Radius = PickupRadius }
+    });
 
-        AddChild(new CollisionShape2D
-        {
-            Shape = new CircleShape2D { Radius = PickupRadius }
-        });
-
+    if (Item.Icon != null)
+    {
         Vector2 size = Item.Icon.GetSize();
         TerrainVisual.Attach(this, new Rect2(Vector2.Zero, size),
-            new Vector2(-12, -24), new Vector2(24f / size.X, 24f / size.Y),
+            new Vector2(-12, -24),
+            new Vector2(24f / Mathf.Max(1f, size.X),
+                24f / Mathf.Max(1f, size.Y)),
             false, null, Item.Icon);
-
-        BodyEntered += OnBodyEntered;
-        BodyExited += OnBodyExited;
-        SetPhysicsProcess(false);
     }
+    else
+    {
+        Label label = new()
+        {
+            Text = Item.ShortName,
+            Position = new Vector2(-30, -28),
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        label.AddThemeColorOverride("font_color", Item.Tint);
+        label.AddThemeFontSizeOverride("font_size", 12);
+        AddChild(label);
+    }
+
+    BodyEntered += OnBodyEntered;
+    BodyExited += OnBodyExited;
+    SetPhysicsProcess(false);
+}
 
     // =========================================================
     // Begin collection checks only when a player enters the trigger.
