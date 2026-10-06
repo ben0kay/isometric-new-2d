@@ -1,5 +1,4 @@
-// Places a configured body of water at a draggable scene marker.
-// Uses normal surface placement validation instead of searching random locations.
+// Describes a water basin at an editor marker before terrain generation starts.
 using Godot;
 
 public partial class WaterPlacement : Marker2D
@@ -7,47 +6,26 @@ public partial class WaterPlacement : Marker2D
     #region Configuration
     [Export] public WaterDefinition Definition { get; set; }
     [Export] public float ShapePhase { get; set; } = 1.7f;
+    [Export(PropertyHint.Range, "0,1,0.01")]
+    public float InitialFill { get; set; } = 1f;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Wait for shared world systems before evaluating the marker's location.
-    public override void _Ready()
+    // Make this marker discoverable before the world generator initializes.
+    public override void _EnterTree()
     {
-        if (Definition == null)
-        {
-            GD.PushError($"Water marker '{Name}' requires a water definition.");
-            SetProcess(false);
-        }
+        AddToGroup("water_placements");
+        SetProcess(false);
     }
 
     // =========================================================
-    // Generate once at the exact marker position and report placement failures.
-    public override void _Process(double delta)
+    // Report incomplete markers without starting a late placement search.
+    public override void _Ready()
     {
-        SurfaceWorld surfaces = SurfaceWorld.Find(this);
-        if (surfaces == null) return;
-
-        ChunkController chunks =
-            surfaces.GetNode<ChunkController>("../ChunkController");
-        if (!chunks.WorldReady) return;
-
+        if (Definition == null)
+            GD.PushError($"Basin marker '{Name}' requires a water definition.");
         SetProcess(false);
-
-        Vector2 centre = surfaces.WorldToTile(GlobalPosition);
-        WaterPatch patch = surfaces.TryPlaceWater(
-            Definition, centre, ShapePhase);
-
-        if (patch == null)
-        {
-            GD.PushWarning(
-                $"Water marker '{Name}' rejected at tile {centre}: " +
-                "check height variation, chasms, world bounds or overlapping water.");
-            return;
-        }
-
-        GD.Print($"Water marker '{Name}' placed at tile {centre}, " +
-            $"world {GlobalPosition}.");
     }
     #endregion
 }

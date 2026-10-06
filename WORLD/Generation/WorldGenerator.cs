@@ -37,6 +37,7 @@ public partial class WorldGenerator : Node
     private BiomeSampler _sampler;
     private ChunkController _chunks;
     private Node2D _ground;
+    private WaterBasinWorld _waterBasins;
 
     public float HeightRange { get; private set; } = 1f;
     public int MaxTrees { get; private set; }
@@ -112,6 +113,11 @@ public partial class WorldGenerator : Node
             TransitionWidthTiles * scale, BorderWarpFraction,
             BiomeBandWidth * scale, BiomeBlendWidth * scale);
 
+            _waterBasins = new WaterBasinWorld { Name = "WaterBasins" };
+AddChild(_waterBasins);
+_waterBasins.Initialize(this, _chunks, _ground);
+HeightRange = Mathf.Max(HeightRange, _waterBasins.MaximumDepth);
+
         // Catch an uncovered starting climate before artwork/world initialization.
         _sampler.Sample(Vector2.Zero);
         GD.Print($"[World] {_biomes.Count} biome(s); mode: {PlacementMode}; scale: {scale}");
@@ -143,12 +149,20 @@ public partial class WorldGenerator : Node
     #endregion
 
     #region Terrain Queries
-    // =========================================================
-    // Read terrain height through the shared multi-biome blending calculation.
-    public float GetHeight(Vector2 tile)
-    {
-        return SampleTerrain(tile, out _, out _);
-    }
+// =========================================================
+// Read terrain including permanent water-basin geometry.
+public float GetHeight(Vector2 tile)
+{
+    float height = GetBaseHeight(tile);
+    return _waterBasins?.ApplyHeight(tile, height) ?? height;
+}
+
+// =========================================================
+// Read original terrain for basin eligibility without including carved basins.
+public float GetBaseHeight(Vector2 tile)
+{
+    return SampleTerrain(tile, out _, out _);
+}
 
     // =========================================================
     // Blend every contributing biome so multi-way borders remain continuous.
@@ -171,18 +185,20 @@ public partial class WorldGenerator : Node
         return height;
     }
 
-    // =========================================================
-    // Return shared height, walkability and dominant biome identity.
-    public WorldSample SampleTile(Vector2 tile)
-    {
-        float height = SampleTerrain(
-            tile, out float plateauWeight, out int biomeIndex);
-        int x = Mathf.FloorToInt(tile.X + 0.5f);
-        int y = Mathf.FloorToInt(tile.Y + 0.5f);
-        return new WorldSample(
-            height, !ChasmFeature.IsVoidTile(x, y),
-            _biomes[biomeIndex].Id, plateauWeight);
-    }
+// =========================================================
+// Keep generation queries consistent with rendered basin terrain.
+public WorldSample SampleTile(Vector2 tile)
+{
+    float height = SampleTerrain(
+        tile, out float plateauWeight, out int biomeIndex);
+    height = _waterBasins?.ApplyHeight(tile, height) ?? height;
+
+    int x = Mathf.FloorToInt(tile.X + 0.5f);
+    int y = Mathf.FloorToInt(tile.Y + 0.5f);
+    return new WorldSample(
+        height, !ChasmFeature.IsVoidTile(x, y),
+        _biomes[biomeIndex].Id, plateauWeight);
+}
 
     // =========================================================
     // Convert a logical world position into absolute generation coordinates.

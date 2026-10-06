@@ -17,7 +17,7 @@ public partial class SurfacePatch : Node2D
     #region Queries
     // =========================================================
     // Evaluate the same elliptical footprint used by this surface's shader.
-    public float GetInfluence(Vector2 tile)
+public virtual float GetInfluence(Vector2 tile)
     {
         return SurfaceGeometry.Influence(tile - TileCentre,
             Definition.RadiusTiles, RotationRadians, Phase);
@@ -35,7 +35,7 @@ public partial class SurfacePatch : Node2D
 
     // =========================================================
     // Expose unique boundary vertices for the collision debug overlay.
-    public Vector2[] GetDebugOutline()
+    public virtual Vector2[] GetDebugOutline()
     {
         const int segments = 48;
         Vector2[] points = new Vector2[segments];

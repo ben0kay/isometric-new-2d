@@ -1,10 +1,17 @@
-// Adds water-specific rendering settings to the shared surface definition.
+// Defines basin geometry and the water that fills it.
 using Godot;
 using System;
 
 [Tool, GlobalClass]
 public partial class WaterDefinition : SurfaceDefinition
 {
+    #region Basin
+    [ExportGroup("Basin")]
+    [Export] public float BasinDepth { get; set; } = 24f;
+    [Export] public float ShoreWidthTiles { get; set; } = 0.9f;
+    [Export] public float WaterSurfaceDrop { get; set; } = 6f;
+    #endregion
+
     #region Water Rendering
     [ExportGroup("Water Rendering")]
     [Export] public Shader WaterShader { get; set; }
@@ -15,17 +22,25 @@ public partial class WaterDefinition : SurfaceDefinition
 
     #region Validation
     // =========================================================
-    // Require valid water rendering settings in addition to shared surface limits.
+    // Validate the basin dimensions and its water presentation.
     public override void Validate()
     {
         base.Validate();
-        if (WaterShader == null ||
+        float smallestRadius = Mathf.Min(RadiusTiles.X, RadiusTiles.Y);
+
+        if (!float.IsFinite(BasinDepth) || BasinDepth <= 0f ||
+            !float.IsFinite(ShoreWidthTiles) || ShoreWidthTiles <= 0f ||
+            ShoreWidthTiles >= smallestRadius * 0.8f ||
+            !float.IsFinite(WaterSurfaceDrop) ||
+            WaterSurfaceDrop < MaximumHeightVariation ||
+            WaterSurfaceDrop >= BasinDepth ||
+            WaterShader == null ||
             !float.IsFinite(WaveSpeed) ||
             !float.IsFinite(WaveStrength) ||
             WaveStrength < 0f || WaveStrength > 1f ||
             !float.IsFinite(Opacity) || Opacity < 0f || Opacity > 1f)
             throw new InvalidOperationException(
-                $"Water '{Id}' requires a shader and valid rendering settings.");
+                $"Water '{Id}' has invalid basin or rendering settings.");
     }
     #endregion
 }

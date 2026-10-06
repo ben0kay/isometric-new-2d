@@ -163,9 +163,11 @@ _catalog = GD.Load<GroundResourceCatalog>(
     }
 
 // =========================================================
-// Use the shared surface placement check without changing deposit eligibility.
+// Reserve basin terrain even when its water is completely drained.
 private bool IsFlat(Vector2 centre, float radius, float tolerance)
 {
+    WaterBasinWorld basins = WaterBasinWorld.Find(this);
+    if (basins != null && basins.Overlaps(centre, radius)) return false;
     return SurfaceGeometry.IsFlat(_elevation, centre, radius, tolerance);
 }
 

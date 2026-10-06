@@ -1,12 +1,11 @@
-// Owns surface queries and places one validated test body of water near spawn.
-// Future world generation can call TryPlaceWater with its own profile and coordinates.
+// Owns surface effects and water fills for basins registered before terrain builds.
 using Godot;
 using System.Collections.Generic;
 
 public partial class SurfaceWorld : Node
 {
     #region Configuration
-    [ExportGroup("First-Pass Test")]
+    [ExportGroup("Optional Near-Spawn Basin")]
     [Export] public WaterDefinition TestWater { get; set; }
     [Export] public bool PlaceTestWater { get; set; } = true;
     [Export] public int TestAttempts { get; set; } = 64;
@@ -32,186 +31,155 @@ public partial class SurfaceWorld : Node
     private ChunkController _chunks;
     private TerrainElevation _elevation;
     private Node2D _ground;
-    private Player _player;
-    private Vector2 _testOrigin;
-    private int _attempt;
-    private bool _searchStarted;
+    private WaterBasinWorld _basins;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Register the world service without inserting terrain or collision changes.
+    // Resolve the prepared basin records and wait for starting terrain.
     public override void _Ready()
     {
         _chunks = GetNode<ChunkController>("../ChunkController");
         _elevation = GetNode<TerrainElevation>("../TerrainElevation");
         _ground = GetNode<Node2D>("../../GroundChunks");
-        _player = GetNode<Player>("../../WorldObjects/Player");
+        _basins = WaterBasinWorld.Find(this);
         AddToGroup("surface_world");
-
-        TestWater?.Validate();
-        SetProcess(PlaceTestWater && TestWater != null);
+        SetProcess(_basins != null);
     }
 
     // =========================================================
-    // Search deterministic nearby positions after the starting terrain is ready.
+    // Create water presentation without changing the already-built basin terrain.
     public override void _Process(double delta)
     {
         if (!_chunks.WorldReady) return;
-
-        if (!_searchStarted)
-        {
-            _searchStarted = true;
-            _testOrigin = WorldToTile(_player.GlobalPosition);
-        }
-
-        if (_attempt >= Mathf.Clamp(TestAttempts, 1, 256))
-        {
-            GD.PushWarning(
-                "Water test: no valid flat location found. " +
-                "Check Water.tres size/MaximumHeightVariation.");
-            SetProcess(false);
-            return;
-        }
-
-        float minimumDistance = Mathf.Max(
-            TestWater.RadiusTiles.X, TestWater.RadiusTiles.Y) * 1.1f + 3f;
-        float angle = _attempt * 2.399963f;
-        float distance = minimumDistance + Mathf.Sqrt(_attempt) * 0.8f;
-        Vector2 centre = _testOrigin +
-            new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
-        _attempt++;
-
-        WaterPatch patch = TryPlaceWater(TestWater, centre, 1.7f);
-        if (patch == null) return;
-
-        GD.Print($"Water test placed at tile {centre}, " +
-            $"world {TileToWorld(centre)}. Radius: {TestWater.RadiusTiles}");
         SetProcess(false);
-    }
-    #endregion
 
-    #region Registration
+        foreach (WaterBasinWorld.Basin basin in _basins.Basins)
+            CreateFill(basin);
+    }
+
     // =========================================================
-    // Resolve the service without requiring callers to know the world scene name.
+    // Resolve surface gameplay without depending on the scene root name.
     public static SurfaceWorld Find(Node context)
     {
         return context.GetTree().GetFirstNodeInGroup("surface_world")
             as SurfaceWorld;
     }
+    #endregion
 
+    #region Registration And Fill
     // =========================================================
-    // Register only fully constructed patches.
+    // Register fully constructed surface artwork.
     public void Register(SurfacePatch patch)
     {
         if (!_patches.Contains(patch)) _patches.Add(patch);
     }
 
     // =========================================================
-    // Remove patches when their owning nodes leave the world.
+    // Remove artwork from effect queries without removing basin records.
     public void Unregister(SurfacePatch patch)
     {
         _patches.Remove(patch);
     }
-    #endregion
 
-    #region Placement
     // =========================================================
-    // Validate a complete water footprint before creating any artwork.
-    public WaterPatch TryPlaceWater(
-        WaterDefinition definition, Vector2 centre, float phase)
+    // Fill an accepted basin without checking terrain eligibility again.
+    private WaterPatch CreateFill(WaterBasinWorld.Basin basin)
     {
-        if (definition == null || !_chunks.WorldReady) return null;
-        definition.Validate();
-
-        float extent = Mathf.Max(
-            definition.RadiusTiles.X, definition.RadiusTiles.Y) * 1.1f;
-        float checkedRadius = extent + definition.ClearanceTiles;
-
-        int firstChunk = -(_chunks.WorldChunksPerAxis / 2);
-        float minimum = firstChunk * _chunks.ChunkSize - 0.5f;
-        float maximum = minimum +
-            _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-
-        if (centre.X - checkedRadius < minimum ||
-            centre.Y - checkedRadius < minimum ||
-            centre.X + checkedRadius > maximum ||
-            centre.Y + checkedRadius > maximum)
-            return null;
-
-        foreach (SurfacePatch existing in _patches)
-        {
-            float otherExtent = Mathf.Max(
-                existing.Definition.RadiusTiles.X,
-                existing.Definition.RadiusTiles.Y) * 1.1f;
-            float separation = extent + otherExtent;
-            if (centre.DistanceSquaredTo(existing.TileCentre) <
-                separation * separation)
-                return null;
-        }
-
-        if (!SurfaceGeometry.IsFlat(
-            _elevation, centre, checkedRadius,
-            definition.MaximumHeightVariation))
-            return null;
+        if (GodotObject.IsInstanceValid(basin.Patch)) return basin.Patch;
 
         WaterPatch patch = new()
         {
             Name = $"Water_{_patches.Count}",
-            Definition = definition,
-            TileCentre = centre,
+            Definition = basin.Definition,
+            TileCentre = basin.Centre,
             TileSize = _chunks.TileSize,
-            Phase = phase,
-            SurfaceHeight = _elevation.GetHeight(centre),
-            World = this
+            Phase = basin.Phase,
+            SurfaceHeight = basin.WaterHeight,
+            World = this,
+            Basin = basin
         };
+        basin.Patch = patch;
         AddChild(patch);
         return patch;
+    }
+
+    // =========================================================
+    // Preserve callers while requiring an existing prepared basin.
+    public WaterPatch TryPlaceWater(
+        WaterDefinition definition, Vector2 centre, float phase)
+    {
+        if (_basins == null || !_chunks.WorldReady) return null;
+        foreach (WaterBasinWorld.Basin basin in _basins.Basins)
+            if (basin.Definition == definition &&
+                basin.Centre.DistanceSquaredTo(centre) < 0.0001f)
+                return CreateFill(basin);
+        return null;
     }
     #endregion
 
     #region Coordinates And Effects
     // =========================================================
-    // Convert logical world coordinates using the existing ground transform.
+    // Convert logical positions independently from visual elevation.
     public Vector2 WorldToTile(Vector2 point)
     {
         return IsoGrid.WorldToTile(_ground.ToLocal(point), _chunks.TileSize);
     }
 
     // =========================================================
-    // Convert tile coordinates without applying visual elevation.
+    // Convert generation coordinates into the world's logical plane.
     public Vector2 TileToWorld(Vector2 tile)
     {
         return _ground.ToGlobal(IsoGrid.TileToWorld(tile, _chunks.TileSize));
     }
 
     // =========================================================
-    // Combine overlaps without multiplying the same slowdown repeatedly.
+    // Use actual rendered floor depth to align submersion with the water plane.
     public SurfaceSample Sample(Vector2 point)
     {
         Vector2 tile = WorldToTile(point);
-        float movement = 1f, depth = 0f;
+        float movement = 1f, deepest = 0f;
         Color tint = Colors.White;
+        float floorHeight = _elevation.SampleWorldHeight(point);
 
         foreach (SurfacePatch patch in _patches)
         {
             float influence = patch.GetInfluence(tile);
             if (influence <= 0f) continue;
 
-            movement = Mathf.Min(movement, Mathf.Lerp(
-                1f, patch.Definition.MovementMultiplier, influence));
-            float candidateDepth = patch.Definition.SubmersionPixels * influence;
-            if (candidateDepth > depth)
+            if (patch is WaterPatch water)
             {
-                depth = candidateDepth;
-                tint = patch.Definition.SurfaceTint;
+                float depth = Mathf.Max(
+                    0f, water.Basin.WaterHeight - floorHeight);
+                if (depth <= 0f) continue;
+
+                movement = Mathf.Min(movement, Mathf.Lerp(
+                    1f, patch.Definition.MovementMultiplier,
+                    Mathf.Clamp(depth / 8f, 0f, 1f)));
+
+                if (depth > deepest)
+                {
+                    deepest = depth;
+                    tint = patch.Definition.SurfaceTint;
+                }
+            }
+            else
+            {
+                movement = Mathf.Min(movement, Mathf.Lerp(
+                    1f, patch.Definition.MovementMultiplier, influence));
+                float depth = patch.Definition.SubmersionPixels * influence;
+                if (depth > deepest)
+                {
+                    deepest = depth;
+                    tint = patch.Definition.SurfaceTint;
+                }
             }
         }
-        return new SurfaceSample(movement, depth, tint);
+        return new SurfaceSample(movement, deepest, tint);
     }
 
     // =========================================================
-    // Supply surface boundaries to the existing debug overlay.
+    // Keep existing debug callers compatible.
     public IEnumerable<SurfacePatch> GetDebugPatches()
     {
         return _patches;
