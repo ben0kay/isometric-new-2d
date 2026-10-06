@@ -83,6 +83,8 @@ script = ExtResource("2_chunks")
 [node name="Surfaces" type="Node" parent="Systems" unique_id=648560951]
 script = ExtResource("30_surfaces")
 TestWater = ExtResource("31_water")
+PlaceTestWater = true
+TestAttempts = 1024
 
 [node name="EnemyPopulation" parent="Systems" unique_id=2067786256 instance=ExtResource("5_enemy_population")]
 
