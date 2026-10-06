@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://be04bm6jg8ojw" path="res://WORLD/Generation/Biomes/BiomeCatalog.cs" id="1_catalog"]
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="2_definition"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/BasaltFlats.tres" id="3_basalt"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest.tres" id="3_pnwyj"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RollingHills.tres" id="4_a0npy"]
+[ext_resource type="Resource" uid="uid://b8j6qjk82fwbv" path="res://WORLD/Generation/Biomes/Definitions/BasaltFlats/BasaltFlats.tres" id="3_basalt"]
+[ext_resource type="Resource" uid="uid://dynmwcmhxu4le" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest/CarbonForest.tres" id="3_pnwyj"]
+[ext_resource type="Resource" uid="uid://c1hdjy6mcjswq" path="res://WORLD/Generation/Biomes/Definitions/RollingHills/RollingHills.tres" id="4_a0npy"]
 
 [resource]
 script = ExtResource("1_catalog")

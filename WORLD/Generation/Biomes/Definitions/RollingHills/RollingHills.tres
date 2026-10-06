@@ -1,0 +1,105 @@
+[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c1hdjy6mcjswq"]
+
+[ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="1_dy8ah"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="2_elski"]
+[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="3_ujsqg"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="4_7n3k3"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="5_ld1tc"]
+[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="6_1itnl"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="7_8vles"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="8_gvix7"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="9_e0dk1"]
+[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="10_q2q52"]
+[ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="11_kdo43"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="12_xroig"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="13_22mgi"]
+[ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="14_o3ske"]
+
+[sub_resource type="Resource" id="SmallRockEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("3_ujsqg")
+Weight = 5.0
+
+[sub_resource type="Resource" id="BoulderEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("4_7n3k3")
+Weight = 3.0
+
+[sub_resource type="Resource" id="CliffRockEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("5_ld1tc")
+
+[sub_resource type="Resource" id="Resource_vudur"]
+script = ExtResource("6_1itnl")
+
+[sub_resource type="Resource" id="ShortGrassEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("7_8vles")
+Weight = 75.0
+
+[sub_resource type="Resource" id="MediumGrassEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("8_gvix7")
+Weight = 20.0
+
+[sub_resource type="Resource" id="TallGrassEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("9_e0dk1")
+Weight = 5.0
+
+[sub_resource type="Resource" id="Resource_jiiv6"]
+script = ExtResource("6_1itnl")
+Distribution = 1
+ClumpsPerChunk = 6
+ClumpRadiusTiles = 1.3
+
+[sub_resource type="Resource" id="FrondEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("10_q2q52")
+Weight = 60.0
+
+[sub_resource type="Resource" id="ShrubEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("11_kdo43")
+Weight = 40.0
+
+[sub_resource type="Resource" id="Resource_g558v"]
+script = ExtResource("6_1itnl")
+Distribution = 1
+ClumpRadiusTiles = 1.8
+
+[sub_resource type="Resource" id="TreeEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("12_xroig")
+
+[sub_resource type="Resource" id="Resource_cjge4"]
+script = ExtResource("6_1itnl")
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("13_22mgi")
+PlantPatches = 10
+PlantsPerPatch = 7
+Plants = Array[ExtResource("2_elski")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
+PlantsPlacement = SubResource("Resource_g558v")
+Trees = Array[ExtResource("2_elski")]([SubResource("TreeEntry")])
+TreesPlacement = SubResource("Resource_cjge4")
+GrassPatches = 14
+GrassTuftsPerPatch = 12
+Grass = Array[ExtResource("2_elski")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
+GrassPlacement = SubResource("Resource_jiiv6")
+
+[resource]
+script = ExtResource("14_o3ske")
+Id = "rolling_hills"
+DisplayName = "Rolling Hills"
+SandboxOrder = 1
+Tags = PackedStringArray("Alien", "Rolling", "Vegetated")
+MoistureRange = Vector2(0.25, 0.8)
+RollingHeight = 110.0
+RollingFeatureSize = 10.0
+PlateausEnabled = false
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 3
+Rocks = Array[ExtResource("2_elski")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+RocksPlacement = SubResource("Resource_vudur")
+Enemies = ExtResource("1_dy8ah")
