@@ -249,69 +249,69 @@ public partial class StorageHud : CanvasLayer
 // Close storage only while this container interface owns input.
 public override void _Input(InputEvent input)
 {
-    if (_opened == null ||
-        !InputModes.For(this).OwnsInput(this) ||
-        input is not InputEventKey key ||
-        !key.Pressed || key.Echo)
-        return;
+	if (_opened == null ||
+		!InputModes.For(this).OwnsInput(this) ||
+		input is not InputEventKey key ||
+		!key.Pressed || key.Echo)
+		return;
 
-    if (key.PhysicalKeycode != Key.E &&
-        key.PhysicalKeycode != Key.Escape &&
-        key.PhysicalKeycode != Key.Delete)
-        return;
+	if (key.PhysicalKeycode != Key.E &&
+		key.PhysicalKeycode != Key.Escape &&
+		key.PhysicalKeycode != Key.Delete)
+		return;
 
-    Close();
-    GetViewport().SetInputAsHandled();
+	Close();
+	GetViewport().SetInputAsHandled();
 }
 
 // =========================================================
 // Open eligible storage and claim container input.
 public override void _UnhandledInput(InputEvent input)
 {
-    InputModes modes = InputModes.For(this);
+	InputModes modes = InputModes.For(this);
 
-    if (!modes.GameplayAllowed ||
-        input is not InputEventKey key || !key.Pressed || key.Echo ||
-        key.PhysicalKeycode != Key.E || _backpack.IsOpen ||
-        _opened != null || !GodotObject.IsInstanceValid(_nearby) ||
-        !_nearby.CanInteract(_player))
-        return;
+	if (!modes.GameplayAllowed ||
+		input is not InputEventKey key || !key.Pressed || key.Echo ||
+		key.PhysicalKeycode != Key.E || _backpack.IsOpen ||
+		_opened != null || !GodotObject.IsInstanceValid(_nearby) ||
+		!_nearby.CanInteract(_player))
+		return;
 
-    _opened = _nearby;
-    _opened.Changed += Refresh;
+	_opened = _nearby;
+	_opened.Changed += Refresh;
 
-    modes.Push(this, PlayerInputMode.Container);
-    _backpack.SetExternalWindowOpen(true);
+	modes.Push(this, PlayerInputMode.Container);
+	_backpack.SetExternalWindowOpen(true);
 
-    _window.Show();
-    _prompt.Text = "";
-    _notice.Text = "Click an occupied slot to transfer its complete stack.";
-    Refresh();
+	_window.Show();
+	_prompt.Text = "";
+	_notice.Text = "Click an occupied slot to transfer its complete stack.";
+	Refresh();
 
-    GetViewport().SetInputAsHandled();
+	GetViewport().SetInputAsHandled();
 }
 
 // =========================================================
 // Release only this container's claim, preserving any interface above it.
 private void Close()
 {
-    if (GodotObject.IsInstanceValid(_opened))
-        _opened.Changed -= Refresh;
+	if (GodotObject.IsInstanceValid(_opened))
+		_opened.Changed -= Refresh;
 
-    _opened = null;
-    _window?.Hide();
+	_opened = null;
+	_window?.Hide();
 
-    foreach (Node node in GetTree().GetNodesInGroup("input_modes"))
-    {
-        if (node is InputModes modes &&
-            modes.GetViewport() == GetViewport())
-            modes.Release(this);
-    }
+	foreach (Node node in GetTree().GetNodesInGroup("input_modes"))
+	{
+		if (node is InputModes modes &&
+			modes.GetViewport() == GetViewport())
+			modes.Release(this);
+	}
 
-    if (GodotObject.IsInstanceValid(_backpack))
-        _backpack.SetExternalWindowOpen(false);
+	if (GodotObject.IsInstanceValid(_backpack))
+		_backpack.SetExternalWindowOpen(false);
 
-    _scanTimer = 0.0;
+	_scanTimer = 0.0;
 }
 
 	// =========================================================

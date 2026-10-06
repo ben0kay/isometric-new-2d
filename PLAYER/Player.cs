@@ -107,14 +107,14 @@ public partial class Player : CharacterBody2D
 // Read movement only when gameplay owns player input.
 private Vector2 ReadMovement()
 {
-    if (!InputModes.For(this).GameplayAllowed)
-        return Vector2.Zero;
+	if (!InputModes.For(this).GameplayAllowed)
+		return Vector2.Zero;
 
-    return new Vector2(
-        (Input.IsPhysicalKeyPressed(Key.Right) ? 1f : 0f) -
-        (Input.IsPhysicalKeyPressed(Key.Left) ? 1f : 0f),
-        (Input.IsPhysicalKeyPressed(Key.Down) ? 1f : 0f) -
-        (Input.IsPhysicalKeyPressed(Key.Up) ? 1f : 0f));
+	return new Vector2(
+		(Input.IsPhysicalKeyPressed(Key.Right) ? 1f : 0f) -
+		(Input.IsPhysicalKeyPressed(Key.Left) ? 1f : 0f),
+		(Input.IsPhysicalKeyPressed(Key.Down) ? 1f : 0f) -
+		(Input.IsPhysicalKeyPressed(Key.Up) ? 1f : 0f));
 }
 	#endregion
 }
