@@ -3,59 +3,41 @@
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="3_xnuti"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="4_kf26q"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="5_py4g1"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="6_hln1a"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="7_ki2qw"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="8_xbc2o"]
-[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="9_oaddb"]
-[ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="10_cd1n7"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="11_6f3o3"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("3_xnuti")
 Weight = 5.0
 
 [sub_resource type="Resource" id="BoulderEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("4_kf26q")
 Weight = 3.0
 
 [sub_resource type="Resource" id="CliffRockEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("5_py4g1")
 
 [sub_resource type="Resource" id="ShortGrassEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("6_hln1a")
 Weight = 75.0
 
 [sub_resource type="Resource" id="MediumGrassEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("7_ki2qw")
 Weight = 20.0
 
 [sub_resource type="Resource" id="TallGrassEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("8_xbc2o")
 Weight = 5.0
 
 [sub_resource type="Resource" id="FrondEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("9_oaddb")
 Weight = 60.0
 
 [sub_resource type="Resource" id="ShrubEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("10_cd1n7")
 Weight = 40.0
 
 [sub_resource type="Resource" id="TreeEntry"]
 script = ExtResource("3_entry")
-Definition = ExtResource("11_6f3o3")
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
