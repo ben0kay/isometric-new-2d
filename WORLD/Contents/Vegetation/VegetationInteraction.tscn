@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/VegetationInteraction.cs" id="1_interaction"]
+
+[node name="VegetationInteraction" type="Node"]
+script = ExtResource("1_interaction")

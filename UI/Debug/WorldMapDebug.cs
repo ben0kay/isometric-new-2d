@@ -1,6 +1,7 @@
-// Displays procedural terrain and liquid locations for testing.
-// Builds a cached top-down map under a small frame budget without loading chunks.
+// Displays a cached procedural world overview for debugging.
+// Pan and zoom reuse the texture; only the initial build or F refresh samples terrain.
 using Godot;
+using System;
 using System.Diagnostics;
 
 public partial class WorldMapDebug : Control
@@ -11,7 +12,7 @@ public partial class WorldMapDebug : Control
     [Export] public Vector2 PanelSize { get; set; } = new(980, 820);
 
     [ExportGroup("Map")]
-    [Export] public int Resolution { get; set; } = 384;
+    [Export] public int Resolution { get; set; } = 256;
     [Export] public float ViewRadiusTiles { get; set; } = 128f;
     [Export] public float MinimumRadiusTiles { get; set; } = 16f;
     [Export] public float MaximumRadiusTiles { get; set; } = 1024f;
@@ -21,26 +22,41 @@ public partial class WorldMapDebug : Control
     [Export] public Color BasaltColour { get; set; } = new("#596269");
     [Export] public Color HillsColour { get; set; } = new("#69725b");
     [Export] public Color ForestColour { get; set; } = new("#344e46");
+    [Export] public Color WildsColour { get; set; } = new("#226b70");
     [Export] public Color OtherColour { get; set; } = new("#626b68");
     #endregion
 
-    #region State
+    #region World State
     private WorldGenerator _generator;
     private ChunkController _chunks;
     private WaterBasinWorld _basins;
     private Node2D _ground;
     private Player _player;
+
+    private uint _cachedSeed;
+    private int _cachedWorldChunks;
+    private int _cachedChunkSize;
+    #endregion
+
+    #region Map State
     private Image _image;
     private ImageTexture _texture;
     private Vector2 _centre;
-    private float _buildRadius;
-    private int _resolution, _pixel;
-    private bool _open, _building;
+    private Vector2 _snapshotCentre;
+    private float _snapshotRadius;
+    private float _worldMinimum;
+    private float _worldMaximum;
+    private int _resolution;
+    private int _pixel;
+    private bool _open;
+    private bool _building;
+    private bool _dragging;
+    private bool _initialized;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Keep this removable debug interface inactive while closed.
+    // Leave the removable debug interface inactive until first opened.
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Ignore;
@@ -51,36 +67,66 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Release the temporary CPU image when leaving the scene.
+    // Release both CPU and GPU map resources when the scene closes.
     public override void _ExitTree()
     {
         _image?.Dispose();
+        _texture?.Dispose();
         _image = null;
+        _texture = null;
     }
 
     // =========================================================
-    // Resolve the current world without depending on its root name.
+    // Resolve the current world and invalidate snapshots if its identity changes.
     private bool ResolveWorld()
     {
-        _generator = GetTree().GetFirstNodeInGroup("world_generator")
-            as WorldGenerator;
-        if (_generator == null) return false;
+        WorldGenerator generator = GetTree()
+            .GetFirstNodeInGroup("world_generator") as WorldGenerator;
 
-        Node systems = _generator.GetParent();
+        if (generator == null) return false;
+
+        Node systems = generator.GetParent();
         Node root = systems.GetParent();
-        _chunks = systems.GetNodeOrNull<ChunkController>("ChunkController");
-        _ground = root.GetNodeOrNull<Node2D>("GroundChunks");
-        _player = root.GetNodeOrNull<Player>("WorldObjects/Player");
+
+        ChunkController chunks =
+            systems.GetNodeOrNull<ChunkController>("ChunkController");
+        Node2D ground = root.GetNodeOrNull<Node2D>("GroundChunks");
+        Player player = root.GetNodeOrNull<Player>("WorldObjects/Player");
+
+        if (chunks == null || ground == null || player == null ||
+            !chunks.WorldReady)
+            return false;
+
+        bool changed = _initialized &&
+            (_generator != generator ||
+             _cachedSeed != chunks.WorldSeed ||
+             _cachedWorldChunks != chunks.WorldChunksPerAxis ||
+             _cachedChunkSize != chunks.ChunkSize ||
+             _resolution != Mathf.Clamp(Resolution, 64, 512));
+
+        _generator = generator;
+        _chunks = chunks;
+        _ground = ground;
+        _player = player;
         _basins = WaterBasinWorld.Find(this);
 
-        return _chunks != null && _ground != null && _player != null
-            && _chunks.WorldReady;
+        if (changed)
+        {
+            _image?.Dispose();
+            _texture?.Dispose();
+            _image = null;
+            _texture = null;
+            _building = false;
+            _initialized = false;
+        }
+
+        return true;
     }
     #endregion
 
     #region Input
     // =========================================================
-    // Toggle, recenter, fit the whole world and zoom without pausing gameplay.
+    // Toggle the cached map, navigate it and explicitly refresh when requested.
     public override void _Input(InputEvent input)
     {
         if (!Enabled) return;
@@ -92,64 +138,163 @@ public partial class WorldMapDebug : Control
                 if (!_open && !ResolveWorld())
                 {
                     GD.Print("[Map] Wait for world loading to finish.");
+                    GetViewport().SetInputAsHandled();
                     return;
                 }
 
                 _open = !_open;
+                _dragging = false;
                 Visible = _open;
-                SetProcess(_open);
-                if (_open) FitWorld();
+
+                if (_open && !_initialized)
+                {
+                    StartBuild();
+                    FitWorld();
+                }
+
+                // An unfinished initial build can continue while the map is closed.
+                SetProcess(_open || _building);
+                QueueRedraw();
                 GetViewport().SetInputAsHandled();
                 return;
             }
 
-            if (_open && key.PhysicalKeycode == Key.G)
+            if (_open)
             {
-                FitWorld();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
+                switch (key.PhysicalKeycode)
+                {
+                    case Key.G:
+                        FitWorld();
+                        break;
 
-            if (_open && key.PhysicalKeycode == Key.R)
-            {
-                _centre = PlayerTile();
-                StartBuild();
+                    case Key.R:
+                        ViewRadiusTiles = ClampRadius(
+                            Mathf.Min(ViewRadiusTiles, 128f));
+                        _centre = PlayerTile();
+                        ClampCentre();
+                        QueueRedraw();
+                        break;
+
+                    case Key.F:
+                        StartBuild();
+                        break;
+
+                    default:
+                        return;
+                }
+
                 GetViewport().SetInputAsHandled();
                 return;
             }
         }
 
-        if (!_open || input is not InputEventMouseButton mouse ||
-            !mouse.Pressed || !MapRect().HasPoint(GetLocalMousePosition()))
+        if (!_open) return;
+
+        if (input is InputEventMouseMotion motion)
+        {
+            if (!_dragging) return;
+
+            Rect2 map = MapRect();
+            _centre -= motion.Relative / map.Size
+                * (ViewRadiusTiles * 2f);
+
+            ClampCentre();
+            QueueRedraw();
+            GetViewport().SetInputAsHandled();
             return;
+        }
 
-        if (mouse.ButtonIndex != MouseButton.WheelUp &&
-            mouse.ButtonIndex != MouseButton.WheelDown) return;
+        if (input is not InputEventMouseButton mouse) return;
 
-        float factor = mouse.ButtonIndex == MouseButton.WheelUp
-            ? 0.75f : 1.333333f;
-        ViewRadiusTiles = Mathf.Clamp(
-            ViewRadiusTiles * factor,
-            Mathf.Max(1f, MinimumRadiusTiles),
-            Mathf.Max(MinimumRadiusTiles, MaximumRadiusTiles));
-        StartBuild();
-        GetViewport().SetInputAsHandled();
+        if (mouse.ButtonIndex == MouseButton.Left && !mouse.Pressed)
+        {
+            bool wasDragging = _dragging;
+            _dragging = false;
+
+            if (wasDragging || PanelRect().HasPoint(GetLocalMousePosition()))
+                GetViewport().SetInputAsHandled();
+
+            return;
+        }
+
+        Vector2 cursor = GetLocalMousePosition();
+
+        if (MapRect().HasPoint(cursor) && mouse.Pressed)
+        {
+            if (mouse.ButtonIndex == MouseButton.Left)
+            {
+                _dragging = true;
+            }
+            else if (mouse.ButtonIndex == MouseButton.WheelUp ||
+                     mouse.ButtonIndex == MouseButton.WheelDown)
+            {
+                ZoomAt(cursor,
+                    mouse.ButtonIndex == MouseButton.WheelUp
+                        ? 0.8f : 1.25f);
+            }
+        }
+
+        if (PanelRect().HasPoint(cursor))
+            GetViewport().SetInputAsHandled();
     }
 
     // =========================================================
-    // Include the complete finite world with a small outside border.
+    // Zoom around the cursor without requesting another terrain snapshot.
+    private void ZoomAt(Vector2 cursor, float factor)
+    {
+        Rect2 map = MapRect();
+        Vector2 offset = (cursor - map.Position) / map.Size
+            - new Vector2(0.5f, 0.5f);
+
+        Vector2 anchor = _centre + offset * (ViewRadiusTiles * 2f);
+        ViewRadiusTiles = ClampRadius(ViewRadiusTiles * factor);
+        _centre = anchor - offset * (ViewRadiusTiles * 2f);
+
+        ClampCentre();
+        QueueRedraw();
+    }
+
+    // =========================================================
+    // Fit the existing overview without rebuilding its texture.
     private void FitWorld()
     {
-        float span = _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-        float minimum = -(_chunks.WorldChunksPerAxis / 2)
-            * _chunks.ChunkSize - 0.5f;
-        _centre = Vector2.One * (minimum + span * 0.5f);
-        ViewRadiusTiles = span * 0.52f;
-        StartBuild();
+        _centre = _snapshotCentre;
+        ViewRadiusTiles = _snapshotRadius;
+        QueueRedraw();
     }
 
     // =========================================================
-    // Read the player's logical position independently from visual elevation.
+    // Limit interactive zoom to the cached overview.
+    private float ClampRadius(float requested)
+    {
+        float maximum = Mathf.Min(
+            _snapshotRadius, Mathf.Max(1f, MaximumRadiusTiles));
+        float minimum = Mathf.Min(
+            maximum, Mathf.Max(1f, MinimumRadiusTiles));
+
+        return Mathf.Clamp(requested, minimum, maximum);
+    }
+
+    // =========================================================
+    // Keep the visible map rectangle within the cached image.
+    private void ClampCentre()
+    {
+        float allowance = Mathf.Max(
+            0f, _snapshotRadius - ViewRadiusTiles);
+
+        _centre.X = Mathf.Clamp(
+            _centre.X,
+            _snapshotCentre.X - allowance,
+            _snapshotCentre.X + allowance);
+
+        _centre.Y = Mathf.Clamp(
+            _centre.Y,
+            _snapshotCentre.Y - allowance,
+            _snapshotCentre.Y + allowance);
+    }
+
+    // =========================================================
+    // Read logical player position independently from visual elevation.
     private Vector2 PlayerTile()
     {
         return IsoGrid.WorldToTile(
@@ -159,37 +304,61 @@ public partial class WorldMapDebug : Control
 
     #region Building
     // =========================================================
-    // Start a fresh terrain snapshot without requesting world chunks.
+    // Build one full-world snapshot; keep an existing texture visible on refresh.
     private void StartBuild()
     {
+        bool firstBuild = !_initialized;
+
+        _cachedSeed = _chunks.WorldSeed;
+        _cachedWorldChunks = _chunks.WorldChunksPerAxis;
+        _cachedChunkSize = _chunks.ChunkSize;
         _resolution = Mathf.Clamp(Resolution, 64, 512);
-        _buildRadius = Mathf.Max(1f, ViewRadiusTiles);
+
+        float span = _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
+
+        _worldMinimum = -(_chunks.WorldChunksPerAxis / 2)
+            * _chunks.ChunkSize - 0.5f;
+        _worldMaximum = _worldMinimum + span;
+        _snapshotCentre = Vector2.One * (_worldMinimum + span * 0.5f);
+        _snapshotRadius = span * 0.52f;
+
         _image?.Dispose();
         _image = Image.CreateEmpty(
             _resolution, _resolution, false, Image.Format.Rgba8);
-        _texture = null;
+
         _pixel = 0;
         _building = true;
+        _initialized = true;
+
+        if (firstBuild)
+        {
+            _centre = _snapshotCentre;
+            ViewRadiusTiles = _snapshotRadius;
+        }
+
+        SetProcess(true);
         QueueRedraw();
     }
 
     // =========================================================
-    // Spread procedural sampling across frames and keep overlays live.
+    // Budget snapshot sampling across frames and keep player overlays live.
     public override void _Process(double delta)
     {
         if (_building)
         {
             long started = Stopwatch.GetTimestamp();
-            double budget = System.Math.Clamp(BuildBudgetMs, 0.2, 5.0);
+            double budget = Math.Clamp(BuildBudgetMs, 0.2, 5.0);
             int total = _resolution * _resolution;
 
             while (_pixel < total)
             {
                 int x = _pixel % _resolution;
                 int y = _pixel / _resolution;
-                Vector2 tile = _centre + new Vector2(
-                    ((x + 0.5f) / _resolution * 2f - 1f) * _buildRadius,
-                    ((y + 0.5f) / _resolution * 2f - 1f) * _buildRadius);
+
+                Vector2 tile = _snapshotCentre + new Vector2(
+                    ((x + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius,
+                    ((y + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius);
+
                 _image.SetPixel(x, y, SampleColour(tile));
                 _pixel++;
 
@@ -201,40 +370,43 @@ public partial class WorldMapDebug : Control
 
             if (_pixel == total)
             {
-                _texture = ImageTexture.CreateFromImage(_image);
+                ImageTexture replacement = ImageTexture.CreateFromImage(_image);
+                _texture?.Dispose();
+                _texture = replacement;
+
                 _image.Dispose();
                 _image = null;
                 _building = false;
+                SetProcess(_open);
             }
         }
-        QueueRedraw();
+
+        if (_open) QueueRedraw();
     }
 
     // =========================================================
-    // Draw readable biome terrain with restrained relief and clear liquid colours.
+    // Sample one terrain query per pixel and give Wilds its own debug colour.
     private Color SampleColour(Vector2 tile)
     {
-        float minimum = -(_chunks.WorldChunksPerAxis / 2)
-            * _chunks.ChunkSize - 0.5f;
-        float maximum = minimum +
-            _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-
-        if (tile.X < minimum || tile.Y < minimum ||
-            tile.X >= maximum || tile.Y >= maximum)
+        if (tile.X < _worldMinimum || tile.Y < _worldMinimum ||
+            tile.X >= _worldMaximum || tile.Y >= _worldMaximum)
             return new Color("#10161b");
 
         WorldSample sample = _generator.SampleTile(tile);
         if (!sample.Walkable) return new Color("#030609");
 
         WaterBasinWorld.Basin basin = _basins?.GetBasinAt(tile);
+
         if (basin != null && basin.Fill > 0.0001f &&
             basin.WaterHeight > sample.Height)
         {
             float depth = Mathf.Clamp(
                 (basin.WaterHeight - sample.Height) /
-                basin.Definition.BasinDepth, 0f, 1f);
+                Mathf.Max(0.001f, basin.Definition.BasinDepth), 0f, 1f);
+
             Color shallow = basin.Definition.Liquid.DamagePerSecond > 0f
                 ? new Color("#9ba83e") : new Color("#409bb2");
+
             return shallow.Lerp(new Color("#203e50"), depth * 0.65f);
         }
 
@@ -243,16 +415,14 @@ public partial class WorldMapDebug : Control
             "basalt_flats" => BasaltColour,
             "rolling_hills" => HillsColour,
             "carbon_forest" => ForestColour,
+            "verdigris_wilds" => WildsColour,
             _ => OtherColour
         };
 
-        float neighbour = _generator.GetHeight(tile + new Vector2(1f, 1f));
-        float slope = Mathf.Clamp(
-            (sample.Height - neighbour) / 64f, -0.18f, 0.18f);
+        // Keep gentle height variation without a second procedural height query.
         float altitude = Mathf.Clamp(
             sample.Height / Mathf.Max(1f, _generator.HeightRange), -1f, 1f);
-        float light = Mathf.Clamp(
-            0.92f + slope + altitude * 0.08f, 0.65f, 1.15f);
+        float light = 0.94f + altitude * 0.08f;
 
         return new Color(
             Mathf.Clamp(colour.R * light, 0f, 1f),
@@ -263,13 +433,14 @@ public partial class WorldMapDebug : Control
 
     #region Layout
     // =========================================================
-    // Centre the window inside the current viewport.
+    // Centre the debug window in the current viewport.
     private Rect2 PanelRect()
     {
         Vector2 viewport = GetViewportRect().Size;
         Vector2 size = new(
             Mathf.Min(PanelSize.X, Mathf.Max(160f, viewport.X - 32f)),
             Mathf.Min(PanelSize.Y, Mathf.Max(160f, viewport.Y - 32f)));
+
         return new Rect2((viewport - size) * 0.5f, size);
     }
 
@@ -280,24 +451,41 @@ public partial class WorldMapDebug : Control
         Rect2 panel = PanelRect();
         float side = Mathf.Max(
             32f, Mathf.Min(panel.Size.X - 32f, panel.Size.Y - 100f));
+
         return new Rect2(
             panel.Position + new Vector2((panel.Size.X - side) * 0.5f, 44f),
             new Vector2(side, side));
     }
 
     // =========================================================
-    // Convert logical terrain coordinates to a position on the map.
+    // Select the cached image portion corresponding to the current view.
+    private Rect2 SourceRect()
+    {
+        Vector2 low = _centre - Vector2.One * ViewRadiusTiles;
+        Vector2 snapshotLow =
+            _snapshotCentre - Vector2.One * _snapshotRadius;
+
+        float pixelsPerTile = _resolution / (_snapshotRadius * 2f);
+
+        return new Rect2(
+            (low - snapshotLow) * pixelsPerTile,
+            Vector2.One * (ViewRadiusTiles * 2f * pixelsPerTile));
+    }
+
+    // =========================================================
+    // Project logical world coordinates onto the currently visible map.
     private Vector2 MapPoint(Vector2 tile, Rect2 map)
     {
-        Vector2 normalized = (tile - _centre) / (_buildRadius * 2f)
+        Vector2 normalized = (tile - _centre) / (ViewRadiusTiles * 2f)
             + new Vector2(0.5f, 0.5f);
+
         return map.Position + normalized * map.Size;
     }
     #endregion
 
     #region Drawing
     // =========================================================
-    // Draw cached terrain, labelled liquids and the current player position.
+    // Draw the cached view with live player and basin markers.
     public override void _Draw()
     {
         if (!_open) return;
@@ -308,41 +496,47 @@ public partial class WorldMapDebug : Control
 
         DrawRect(panel, new Color(0.025f, 0.04f, 0.055f, 0.97f));
         DrawRect(panel, new Color("#536674"), false, 1f);
+
         DrawString(font, panel.Position + new Vector2(16, 28),
-            "TERRAIN DEBUG   M close · Wheel zoom · R player · G whole world",
-            HorizontalAlignment.Left, -1, 16, new Color("#d8e5ea"));
+            "TERRAIN DEBUG  M close · Drag pan · Wheel zoom · R player · G world · F refresh",
+            HorizontalAlignment.Left, -1, 15, new Color("#d8e5ea"));
 
         DrawRect(map, new Color("#10161b"));
+
         if (_texture != null)
         {
-            DrawTextureRect(_texture, map, false);
+            DrawTextureRectRegion(_texture, map, SourceRect());
             DrawLiquids(map, font);
 
             Vector2 player = MapPoint(PlayerTile(), map);
+
             if (map.HasPoint(player))
             {
                 DrawCircle(player, 6f, Colors.Black);
                 DrawCircle(player, 4f, new Color("#ffed8a"));
             }
         }
+
         DrawRect(map, new Color("#526371"), false, 1f);
 
         string status = _building
-            ? $"Building {_pixel * 100 / (_resolution * _resolution)}%..."
-            : $"Width {_buildRadius * 2f:0} tiles · Seed {_chunks.WorldSeed} · " +
-                $"Basins {_basins?.Basins.Count ?? 0}";
+            ? $"Building overview {_pixel * 100 / (_resolution * _resolution)}%..."
+            : $"Width {ViewRadiusTiles * 2f:0} tiles · " +
+              $"Seed {_chunks.WorldSeed} · " +
+              $"Basins {_basins?.Basins.Count ?? 0} · Cached";
 
         DrawString(font,
             panel.Position + new Vector2(16, panel.Size.Y - 34),
             status, HorizontalAlignment.Left, -1, 15, new Color("#d8e5ea"));
+
         DrawString(font,
             panel.Position + new Vector2(16, panel.Size.Y - 13),
-            "Grey basalt · Olive hills · Green forest · Blue liquid · Black chasm · Yellow player",
+            "Grey basalt · Olive hills · Green forest · Teal wilds · Blue water · Black chasm",
             HorizontalAlignment.Left, -1, 13, new Color("#97aebc"));
     }
 
     // =========================================================
-    // Mark accepted basins so even small distant liquid bodies are easy to find.
+    // Mark accepted basins, including small bodies hidden by overview resolution.
     private void DrawLiquids(Rect2 map, Font font)
     {
         if (_basins == null) return;
@@ -350,7 +544,8 @@ public partial class WorldMapDebug : Control
         foreach (WaterBasinWorld.Basin basin in _basins.Basins)
         {
             Vector2 point = MapPoint(basin.Centre, map);
-            if (!map.HasPoint(point)) continue;
+
+            if (!map.Grow(-8f).HasPoint(point)) continue;
 
             bool filled = basin.Fill > 0.0001f;
             Color colour = !filled ? new Color("#a1a8ac")

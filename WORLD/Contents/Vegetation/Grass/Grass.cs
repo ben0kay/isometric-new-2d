@@ -1,5 +1,5 @@
-// Represents walkable grass using shared cached artwork and wind materials.
-// Optional biome tinting uses one shared recolouring material for all tinted tufts.
+// Represents walkable grass using shared cached artwork.
+// Short grass keeps wind but does not react to player brushing.
 using Godot;
 
 public enum GrassHeight { Short, Medium, Tall }
@@ -17,28 +17,51 @@ public partial class Grass : Node2D
     public float BiomeTintStrength { get; set; }
     #endregion
 
-    #region Shared Material
-    private static ShaderMaterial _tintedWind;
+    #region Shared Materials
+    private static readonly ShaderMaterial[] Materials = new ShaderMaterial[4];
 
     // =========================================================
-    // Share one alternative material rather than duplicate a material per tuft.
-    private static ShaderMaterial GetTintedWind()
+    // Reuse material variants instead of creating a material for every tuft.
+    private static ShaderMaterial GetGrassMaterial(bool shortGrass, bool tinted)
     {
-        if (_tintedWind != null &&
-            GodotObject.IsInstanceValid(_tintedWind))
-            return _tintedWind;
+        int index = (shortGrass ? 2 : 0) + (tinted ? 1 : 0);
+        ShaderMaterial material = Materials[index];
 
-        _tintedWind =
+        if (material != null && GodotObject.IsInstanceValid(material))
+            return material;
+
+        material =
             (ShaderMaterial)VegetationAtlas.GrassWindMaterial.Duplicate();
 
-        _tintedWind.SetShaderParameter("biome_tint_enabled", true);
-        return _tintedWind;
+        material.SetShaderParameter("biome_tint_enabled", tinted);
+        material.SetShaderParameter("brush_enabled", !shortGrass);
+        Materials[index] = material;
+        return material;
+    }
+
+    // =========================================================
+    // Update only the two shared material variants that permit brushing.
+    public static void UpdateBrush(
+        Vector2 position, Vector2 direction, Vector2 radius, float strength)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            ShaderMaterial material = Materials[i];
+
+            if (material == null || !GodotObject.IsInstanceValid(material))
+                continue;
+
+            material.SetShaderParameter("brush_position", position);
+            material.SetShaderParameter("brush_direction", direction);
+            material.SetShaderParameter("brush_radius", radius);
+            material.SetShaderParameter("brush_strength", strength);
+        }
     }
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Attach terrain-adjusted artwork and apply optional biome colouring.
+    // Attach artwork with the appropriate shared tint and brushing settings.
     public override async void _Ready()
     {
         try
@@ -51,23 +74,22 @@ public partial class Grass : Node2D
             if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
             float tintStrength = Mathf.Clamp(BiomeTintStrength, 0f, 1f);
+            bool tinted = tintStrength > 0f;
+            bool shortGrass = Definition.BakedHeight == GrassHeight.Short;
+            ShaderMaterial material = GetGrassMaterial(shortGrass, tinted);
 
             TerrainVisual visual = TerrainVisual.Attach(
                 this,
                 VegetationAtlas.GetGrassRegion(Definition.BakedHeight, Variant),
                 VegetationAtlas.GrassOrigin, Vector2.One, false,
-                Definition.Visual, VegetationAtlas.Texture,
-                tintStrength > 0f
-                    ? GetTintedWind()
-                    : VegetationAtlas.GrassWindMaterial);
+                Definition.Visual, VegetationAtlas.Texture, material);
 
             float size = Mathf.Max(0.1f, SizeMultiplier);
             visual.Scale = new Vector2(Mirror ? -size : size, size);
 
-            // The fallback sprite uses the shared tint-aware wind material.
-            if (tintStrength > 0f &&
+            if (tinted &&
                 visual.GetNodeOrNull<Sprite2D>("Artwork") is Sprite2D sprite &&
-                sprite.Material == _tintedWind)
+                sprite.Material == material)
             {
                 sprite.SelfModulate = new Color(
                     BiomeTint.R, BiomeTint.G, BiomeTint.B, tintStrength);
