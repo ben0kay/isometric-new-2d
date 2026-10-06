@@ -32,20 +32,13 @@ public readonly struct BiomeScatterCandidate
 public static class BiomeScatter
 {
     #region Recipes
-    // =========================================================
-    // Read the placement resource belonging to the requested family.
-    private static BiomePlacementSettings Settings(
-        BiomeDefinition biome, BiomePopulationFamily family)
-    {
-        return family switch
-        {
-            BiomePopulationFamily.Trees => biome.Vegetation.TreesPlacement,
-            BiomePopulationFamily.Plants => biome.Vegetation.PlantsPlacement,
-            BiomePopulationFamily.Grass => biome.Vegetation.GrassPlacement,
-            BiomePopulationFamily.Rocks => biome.RocksPlacement,
-            _ => throw new ArgumentOutOfRangeException(nameof(family))
-        };
-    }
+// =========================================================
+// Read a biome-specific placement override or its shared default.
+private static BiomePlacementSettings Settings(
+    BiomeDefinition biome, BiomePopulationFamily family)
+{
+    return biome.GetPlacement(family);
+}
 
     // =========================================================
     // Preserve existing counts as the family's base placement frequency.

@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="BiomeDefaults" format=3 uid="uid://c2ste68wnrj5x"]
+
+[ext_resource type="Script" uid="uid://b8baj35qrgr7u" path="res://WORLD/Generation/Biomes/BiomeDefaults.cs" id="1_defaults"]
+[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="2_placement"]
+
+[sub_resource type="Resource" id="Grass"]
+script = ExtResource("2_placement")
+Distribution = 1
+ClumpsPerChunk = 6
+ClumpRadiusTiles = 1.3
+
+[sub_resource type="Resource" id="Plants"]
+script = ExtResource("2_placement")
+Distribution = 1
+ClumpRadiusTiles = 1.8
+
+[sub_resource type="Resource" id="Rocks"]
+script = ExtResource("2_placement")
+
+[sub_resource type="Resource" id="Trees"]
+script = ExtResource("2_placement")
+FrequencyMultiplier = 2.0
+
+[resource]
+script = ExtResource("1_defaults")
+Trees = SubResource("Trees")
+Plants = SubResource("Plants")
+Grass = SubResource("Grass")
+Rocks = SubResource("Rocks")

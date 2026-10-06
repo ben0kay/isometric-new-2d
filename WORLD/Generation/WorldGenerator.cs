@@ -54,75 +54,88 @@ public partial class WorldGenerator : Node
         AddToGroup("world_generator");
     }
 
-    // =========================================================
-    // Validate definitions and prepare cached terrain and scaled biome placement.
-    public override void _Ready()
+// =========================================================
+// Resolve shared defaults and let each biome select its terrain sampler.
+public override void _Ready()
+{
+    _chunks = GetNode<ChunkController>("../ChunkController");
+    _ground = GetNode<Node2D>("../../GroundChunks");
+
+    if (Catalog == null)
+        throw new InvalidOperationException(
+            "WorldGenerator requires a BiomeCatalog.");
+
+    BiomeDefaults.GetShared();
+
+    _biomes = Catalog.GetEnabledBiomes();
+    _biomes.Sort((a, b) =>
     {
-        _chunks = GetNode<ChunkController>("../ChunkController");
-        _ground = GetNode<Node2D>("../../GroundChunks");
-        if (Catalog == null)
-            throw new InvalidOperationException("WorldGenerator requires a BiomeCatalog.");
+        int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
+        return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
+    });
 
-        _biomes = Catalog.GetEnabledBiomes();
-        _biomes.Sort((a, b) =>
-        {
-            int order = a.SandboxOrder.CompareTo(b.SandboxOrder);
-            return order != 0 ? order : string.CompareOrdinal(a.Id, b.Id);
-        });
+    int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
+    if (singleIndex < 0)
+    {
+        if (PlacementMode == BiomePlacementMode.Single)
+            throw new InvalidOperationException(
+                $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
 
-        int singleIndex = _biomes.FindIndex(b => b.Id == SandboxBiomeId);
-        if (singleIndex < 0)
-        {
-            if (PlacementMode == BiomePlacementMode.Single)
-                throw new InvalidOperationException(
-                    $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
-            singleIndex = 0;
-        }
-
-        _terrain = new TerrainGenerator[_biomes.Count];
-        HeightRange = 1f;
-        MaxTrees = MaxPlantPatches = MaxGrassPatches = MaxRocks = 0;
-
-        for (int i = 0; i < _biomes.Count; i++)
-        {
-            BiomeDefinition biome = _biomes[i];
-            biome.ValidateClimate();
-            if (biome.Vegetation == null)
-                throw new InvalidOperationException(
-                    $"Biome '{biome.Id}' requires vegetation settings.");
-
-            biome.Vegetation.Validate(biome.Id);
-            BiomeSpecies.Validate<RockDefinition>(
-                biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
-
-            _terrain[i] = new TerrainGenerator(
-                biome, _chunks.WorldSeed, SandboxPlateau, SandboxPlateauCentre);
-            HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
-            MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
-            MaxPlantPatches = Mathf.Max(
-                MaxPlantPatches, biome.Vegetation.PlantPatches);
-            MaxGrassPatches = Mathf.Max(
-                MaxGrassPatches, biome.Vegetation.GrassPatches);
-            MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
-        }
-
-        float scale = Mathf.Clamp(GenerationScale, 0.125f, 4f);
-        _sampler = new BiomeSampler(
-            _biomes, _chunks.WorldSeed, PlacementMode, singleIndex,
-            RegionSizeTiles * scale, BiomeSizeTiles * scale,
-            TransitionWidthTiles * scale, BorderWarpFraction,
-            BiomeBandWidth * scale, BiomeBlendWidth * scale);
-
-            _waterBasins = new WaterBasinWorld { Name = "WaterBasins" };
-AddChild(_waterBasins);
-_waterBasins.Initialize(this, _chunks, _ground);
-HeightRange = Mathf.Max(HeightRange, _waterBasins.MaximumDepth);
-
-        // Catch an uncovered starting climate before artwork/world initialization.
-        _sampler.Sample(Vector2.Zero);
-        GD.Print($"[World] {_biomes.Count} biome(s); mode: {PlacementMode}; scale: {scale}");
-        SetProcess(false);
+        singleIndex = 0;
     }
+
+    _terrain = new TerrainGenerator[_biomes.Count];
+    HeightRange = 1f;
+    MaxTrees = MaxPlantPatches = MaxGrassPatches = MaxRocks = 0;
+
+    for (int i = 0; i < _biomes.Count; i++)
+    {
+        BiomeDefinition biome = _biomes[i];
+        biome.ValidateClimate();
+
+        if (biome.Vegetation == null)
+            throw new InvalidOperationException(
+                $"Biome '{biome.Id}' requires vegetation settings.");
+
+        biome.Vegetation.Validate(biome.Id);
+        BiomeSpecies.Validate<RockDefinition>(
+            biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
+
+        _terrain[i] = biome.CreateTerrain(
+            _chunks.WorldSeed, SandboxPlateau, SandboxPlateauCentre);
+
+        if (_terrain[i] == null)
+            throw new InvalidOperationException(
+                $"Biome '{biome.Id}' returned no terrain sampler.");
+
+        HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
+        MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
+        MaxPlantPatches = Mathf.Max(
+            MaxPlantPatches, biome.Vegetation.PlantPatches);
+        MaxGrassPatches = Mathf.Max(
+            MaxGrassPatches, biome.Vegetation.GrassPatches);
+        MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
+    }
+
+    float scale = Mathf.Clamp(GenerationScale, 0.125f, 4f);
+    _sampler = new BiomeSampler(
+        _biomes, _chunks.WorldSeed, PlacementMode, singleIndex,
+        RegionSizeTiles * scale, BiomeSizeTiles * scale,
+        TransitionWidthTiles * scale, BorderWarpFraction,
+        BiomeBandWidth * scale, BiomeBlendWidth * scale);
+
+    _waterBasins = new WaterBasinWorld { Name = "WaterBasins" };
+    AddChild(_waterBasins);
+    _waterBasins.Initialize(this, _chunks, _ground);
+    HeightRange = Mathf.Max(HeightRange, _waterBasins.MaximumDepth);
+
+    _sampler.Sample(Vector2.Zero);
+    GD.Print(
+        $"[World] {_biomes.Count} biome(s); " +
+        $"mode: {PlacementMode}; scale: {scale}");
+
+    SetProcess(false);
+}
     #endregion
 
     #region Biome Queries

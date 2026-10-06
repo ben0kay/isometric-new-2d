@@ -1,5 +1,5 @@
-// Defines biome identity, climate, terrain and object population recipes.
-// Shared generators read these resources rather than hardcoding biome behaviour.
+// Defines a biome's identity, terrain and population recipes.
+// Optional overrides inherit shared defaults; terrain creation can be specialized.
 using Godot;
 using System;
 
@@ -48,11 +48,18 @@ public partial class BiomeDefinition : Resource
     #region Rocks
     [ExportGroup("Rocks")]
     [Export] public int RocksPerChunk { get; set; } = 8;
+
     [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; }
         = new();
 
     [Export] public BiomePlacementSettings RocksPlacement { get; set; }
-        = new();
+    #endregion
+
+    #region Feature Overrides
+    [ExportGroup("Features")]
+    [Export]
+    public Godot.Collections.Dictionary<string, Resource> FeatureOverrides
+        { get; set; } = new();
     #endregion
 
     #region Enemies
@@ -60,9 +67,70 @@ public partial class BiomeDefinition : Resource
     [Export] public BiomeEnemies Enemies { get; set; }
     #endregion
 
+    #region Shared Settings
+    // =========================================================
+    // Resolve a biome override or the shared placement profile.
+    public BiomePlacementSettings GetPlacement(BiomePopulationFamily family)
+    {
+        BiomeDefaults defaults = BiomeDefaults.GetShared();
+
+        BiomePlacementSettings settings = family switch
+        {
+            BiomePopulationFamily.Trees =>
+                Vegetation.TreesPlacement ?? defaults.Trees,
+            BiomePopulationFamily.Plants =>
+                Vegetation.PlantsPlacement ?? defaults.Plants,
+            BiomePopulationFamily.Grass =>
+                Vegetation.GrassPlacement ?? defaults.Grass,
+            BiomePopulationFamily.Rocks =>
+                RocksPlacement ?? defaults.Rocks,
+            _ => throw new ArgumentOutOfRangeException(nameof(family))
+        };
+
+        return settings ?? throw new InvalidOperationException(
+            $"{Id}/{family}: shared placement profile is missing.");
+    }
+
+    // =========================================================
+    // Resolve a named feature profile without adding it to every biome file.
+    public T GetFeature<T>(string id) where T : Resource
+    {
+        Resource profile = null;
+
+        if (FeatureOverrides != null &&
+            FeatureOverrides.TryGetValue(id, out Resource local) &&
+            local != null)
+        {
+            profile = local;
+        }
+        else
+        {
+            BiomeDefaults defaults = BiomeDefaults.GetShared();
+            if (defaults.Features != null)
+                defaults.Features.TryGetValue(id, out profile);
+        }
+
+        if (profile == null) return null;
+        if (profile is T typed) return typed;
+
+        throw new InvalidOperationException(
+            $"Biome '{Id}': feature '{id}' requires {typeof(T).Name}.");
+    }
+    #endregion
+
+    #region Terrain Factory
+    // =========================================================
+    // Use shared terrain unless a specialized biome definition overrides this.
+    public virtual TerrainGenerator CreateTerrain(
+        uint seed, bool testPlateau, Vector2 testCentre)
+    {
+        return new TerrainGenerator(this, seed, testPlateau, testCentre);
+    }
+    #endregion
+
     #region Climate Queries
     // =========================================================
-    // Return selection weight only when the climate fits this biome.
+    // Return selection weight only when climate fits this biome.
     public float GetClimateWeight(ClimateSample climate)
     {
         if (climate.Temperature < TemperatureRange.X ||
@@ -75,7 +143,7 @@ public partial class BiomeDefinition : Resource
     }
 
     // =========================================================
-    // Validate climate intervals and biome rock placement.
+    // Validate climate and the resolved rock placement profile.
     public void ValidateClimate()
     {
         ValidateRange(TemperatureRange, "Temperature");
@@ -85,15 +153,11 @@ public partial class BiomeDefinition : Resource
             throw new InvalidOperationException(
                 $"Biome '{Id}' requires a finite, non-negative SelectionWeight.");
 
-        if (RocksPlacement == null)
-            throw new InvalidOperationException(
-                $"Biome '{Id}' requires RocksPlacement.");
-
-        RocksPlacement.Validate($"{Id}/Rocks");
+        GetPlacement(BiomePopulationFamily.Rocks).Validate($"{Id}/Rocks");
     }
 
     // =========================================================
-    // Require an ordered climate interval within zero to one.
+    // Require an ordered normalized climate interval.
     private void ValidateRange(Vector2 range, string label)
     {
         if (!float.IsFinite(range.X) || !float.IsFinite(range.Y) ||
