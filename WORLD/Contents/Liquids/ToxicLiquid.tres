@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LiquidDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Liquids/LiquidDefinition.cs" id="1_liquid"]
+
+[resource]
+script = ExtResource("1_liquid")
+Id = "toxic_water"
+SurfaceColour = Color(0.24, 0.38, 0.08, 1)
+WadingSpeedMultiplier = 0.55
+FullResistanceDepthPixels = 8.0
+DamagePerSecond = 3.0
+ExposureDamageType = 6
+MinimumDamageDepthPixels = 0.5

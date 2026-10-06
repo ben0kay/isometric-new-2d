@@ -256,4 +256,15 @@ public partial class WaterBasinWorld : Node
         return false;
     }
     #endregion
+        // =========================================================
+    // Query prepared basin records without loading any world chunks.
+    public Basin GetBasinAt(Vector2 tile)
+    {
+        if (!_index.TryGetValue(ChunkAt(tile), out List<Basin> entries))
+            return null;
+
+        foreach (Basin basin in entries)
+            if (basin.InwardDistance(tile) > 0f) return basin;
+        return null;
+    }
 }

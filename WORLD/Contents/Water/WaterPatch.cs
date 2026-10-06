@@ -1,17 +1,16 @@
-// Presents water inside a permanent basin and adjusts its contour as fill changes.
+// Draws the water-specific artwork for a reusable liquid body.
+// Fill, immersion and debug contours are handled by LiquidBody.
 using Godot;
 
-public partial class WaterPatch : SurfacePatch
+public partial class WaterPatch : LiquidBody
 {
     #region State
-    public WaterBasinWorld.Basin Basin { get; set; }
     private ShaderMaterial _material;
-    private float _shoreInset;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Create a single static quad; shader animation does not rebuild geometry.
+    // Build one static surface quad using the existing water shader.
     public override void _Ready()
     {
         WaterDefinition water = Basin.Definition;
@@ -19,7 +18,7 @@ public partial class WaterPatch : SurfacePatch
         ZAsRelative = false;
 
         _material = new ShaderMaterial { Shader = water.WaterShader };
-        _material.SetShaderParameter("water_color", water.SurfaceTint);
+        _material.SetShaderParameter("water_color", Liquid.SurfaceColour);
         _material.SetShaderParameter("radius_tiles", water.RadiusTiles);
         _material.SetShaderParameter("phase", Phase);
         _material.SetShaderParameter("wave_speed", water.WaveSpeed);
@@ -28,7 +27,8 @@ public partial class WaterPatch : SurfacePatch
         _material.SetShaderParameter("basin_depth", water.BasinDepth);
         _material.SetShaderParameter("shore_width", water.ShoreWidthTiles);
 
-        using Image image = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+        using Image image = Image.CreateEmpty(
+            1, 1, false, Image.Format.Rgba8);
         image.Fill(Colors.White);
 
         AddChild(new Polygon2D
@@ -50,53 +50,16 @@ public partial class WaterPatch : SurfacePatch
             Material = _material
         });
 
-        SetFill(Basin.Fill);
-        World.Register(this);
-        SetProcess(false);
+        base._Ready();
     }
     #endregion
 
-    #region Water Level
+    #region Rendering
     // =========================================================
-    // Drain or refill water while preserving the basin's generated terrain.
-    public void SetFill(float fill)
+    // Move the shader contour when the liquid level changes.
+    protected override void UpdateFillArtwork()
     {
-        Basin.Fill = Mathf.Clamp(fill, 0f, 1f);
-        SurfaceHeight = Basin.WaterHeight;
-        _shoreInset = Basin.ShoreInsetNormalized();
-        GlobalPosition = World.TileToWorld(TileCentre) +
-            Vector2.Up * SurfaceHeight;
-
-        Visible = Basin.Fill > 0.0001f;
         _material?.SetShaderParameter("water_drop", Basin.WaterDrop);
-    }
-
-    // =========================================================
-    // Apply water effects only where the basin floor lies below the water level.
-    public override float GetInfluence(Vector2 tile)
-    {
-        if (Basin.Fill <= 0.0001f) return 0f;
-        return Mathf.Clamp(
-            (Basin.DepthAt(tile) - Basin.WaterDrop) / 8f, 0f, 1f);
-    }
-
-    // =========================================================
-    // Follow the current water contour rather than the outer basin boundary.
-    public override Vector2[] GetDebugOutline()
-    {
-        if (Basin.Fill <= 0.0001f) return System.Array.Empty<Vector2>();
-
-        const int segments = 48;
-        Vector2[] points = new Vector2[segments];
-        for (int i = 0; i < segments; i++)
-        {
-            float angle = Mathf.Tau * i / segments;
-            float radius = Mathf.Max(
-                0f, SurfaceGeometry.Edge(angle, Phase) - _shoreInset);
-            points[i] = ToGlobal(LocalPoint(
-                new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius));
-        }
-        return points;
     }
     #endregion
 }

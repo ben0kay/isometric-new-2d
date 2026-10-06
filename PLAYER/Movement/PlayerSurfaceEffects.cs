@@ -1,5 +1,5 @@
-// Applies surface movement penalties and waterline masking to the current player sprite.
-// Queries are driven by Player movement rather than another per-frame process.
+// Applies liquid resistance, immersion artwork and timed environmental damage.
+// Player drives updates so exposure is processed exactly once per physics frame.
 using Godot;
 
 public partial class PlayerSurfaceEffects : Node
@@ -11,34 +11,40 @@ public partial class PlayerSurfaceEffects : Node
     #region State
     public float MovementMultiplier { get; private set; } = 1f;
     private Player _player;
+    private Health _health;
     private SurfaceWorld _world;
     private Sprite2D _artwork;
     private Material _originalMaterial;
     private ShaderMaterial _material;
+    private LiquidDefinition _exposureLiquid;
+    private float _damageRate;
+    private double _damageElapsed, _damageAmount;
     private bool _triedArtwork, _submerged;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Resolve the player without starting an independent update loop.
+    // Resolve actor systems without starting another update loop.
     public override void _Ready()
     {
         _player = GetParent().GetParent<Player>();
+        _health = GetParent().GetNode<Health>("Health");
         SetProcess(false);
+        SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Restore artwork ownership when this component is removed.
+    // Restore artwork only when this component replaced its material.
     public override void _ExitTree()
     {
-        if (GodotObject.IsInstanceValid(_artwork))
+        if (_material != null && GodotObject.IsInstanceValid(_artwork))
             _artwork.Material = _originalMaterial;
     }
     #endregion
 
-    #region Updates
+    #region Sampling And Artwork
     // =========================================================
-    // Combine surface effects with normal movement and update the visible waterline.
+    // Sample liquid effects and align the visible immersion line.
     public void UpdateState(TerrainVisual visual)
     {
         _world ??= SurfaceWorld.Find(this);
@@ -48,12 +54,18 @@ public partial class PlayerSurfaceEffects : Node
 
         MovementMultiplier = sample.MovementMultiplier;
 
+        if (_exposureLiquid != sample.ExposureLiquid)
+        {
+            _exposureLiquid = sample.ExposureLiquid;
+            _damageElapsed = _damageAmount = 0.0;
+        }
+        _damageRate = sample.DamagePerSecond;
+
         if (!_triedArtwork && visual != null)
         {
             _triedArtwork = true;
             _artwork = visual.GetNodeOrNull<Sprite2D>("Artwork");
 
-            // Preserve custom artwork shaders instead of replacing them.
             if (_artwork != null && SubmersionShader != null &&
                 _artwork.Material == PlaceholderAtlas.BakedMaterial)
             {
@@ -63,8 +75,8 @@ public partial class PlayerSurfaceEffects : Node
             }
             else
                 GD.PushWarning(
-                    "Surface effects: movement is enabled, but waterline masking " +
-                    "requires the current baked player sprite.");
+                    "Surface effects: movement and exposure are enabled, " +
+                    "but immersion masking requires the baked player sprite.");
         }
 
         if (_material == null || visual == null) return;
@@ -80,6 +92,32 @@ public partial class PlayerSurfaceEffects : Node
         _material.SetShaderParameter("waterline_y",
             visual.GlobalPosition.Y - sample.SubmersionPixels);
         _material.SetShaderParameter("water_color", sample.Tint);
+    }
+    #endregion
+
+    #region Exposure
+    // =========================================================
+    // Accumulate fractional exposure and apply damage once per elapsed second.
+    public void TickExposure(double delta)
+    {
+        if (!_health.IsAlive || _exposureLiquid == null || _damageRate <= 0f)
+        {
+            _damageElapsed = _damageAmount = 0.0;
+            return;
+        }
+
+        _damageElapsed += delta;
+        _damageAmount += _damageRate * delta;
+        if (_damageElapsed < 1.0) return;
+
+        _damageElapsed %= 1.0;
+        int amount = (int)System.Math.Min(
+            int.MaxValue, System.Math.Floor(_damageAmount));
+        if (amount <= 0) return;
+
+        _damageAmount -= amount;
+        _health.DamageEnvironment(
+            amount, _exposureLiquid.ExposureDamageType);
     }
     #endregion
 }

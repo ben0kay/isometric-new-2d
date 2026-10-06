@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dlx7kblpf5oro"]
 
 [ext_resource type="PackedScene" uid="uid://fqjv7dvfg82e" path="res://PLAYER/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://UI/Debug/WorldMapDebug.tscn" id="1_w4vfx"]
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="2_chunks"]
 [ext_resource type="Script" uid="uid://7qiets80o66t" path="res://UI/FpsLabel.cs" id="3_fps"]
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="4_navigation"]
@@ -17,9 +18,11 @@
 [ext_resource type="Script" uid="uid://b4ie12vtnyf60" path="res://ITEMS/World/ResourceWorld.cs" id="22_resources"]
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="23_item_catalog"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="30_surfaces"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Water/Water.tres" id="31_water"]
+[ext_resource type="Resource" uid="uid://nwjy3riw3qui" path="res://WORLD/Contents/Water/Water.tres" id="31_water"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
+
+[node name="WorldMapDebug" parent="." unique_id=285333886 instance=ExtResource("1_w4vfx")]
 
 [node name="GroundChunks" type="Node2D" parent="." unique_id=1725811198]
 z_index = -2
@@ -77,11 +80,9 @@ script = ExtResource("4_navigation")
 [node name="ChunkController" type="Node" parent="Systems" unique_id=188963845]
 script = ExtResource("2_chunks")
 
-[node name="Surfaces" type="Node" parent="Systems"]
+[node name="Surfaces" type="Node" parent="Systems" unique_id=648560951]
 script = ExtResource("30_surfaces")
 TestWater = ExtResource("31_water")
-PlaceTestWater = true
-TestAttempts = 64
 
 [node name="EnemyPopulation" parent="Systems" unique_id=2067786256 instance=ExtResource("5_enemy_population")]
 

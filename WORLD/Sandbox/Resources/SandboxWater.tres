@@ -8,5 +8,3 @@ script = ExtResource("1_definition")
 WaterShader = ExtResource("2_shader")
 Id = "water"
 RadiusTiles = Vector2(6, 4)
-MovementMultiplier = 0.65
-SubmersionPixels = 8.0

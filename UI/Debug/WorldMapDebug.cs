@@ -188,8 +188,8 @@ public partial class WorldMapDebug : Control
         QueueRedraw();
     }
 
-    // =========================================================
-    // Colour actual generator heights, chasms and current basin water levels.
+     // =========================================================
+    // Display actual terrain, chasms and the assigned liquid profile's colour.
     private Color SampleColor(Vector2 tile)
     {
         float minimum = -(_chunks.WorldChunksPerAxis / 2)
@@ -211,15 +211,23 @@ public partial class WorldMapDebug : Control
             float depth = Mathf.Clamp(
                 (basin.WaterHeight - sample.Height) /
                 basin.Definition.BasinDepth, 0f, 1f);
-            return _waterColor.Lerp(new Color("#154661"), depth);
+            Color liquid = basin.Definition.Liquid.SurfaceColour;
+            float brightness = Mathf.Lerp(1.4f, 0.65f, depth);
+
+            return new Color(
+                Mathf.Clamp(liquid.R * brightness, 0f, 1f),
+                Mathf.Clamp(liquid.G * brightness, 0f, 1f),
+                Mathf.Clamp(liquid.B * brightness, 0f, 1f), 1f);
         }
 
         Color color = BiomeColor(sample.BiomeId);
         float neighbour = _generator.GetHeight(tile + new Vector2(1f, 1f));
-        float slope = Mathf.Clamp((sample.Height - neighbour) / 32f, -0.35f, 0.35f);
+        float slope = Mathf.Clamp(
+            (sample.Height - neighbour) / 32f, -0.35f, 0.35f);
         float altitude = Mathf.Clamp(
             sample.Height / Mathf.Max(1f, _generator.HeightRange), -1f, 1f);
-        float light = Mathf.Clamp(0.85f + slope + altitude * 0.15f, 0.4f, 1.2f);
+        float light = Mathf.Clamp(
+            0.85f + slope + altitude * 0.15f, 0.4f, 1.2f);
 
         return new Color(
             Mathf.Clamp(color.R * light, 0f, 1f),

@@ -1,10 +1,16 @@
-// Defines basin geometry and the water that fills it.
+// Defines basin geometry and water artwork.
+// References a reusable liquid profile for movement and exposure behaviour.
 using Godot;
 using System;
 
 [Tool, GlobalClass]
 public partial class WaterDefinition : SurfaceDefinition
 {
+    #region Liquid
+    [ExportGroup("Liquid")]
+    [Export] public LiquidDefinition Liquid { get; set; }
+    #endregion
+
     #region Basin
     [ExportGroup("Basin")]
     [Export] public float BasinDepth { get; set; } = 24f;
@@ -22,12 +28,17 @@ public partial class WaterDefinition : SurfaceDefinition
 
     #region Validation
     // =========================================================
-    // Validate the basin dimensions and its water presentation.
+    // Validate basin geometry, liquid behaviour and artwork before placement.
     public override void Validate()
     {
         base.Validate();
-        float smallestRadius = Mathf.Min(RadiusTiles.X, RadiusTiles.Y);
 
+        if (Liquid == null)
+            throw new InvalidOperationException(
+                $"Water '{Id}' requires a Liquid profile.");
+        Liquid.Validate();
+
+        float smallestRadius = Mathf.Min(RadiusTiles.X, RadiusTiles.Y);
         if (!float.IsFinite(BasinDepth) || BasinDepth <= 0f ||
             !float.IsFinite(ShoreWidthTiles) || ShoreWidthTiles <= 0f ||
             ShoreWidthTiles >= smallestRadius * 0.8f ||

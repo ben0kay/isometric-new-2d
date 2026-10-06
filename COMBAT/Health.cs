@@ -96,4 +96,20 @@ public void SetMaximum(int maximum, bool fill = false)
     EmitSignal(SignalName.Changed, Current, MaxHealth);
 }
     #endregion
+
+        // =========================================================
+    // Apply ongoing environmental exposure independently from combat hit immunity.
+    public bool DamageEnvironment(
+        int amount, DamageType type = DamageType.Neutral)
+    {
+        if (!IsAlive || amount <= 0) return false;
+
+        int resolved = Defense?.ResolveDamage(amount, type) ?? amount;
+        if (resolved <= 0) return false;
+
+        Current = Math.Max(0, Current - resolved);
+        EmitSignal(SignalName.Changed, Current, MaxHealth);
+        if (!IsAlive) EmitSignal(SignalName.Died);
+        return true;
+    }
 }
