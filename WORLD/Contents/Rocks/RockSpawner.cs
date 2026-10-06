@@ -11,7 +11,7 @@ public partial class RockSpawner : Node
 
     #region Generation
 // =========================================================
-// Mix local biome rock recipes while preserving solid footprint placement.
+// Mix local biome rock recipes while rejecting basins and solid obstacles.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
@@ -53,11 +53,15 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
 
         Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
         Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
-        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared) continue;
+
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
+            continue;
         if (!ChasmFeature.HasGroundClearance(
-            localPoint, tileSize, footprint.Length() * 0.5f + 8f)) continue;
+            localPoint, tileSize, footprint.Length() * 0.5f + 8f))
+            continue;
         if (WorldPlacement.IsBlocked(
-            globalPoint, footprint, obstacles, new Vector2(12, 8))) continue;
+            objects, globalPoint, footprint, obstacles, new Vector2(12, 8)))
+            continue;
 
         Rock rock = new()
         {
@@ -70,6 +74,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Mirror = definition.RollMirror(rng),
             RockVariant = rng.RandiRange(0, RockDrawing.VariantCount - 1)
         };
+
         objects.AddChild(rock);
         owned.Add(rock);
         obstacles.Add(rock);
@@ -78,14 +83,15 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     #endregion
 
     #region Test Prop Placement
-    // =========================================================
-    // Preserve the existing crate placement API using the shared footprint test.
-    public static bool CanPlace(
-        Node2D objects, Vector2 point, Vector2 footprint)
-    {
-        return !WorldPlacement.IsBlocked(
-            point, footprint, WorldPlacement.CollectObstacles(objects),
-            new Vector2(12, 8));
-    }
+// =========================================================
+// Reject basin reservations and solid obstacles for test prop placement.
+public static bool CanPlace(
+    Node2D objects, Vector2 point, Vector2 footprint)
+{
+    return !WorldPlacement.IsBlocked(
+        objects, point, footprint,
+        WorldPlacement.CollectObstacles(objects),
+        new Vector2(12, 8));
+}
     #endregion
 }

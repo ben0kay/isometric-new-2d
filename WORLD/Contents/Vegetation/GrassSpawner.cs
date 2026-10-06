@@ -15,12 +15,13 @@ public partial class GrassSpawner : Node
 
     #region Generation
    // =========================================================
-// Mix biome grass densities and species across smooth transition areas.
+// Mix biome grass recipes while rejecting basin reservations.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint)
 {
     if (_grass.ContainsKey(coordinate)) yield break;
+
     List<Grass> tufts = new();
     List<Vector2> placed = new();
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
@@ -28,6 +29,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
 
     using RandomNumberGenerator rng = new();
     rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, seed ^ 0x6A55u);
+
     float lowX = coordinate.X * chunkSize - 0.5f;
     float lowY = coordinate.Y * chunkSize - 0.5f;
     float highX = lowX + chunkSize, highY = lowY + chunkSize;
@@ -37,7 +39,8 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     {
         yield return ChunkBuildStage.Grass;
         Vector2 centre = new(
-            rng.RandfRange(lowX, highX), rng.RandfRange(lowY, highY));
+            rng.RandfRange(lowX, highX),
+            rng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
         float chance = Mathf.Clamp(
             (float)settings.GrassPatches / patchBudget, 0f, 1f);
@@ -47,9 +50,11 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
         {
             yield return ChunkBuildStage.Grass;
             Vector2 tile = centre + new Vector2(
-                rng.RandfRange(-1.3f, 1.3f), rng.RandfRange(-1.3f, 1.3f));
+                rng.RandfRange(-1.3f, 1.3f),
+                rng.RandfRange(-1.3f, 1.3f));
             if (tile.X < lowX || tile.X >= highX ||
-                tile.Y < lowY || tile.Y >= highY) continue;
+                tile.Y < lowY || tile.Y >= highY)
+                continue;
 
             GrassDefinition definition =
                 BiomeSpecies.Select<GrassDefinition>(settings.Grass, rng);
@@ -58,13 +63,19 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             float size = definition.RollSize(rng);
             Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
             Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
-            if (globalPoint.DistanceSquaredTo(spawnPoint) < 72f * 72f) continue;
+
+            if (globalPoint.DistanceSquaredTo(spawnPoint) < 72f * 72f)
+                continue;
             if (!ChasmFeature.HasGroundClearance(
-                localPoint, tileSize, definition.GroundClearance * size)) continue;
+                localPoint, tileSize, definition.GroundClearance * size))
+                continue;
             if (WorldPlacement.IsBlocked(
-                globalPoint, Vector2.Zero, obstacles, new Vector2(20, 12))) continue;
+                objects, globalPoint, Vector2.Zero,
+                obstacles, new Vector2(20, 12)))
+                continue;
             if (WorldPlacement.IsCrowded(
-                localPoint, placed, definition.Spacing * size)) continue;
+                localPoint, placed, definition.Spacing * size))
+                continue;
 
             Grass grass = new()
             {
@@ -75,6 +86,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
                 SizeMultiplier = size,
                 Mirror = definition.RollMirror(rng)
             };
+
             objects.AddChild(grass);
             tufts.Add(grass);
             placed.Add(localPoint);

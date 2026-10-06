@@ -16,13 +16,14 @@ public partial class VegetationSpawner : Node
 
     #region Generation
   // =========================================================
-// Mix tree and plant recipes across biome transitions while preserving safe placement.
+// Mix tree and plant recipes while keeping their placement out of basins.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
     float spawnClearRadius)
 {
     if (_plants.ContainsKey(coordinate)) yield break;
+
     List<Plant> plants = new();
     List<Tree> trees = new();
     List<Vector2> placed = new();
@@ -43,7 +44,8 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     {
         yield return ChunkBuildStage.Trees;
         Vector2 tile = new(
-            treeRng.RandfRange(lowX, highX), treeRng.RandfRange(lowY, highY));
+            treeRng.RandfRange(lowX, highX),
+            treeRng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(tile, treeRng).Vegetation;
         float chance = Mathf.Clamp(
             (float)settings.TreesPerChunk / treeBudget, 0f, 1f);
@@ -60,11 +62,13 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
         float clearance = Mathf.Max(
             definition.GroundClearance * size, footprint.Length() * 0.5f);
 
-        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared) continue;
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
+            continue;
         if (!ChasmFeature.HasGroundClearance(localPoint, tileSize, clearance))
             continue;
         if (WorldPlacement.IsBlocked(
-            globalPoint, footprint, obstacles, new Vector2(16, 12))) continue;
+            objects, globalPoint, footprint, obstacles, new Vector2(16, 12)))
+            continue;
         if (WorldPlacement.NearTree(globalPoint, definition, size, obstacles))
             continue;
 
@@ -77,6 +81,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             SizeMultiplier = size,
             Mirror = definition.RollMirror(treeRng)
         };
+
         objects.AddChild(tree);
         trees.Add(tree);
         obstacles.Add(tree);
@@ -90,7 +95,8 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     {
         yield return ChunkBuildStage.Plants;
         Vector2 centre = new(
-            rng.RandfRange(lowX, highX), rng.RandfRange(lowY, highY));
+            rng.RandfRange(lowX, highX),
+            rng.RandfRange(lowY, highY));
         BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
         float chance = Mathf.Clamp(
             (float)settings.PlantPatches / patchBudget, 0f, 1f);
@@ -100,9 +106,11 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
         {
             yield return ChunkBuildStage.Plants;
             Vector2 tile = centre + new Vector2(
-                rng.RandfRange(-1.8f, 1.8f), rng.RandfRange(-1.8f, 1.8f));
+                rng.RandfRange(-1.8f, 1.8f),
+                rng.RandfRange(-1.8f, 1.8f));
             if (tile.X < lowX || tile.X >= highX ||
-                tile.Y < lowY || tile.Y >= highY) continue;
+                tile.Y < lowY || tile.Y >= highY)
+                continue;
 
             PlantDefinition definition =
                 BiomeSpecies.Select<PlantDefinition>(settings.Plants, rng);
@@ -111,13 +119,19 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             float size = definition.RollSize(rng);
             Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
             Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
-            if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared) continue;
+
+            if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
+                continue;
             if (!ChasmFeature.HasGroundClearance(
-                localPoint, tileSize, definition.GroundClearance * size)) continue;
+                localPoint, tileSize, definition.GroundClearance * size))
+                continue;
             if (WorldPlacement.IsBlocked(
-                globalPoint, Vector2.Zero, obstacles, new Vector2(32, 24))) continue;
+                objects, globalPoint, Vector2.Zero,
+                obstacles, new Vector2(32, 24)))
+                continue;
             if (WorldPlacement.IsCrowded(
-                localPoint, placed, definition.Spacing * size)) continue;
+                localPoint, placed, definition.Spacing * size))
+                continue;
 
             Plant plant = new()
             {
@@ -128,6 +142,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
                 SizeMultiplier = size,
                 Mirror = definition.RollMirror(rng)
             };
+
             objects.AddChild(plant);
             plants.Add(plant);
             placed.Add(localPoint);
