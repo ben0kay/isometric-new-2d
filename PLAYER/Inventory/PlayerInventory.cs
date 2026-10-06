@@ -99,27 +99,27 @@ public InventoryStack GetStack(InventoryAddress address)
 // Check player carrying strength and backpack storage before collecting.
 public bool TryCollect(ItemDefinition item, int count)
 {
-    if (item == null || count <= 0) return false;
-    BackpackDefinition pack = Equipment.Backpack;
+	if (item == null || count <= 0) return false;
+	BackpackDefinition pack = Equipment.Backpack;
 
-    if (pack == null)
-        return Reject("Equip a backpack before collecting items.");
+	if (pack == null)
+		return Reject("Equip a backpack before collecting items.");
 
-    float weight = TotalWeightKg + Mathf.Max(0f, item.WeightKg) * count;
-    float volume = UsedVolumeLitres +
-        Mathf.Max(0f, item.VolumeLitres) * count;
+	float weight = TotalWeightKg + Mathf.Max(0f, item.WeightKg) * count;
+	float volume = UsedVolumeLitres +
+		Mathf.Max(0f, item.VolumeLitres) * count;
 
-    if (!Rules.Allows(
-        weight, volume, Rules.MaximumWeightKg, pack.CapacityLitres,
-        out string reason))
-        return Reject(reason);
+	if (!Rules.Allows(
+		weight, volume, Rules.MaximumWeightKg, pack.CapacityLitres,
+		out string reason))
+		return Reject(reason);
 
-    if (!_storage.TryAdd(item, count))
-        return Reject("No free backpack slots or stack space.");
+	if (!_storage.TryAdd(item, count))
+		return Reject("No free backpack slots or stack space.");
 
-    Recalculate();
-    Report($"+{count} {item.DisplayName}");
-    return true;
+	Recalculate();
+	Report($"+{count} {item.DisplayName}");
+	return true;
 }
 	#endregion
 
@@ -128,58 +128,58 @@ public bool TryCollect(ItemDefinition item, int count)
 // Stage a move using backpack slots and volume, but player carrying strength.
 public bool TryMove(InventoryAddress from, InventoryAddress to)
 {
-    if (!HasAddress(from) || !HasAddress(to) ||
-        (from.Area == to.Area && from.Index == to.Index)) return false;
+	if (!HasAddress(from) || !HasAddress(to) ||
+		(from.Area == to.Area && from.Index == to.Index)) return false;
 
-    InventoryStorage bag = _storage.Clone();
-    ItemDefinition[] tools = Equipment.CopyTools();
-    BackpackDefinition pack = Equipment.Backpack;
-    InventoryStack source = Read(from, bag, tools, pack);
-    InventoryStack target = Read(to, bag, tools, pack);
-    if (source.IsEmpty) return false;
+	InventoryStorage bag = _storage.Clone();
+	ItemDefinition[] tools = Equipment.CopyTools();
+	BackpackDefinition pack = Equipment.Backpack;
+	InventoryStack source = Read(from, bag, tools, pack);
+	InventoryStack target = Read(to, bag, tools, pack);
+	if (source.IsEmpty) return false;
 
-    bool merge = InventoryStorage.SameItem(source.Item, target.Item);
-    InventoryStack newSource, newTarget;
+	bool merge = InventoryStorage.SameItem(source.Item, target.Item);
+	InventoryStack newSource, newTarget;
 
-    if (merge)
-    {
-        int limit = to.Area == InventoryArea.Bag
-            ? Math.Max(1, target.Item.MaxStack) : 1;
-        int moved = Math.Min(source.Count, Math.Max(0, limit - target.Count));
-        if (moved == 0) return false;
+	if (merge)
+	{
+		int limit = to.Area == InventoryArea.Bag
+			? Math.Max(1, target.Item.MaxStack) : 1;
+		int moved = Math.Min(source.Count, Math.Max(0, limit - target.Count));
+		if (moved == 0) return false;
 
-        newSource = new InventoryStack(source.Item, source.Count - moved);
-        newTarget = new InventoryStack(target.Item, target.Count + moved);
-    }
-    else
-    {
-        newSource = target;
-        newTarget = source;
-    }
+		newSource = new InventoryStack(source.Item, source.Count - moved);
+		newTarget = new InventoryStack(target.Item, target.Count + moved);
+	}
+	else
+	{
+		newSource = target;
+		newTarget = source;
+	}
 
-    if (!CanPlace(from, newSource) || !CanPlace(to, newTarget))
-        return Reject("That item does not fit this equipment slot.");
+	if (!CanPlace(from, newSource) || !CanPlace(to, newTarget))
+		return Reject("That item does not fit this equipment slot.");
 
-    Write(from, newSource, bag, tools, ref pack);
-    Write(to, newTarget, bag, tools, ref pack);
+	Write(from, newSource, bag, tools, ref pack);
+	Write(to, newTarget, bag, tools, ref pack);
 
-    if (!bag.TryResize(PackSlots(pack)))
-        return Reject(pack == null
-            ? "Empty the backpack before removing it."
-            : "Clear the end slots before using a smaller backpack.");
+	if (!bag.TryResize(PackSlots(pack)))
+		return Reject(pack == null
+			? "Empty the backpack before removing it."
+			: "Clear the end slots before using a smaller backpack.");
 
-    GetTotals(bag, tools, pack, out float weight, out float volume);
-    float capacity = pack?.CapacityLitres ?? 0f;
+	GetTotals(bag, tools, pack, out float weight, out float volume);
+	float capacity = pack?.CapacityLitres ?? 0f;
 
-    if (!Rules.Allows(
-        weight, volume, Rules.MaximumWeightKg, capacity, out string reason))
-        return Reject(reason);
+	if (!Rules.Allows(
+		weight, volume, Rules.MaximumWeightKg, capacity, out string reason))
+		return Reject(reason);
 
-    _storage = bag;
-    Equipment.ApplyContents(tools, pack);
-    Moved?.Invoke(from, to, !merge);
-    Recalculate();
-    return true;
+	_storage = bag;
+	Equipment.ApplyContents(tools, pack);
+	Moved?.Invoke(from, to, !merge);
+	Recalculate();
+	return true;
 }
 
 	// =========================================================
@@ -290,16 +290,16 @@ public bool TryDrop(InventoryAddress address)
 // Calculate movement penalties from the player's strength, regardless of backpack.
 private void Recalculate()
 {
-    BackpackDefinition pack = Equipment.Backpack;
-    GetTotals(_storage, Equipment.CopyTools(), pack,
-        out float weight, out float volume);
+	BackpackDefinition pack = Equipment.Backpack;
+	GetTotals(_storage, Equipment.CopyTools(), pack,
+		out float weight, out float volume);
 
-    TotalWeightKg = weight;
-    UsedVolumeLitres = volume;
-    MovementFactor = Rules.SpeedFactor(
-        weight, Rules.ComfortableWeightKg, Rules.MaximumWeightKg);
+	TotalWeightKg = weight;
+	UsedVolumeLitres = volume;
+	MovementFactor = Rules.SpeedFactor(
+		weight, Rules.ComfortableWeightKg, Rules.MaximumWeightKg);
 
-    Changed?.Invoke();
+	Changed?.Invoke();
 }
 	#endregion
 

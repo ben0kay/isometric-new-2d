@@ -348,18 +348,23 @@ public partial class ChunkController : Node
 	}
 
 // =========================================================
-// Place test crates outside basin reservations and existing solid obstacles.
+// Spawn armoured loot crates before vegetation using stable session identities.
 private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 {
+	LootWorld.GetOrCreate(this);
+
+	PackedScene scene = GD.Load<PackedScene>(
+		"res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredLootCrate.tscn");
+	if (scene == null)
+		throw new InvalidOperationException("ArmouredLootCrate.tscn is missing.");
+
 	List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
 	using RandomNumberGenerator rng = new();
 
 	Vector2I coordinate = chunk.Coordinate;
 	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
-
 	float lowX = coordinate.X * ChunkSize - 0.5f;
 	float lowY = coordinate.Y * ChunkSize - 0.5f;
-	Vector2 footprint = new(72, 36);
 
 	for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
 	{
@@ -371,22 +376,24 @@ private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 		Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
 		Vector2 global = _groundRoot.ToGlobal(local);
 
+		Obstacle crate = scene.Instantiate<Obstacle>();
+		Vector2 footprint = crate.Footprint;
+
 		if (global.DistanceSquaredTo(_spawnPoint) <
 				SpawnClearRadius * SpawnClearRadius ||
-			!ChasmFeature.HasGroundClearance(local, TileSize, 48f) ||
+			!ChasmFeature.HasGroundClearance(
+				local, TileSize, footprint.Length() * 0.5f + 12f) ||
 			WorldPlacement.IsBlocked(
 				_objects, global, footprint, obstacles, new Vector2(12, 8)))
-			continue;
-
-		Obstacle crate = new()
 		{
-			Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
-			Position = _objects.ToLocal(global),
-			Kind = Obstacle.ObstacleKind.Crate,
-			Footprint = footprint,
-			Height = 48f,
-			VisualOverride = CrateVisual
-		};
+			crate.Free();
+			continue;
+		}
+
+		crate.Name = $"ArmouredLootCrate_{coordinate.X}_{coordinate.Y}_{i}";
+		crate.Position = _objects.ToLocal(global);
+		crate.GetNode<LootContainer>("Systems/Loot").PersistentId =
+			$"armoured_crate:{coordinate.X}:{coordinate.Y}:{i}";
 
 		_objects.AddChild(crate);
 		chunk.Obstacles.Add(crate);

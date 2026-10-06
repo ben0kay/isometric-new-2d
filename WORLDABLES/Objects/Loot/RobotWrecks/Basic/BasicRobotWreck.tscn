@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://WORLDABLES/Objects/Loot/RobotWrecks/Basic/BasicRobotWreckDrawing.cs" id="1_wreck"]
+[ext_resource type="Script" path="res://SYSTEMS/Loot/LootContainer.cs" id="2_loot"]
+[ext_resource type="Script" path="res://SYSTEMS/Storage/StorageDefinition.cs" id="3_storage"]
+[ext_resource type="Resource" path="res://WORLDABLES/Objects/Loot/RobotWrecks/Basic/BasicRobotLoot.tres" id="4_table"]
+
+[sub_resource type="Resource" id="Storage"]
+script = ExtResource("3_storage")
+DisplayName = "Robot Wreck"
+SlotCount = 6
+MaximumWeightKg = 50.0
+CapacityLitres = 40.0
+InteractionRange = 140.0
+
+[node name="BasicRobotWreck" type="Node2D"]
+script = ExtResource("1_wreck")
+ArtworkRevision = 1
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Loot" type="Node" parent="Systems"]
+script = ExtResource("2_loot")
+Definition = SubResource("Storage")
+HostPath = NodePath("../..")
+Table = ExtResource("4_table")

@@ -184,11 +184,34 @@ public override void _PhysicsProcess(double delta)
 }
 
 // =========================================================
-// Cancel remaining sequence actions and notify population ownership on death.
+// Replace a dead robot with a lootable wreck and notify population ownership.
 private void OnDeath()
 {
+    if (IsQueuedForDeletion()) return;
+
     _sequence?.Cancel();
+    _motor?.Stop();
+    Velocity = Vector2.Zero;
+    SetPhysicsProcess(false);
+    CollisionLayer = 0;
+    CollisionMask = 0;
+
+    Vector2 deathPosition = GlobalPosition;
+    ulong identity = RandomSeed != 0 ? RandomSeed : GetInstanceId();
+    string wreckId = $"dead_robot:{Definition.Id}:{identity}";
+
+    try
+    {
+        LootWorld.GetOrCreate(this).RecordRobotDeath(wreckId, deathPosition);
+    }
+    catch (Exception error)
+    {
+        GD.PushError($"Unable to create robot wreck: {error}");
+    }
+
     Died?.Invoke();
+    Hide();
+    QueueFree();
 }
     #endregion
 

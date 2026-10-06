@@ -1,5 +1,5 @@
-// Adds seeded, take-only loot to the existing world storage component.
-// Contents are retained by LootWorld independently from the visible wreck.
+// Adds seeded, take-only loot to shared world storage and inventory controls.
+// LootWorld retains contents independently from streamed container instances.
 using Godot;
 using System;
 
@@ -16,19 +16,14 @@ public partial class LootContainer : WorldStorage
 
     #region Lifecycle
     // =========================================================
-    // Restore existing session contents or generate this container once.
+    // Restore session contents or generate this loot container once.
     public override void _Ready()
     {
         base._Ready();
-
         if (Table == null)
             throw new InvalidOperationException("LootContainer requires a LootTable.");
 
-        _world = LootWorld.Find(this);
-        if (_world == null)
-            throw new InvalidOperationException(
-                "Add LootWorld.tscn under the world's Systems node.");
-
+        _world = LootWorld.GetOrCreate(this);
         _key = string.IsNullOrWhiteSpace(PersistentId)
             ? $"placed:{Host.GetPath()}" : PersistentId;
 
@@ -37,10 +32,10 @@ public partial class LootContainer : WorldStorage
     }
 
     // =========================================================
-    // Retain committed contents before refreshing the shared UI.
+    // Retain committed contents before refreshing the shared inventory window.
     protected override void PublishContents()
     {
-        if (_world != null && _key != null)
+        if (GodotObject.IsInstanceValid(_world) && _key != null)
             _world.StoreContents(_key, _contents);
         base.PublishContents();
     }
