@@ -348,15 +348,16 @@ public partial class ChunkController : Node
 	}
 
 // =========================================================
-// Spawn armoured loot crates before vegetation using stable session identities.
+// Spawn armoured loot crates using the actual scene path and stable loot identities.
 private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 {
 	LootWorld.GetOrCreate(this);
 
 	PackedScene scene = GD.Load<PackedScene>(
-		"res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredLootCrate.tscn");
+		"res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrateLoot.tscn");
+
 	if (scene == null)
-		throw new InvalidOperationException("ArmouredLootCrate.tscn is missing.");
+		throw new InvalidOperationException("ArmouredCrateLoot.tscn is missing.");
 
 	List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
 	using RandomNumberGenerator rng = new();
