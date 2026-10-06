@@ -329,32 +329,36 @@ public partial class InventoryTab : HBoxContainer
     #endregion
 
     #region Refresh
-    // =========================================================
-    // Refresh cells and cached carrying information after transactions.
-    private void Refresh()
-    {
-        EnsureBagSlots();
-        int occupied = 0;
-        for (int i = 0; i < Hud.Inventory.BagSlotCount; i++)
-            if (!Hud.Inventory.GetStack(
-                new InventoryAddress(InventoryArea.Bag, i)).IsEmpty) occupied++;
+// =========================================================
+// Refresh definition-driven slots and player-owned carrying limits.
+private void Refresh()
+{
+    EnsureBagSlots();
+    int occupied = 0;
 
-        BackpackDefinition pack = Hud.Inventory.Equipment.Backpack;
-        _bagTitle.Text = $"{pack?.DisplayName ?? "NO BACKPACK"}" +
-            $"   {occupied}/{Hud.Inventory.BagSlotCount} slots";
-        _load.Text =
-            $"WEIGHT  {Hud.Inventory.TotalWeightKg:0.0}/" +
-            $"{pack?.MaximumWeightKg ?? Hud.Inventory.Rules.MaximumWeightKg:0.#} kg\n" +
-            $"VOLUME  {Hud.Inventory.UsedVolumeLitres:0.0}/" +
-            $"{pack?.CapacityLitres ?? 0f:0.#} L" +
-            $"     MOVEMENT  {Hud.Inventory.MovementFactor * 100f:0}%";
+    for (int i = 0; i < Hud.Inventory.BagSlotCount; i++)
+        if (!Hud.Inventory.GetStack(
+            new InventoryAddress(InventoryArea.Bag, i)).IsEmpty)
+            occupied++;
 
-        foreach (InventorySlot slot in _slots)
-            slot.Refresh(_selected.HasValue &&
-                _selected.Value.Area == slot.Address.Area &&
-                _selected.Value.Index == slot.Address.Index);
-        RefreshInspector();
-    }
+    BackpackDefinition pack = Hud.Inventory.Equipment.Backpack;
+    _bagTitle.Text = $"{pack?.DisplayName ?? "NO BACKPACK"}" +
+        $"   {occupied}/{Hud.Inventory.BagSlotCount} slots";
+
+    _load.Text =
+        $"WEIGHT  {Hud.Inventory.TotalWeightKg:0.0}/" +
+        $"{Hud.Inventory.Rules.MaximumWeightKg:0.#} kg\n" +
+        $"VOLUME  {Hud.Inventory.UsedVolumeLitres:0.0}/" +
+        $"{pack?.CapacityLitres ?? 0f:0.#} L" +
+        $"     MOVEMENT  {Hud.Inventory.MovementFactor * 100f:0}%";
+
+    foreach (InventorySlot slot in _slots)
+        slot.Refresh(_selected.HasValue &&
+            _selected.Value.Area == slot.Address.Area &&
+            _selected.Value.Index == slot.Address.Index);
+
+    RefreshInspector();
+}
 
     // =========================================================
     // Display inventory collection and transaction feedback.

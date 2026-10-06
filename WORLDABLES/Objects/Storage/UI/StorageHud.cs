@@ -1,317 +1,343 @@
-// Presents nearby containers through shared storage and player inventory APIs.
-// Proximity is checked at ten hertz; slot controls refresh through inventory events.
+// Displays nearby storage using the same inventory cells as the backpack.
+// Whole-stack transfers use existing storage APIs and refresh through events.
 using Godot;
 using System.Collections.Generic;
 
 public partial class StorageHud : CanvasLayer
 {
-    #region State
-    private Player _player;
-    private PlayerInventory _inventory;
-    private InventoryHud _backpack;
-    private WorldStorage _nearby, _opened;
-    private Control _root;
-    private PanelContainer _window;
-    private Label _prompt, _title, _totals, _notice;
-    private VBoxContainer _bagList, _containerList;
-    private readonly List<Button> _bagButtons = new();
-    private readonly List<Button> _containerButtons = new();
-    private double _scanTimer;
-    #endregion
+	#region State
+	private Player _player;
+	private PlayerInventory _inventory;
+	private PlayerHotbar _hotbar;
+	private InventoryHud _backpack;
+	private WorldStorage _nearby, _opened;
+	private Control _root;
+	private PanelContainer _window;
+	private Label _prompt, _title, _totals, _notice;
+	private GridContainer _bagGrid, _containerGrid;
+	private readonly List<InventorySlot> _bagSlots = new();
+	private readonly List<InventorySlot> _containerSlots = new();
+	private double _scanTimer;
+	#endregion
 
-    #region Lifecycle
-    // =========================================================
-    // Resolve this player's components and build reusable interface controls.
-    public override void _Ready()
-    {
-        Layer = 21;
-        _player = GetParent<Player>();
-        _inventory = _player.GetNode<PlayerInventory>("Systems/Inventory");
-        _backpack = _player.GetNode<InventoryHud>("InventoryHud");
-        BuildUi();
-        _inventory.Changed += Refresh;
-        GetViewport().SizeChanged += FitWindow;
-        FitWindow();
-    }
+	#region Lifecycle
+	// =========================================================
+	// Resolve player services and build the shared-slot transfer window.
+	public override void _Ready()
+	{
+		Layer = 21;
+		_player = GetParent<Player>();
+		_inventory = _player.GetNode<PlayerInventory>("Systems/Inventory");
+		_backpack = _player.GetNode<InventoryHud>("InventoryHud");
 
-    // =========================================================
-    // Search periodically and close when the container becomes inaccessible.
-    public override void _Process(double delta)
-    {
-        _scanTimer -= delta;
-        if (_scanTimer > 0.0) return;
-        _scanTimer = 0.1;
+		foreach (Node child in _player.GetNode("Systems").GetChildren())
+			if (child is PlayerHotbar hotbar) _hotbar = hotbar;
 
-        if (_opened != null)
-        {
-            if (!GodotObject.IsInstanceValid(_opened) ||
-                !_opened.CanInteract(_player)) Close();
-            return;
-        }
+		BuildUi();
+		_inventory.Changed += Refresh;
+		if (_hotbar != null) _hotbar.Changed += Refresh;
+		GetViewport().SizeChanged += FitWindow;
+		FitWindow();
+	}
 
-        _nearby = null;
-        float best = float.PositiveInfinity;
-        foreach (Node node in GetTree().GetNodesInGroup("world_storage"))
-        {
-            if (node is not WorldStorage storage ||
-                !storage.CanInteract(_player)) continue;
-            float distance = storage.Host.GlobalPosition.DistanceSquaredTo(
-                _player.GlobalPosition);
-            if (distance >= best) continue;
-            best = distance;
-            _nearby = storage;
-        }
+	// =========================================================
+	// Search at ten hertz and close storage when interaction becomes invalid.
+	public override void _Process(double delta)
+	{
+		_scanTimer -= delta;
+		if (_scanTimer > 0.0) return;
+		_scanTimer = 0.1;
 
-        _prompt.Text = _nearby != null && !_backpack.IsOpen
-            ? $"[E] {_nearby.Definition.DisplayName}" : "";
-    }
+		if (_opened != null)
+		{
+			if (!GodotObject.IsInstanceValid(_opened) ||
+				!_opened.CanInteract(_player)) Close();
+			return;
+		}
 
-    // =========================================================
-    // Release subscriptions and inventory input protection when removed.
-    public override void _ExitTree()
-    {
-        Close();
-        if (GodotObject.IsInstanceValid(_inventory))
-            _inventory.Changed -= Refresh;
-        GetViewport().SizeChanged -= FitWindow;
-    }
-    #endregion
+		_nearby = null;
+		float best = float.PositiveInfinity;
 
-    #region Layout
-    // =========================================================
-    // Build a centered transfer window and a separate interaction prompt.
-    private void BuildUi()
-    {
-        _root = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
-        AddChild(_root);
-        _root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+		foreach (Node node in GetTree().GetNodesInGroup("world_storage"))
+		{
+			if (node is not WorldStorage storage ||
+				!storage.CanInteract(_player)) continue;
 
-        _prompt = new Label
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        _root.AddChild(_prompt);
-        _prompt.SetAnchorsPreset(Control.LayoutPreset.TopWide);
-        _prompt.OffsetTop = 180;
-        _prompt.OffsetBottom = 210;
+			float distance = storage.Host.GlobalPosition.DistanceSquaredTo(
+				_player.GlobalPosition);
+			if (distance >= best) continue;
 
-        _window = new PanelContainer { Visible = false };
-        _root.AddChild(_window);
-        _window.SetAnchorsPreset(Control.LayoutPreset.Center);
-        _window.OffsetLeft = -350;
-        _window.OffsetRight = 350;
-        _window.OffsetTop = -230;
-        _window.OffsetBottom = 230;
-        _window.PivotOffset = new Vector2(350, 230);
-        _window.AddThemeStyleboxOverride("panel", new StyleBoxFlat
-        {
-            BgColor = new Color("#12202b"),
-            BorderColor = new Color("#577981"),
-            BorderWidthLeft = 2, BorderWidthRight = 2,
-            BorderWidthTop = 2, BorderWidthBottom = 2
-        });
+			best = distance;
+			_nearby = storage;
+		}
 
-        MarginContainer margin = new();
-        foreach (string side in new[] { "left", "right", "top", "bottom" })
-            margin.AddThemeConstantOverride("margin_" + side, 14);
-        _window.AddChild(margin);
+		_prompt.Text = _nearby != null && !_backpack.IsOpen
+			? $"[E] {_nearby.Definition.DisplayName}" : "";
+	}
 
-        VBoxContainer contents = new();
-        contents.AddThemeConstantOverride("separation", 8);
-        margin.AddChild(contents);
+	// =========================================================
+	// Disconnect events and release the external-window input block.
+	public override void _ExitTree()
+	{
+		Close();
+		if (GodotObject.IsInstanceValid(_inventory))
+			_inventory.Changed -= Refresh;
+		if (GodotObject.IsInstanceValid(_hotbar))
+			_hotbar.Changed -= Refresh;
+		GetViewport().SizeChanged -= FitWindow;
+	}
+	#endregion
 
-        HBoxContainer heading = new();
-        contents.AddChild(heading);
-        _title = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        heading.AddChild(_title);
-        Button close = new()
-        {
-            Text = "Close [E / Esc]",
-            FocusMode = Control.FocusModeEnum.None
-        };
-        heading.AddChild(close);
-        close.Pressed += Close;
+	#region Layout
+	// =========================================================
+	// Build a translucent transfer window with two shared inventory grids.
+	private void BuildUi()
+	{
+		_root = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+		AddChild(_root);
+		_root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
-        _totals = new Label();
-        contents.AddChild(_totals);
-        HBoxContainer columns = new()
-        {
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill
-        };
-        columns.AddThemeConstantOverride("separation", 16);
-        contents.AddChild(columns);
-        _bagList = AddColumn(columns, "BACKPACK → DEPOSIT");
-        _containerList = AddColumn(columns, "CONTAINER → TAKE");
+		_prompt = new Label
+		{
+			HorizontalAlignment = HorizontalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore
+		};
+		_root.AddChild(_prompt);
+		_prompt.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+		_prompt.OffsetTop = 180;
+		_prompt.OffsetBottom = 210;
 
-        _notice = new Label
-        {
-            Text = "Click an occupied slot to transfer its complete stack.",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
-        };
-        contents.AddChild(_notice);
-    }
+		_window = new PanelContainer { Visible = false };
+		_root.AddChild(_window);
+		_window.SetAnchorsPreset(Control.LayoutPreset.Center);
+		_window.OffsetLeft = -430;
+		_window.OffsetRight = 430;
+		_window.OffsetTop = -260;
+		_window.OffsetBottom = 260;
+		_window.PivotOffset = new Vector2(430, 260);
+		_window.AddThemeStyleboxOverride("panel", UIInventoryMaster.Style(
+			new Color("#12202be8"), new Color("#577981")));
 
-    // =========================================================
-    // Create one scrolling stack column.
-    private static VBoxContainer AddColumn(Node parent, string title)
-    {
-        VBoxContainer column = new()
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        parent.AddChild(column);
-        column.AddChild(new Label { Text = title });
-        ScrollContainer scroll = new()
-        {
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        column.AddChild(scroll);
-        VBoxContainer list = new()
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        scroll.AddChild(list);
-        return list;
-    }
+		MarginContainer margin = new();
+		foreach (string side in new[] { "left", "right", "top", "bottom" })
+			margin.AddThemeConstantOverride("margin_" + side, 14);
+		_window.AddChild(margin);
 
-    // =========================================================
-    // Scale layout only when viewport dimensions change.
-    private void FitWindow()
-    {
-        Vector2 size = GetViewport().GetVisibleRect().Size;
-        float scale = Mathf.Clamp(Mathf.Min(
-            (size.X - 24f) / 700f, (size.Y - 40f) / 460f), 0.2f, 1f);
-        _window.Scale = Vector2.One * scale;
-    }
+		VBoxContainer contents = new();
+		contents.AddThemeConstantOverride("separation", 8);
+		margin.AddChild(contents);
 
-    // =========================================================
-    // Rebuild controls only when the required slot count changes.
-    private void EnsureButtons(List<Button> buttons, VBoxContainer list,
-        int count, bool deposit)
-    {
-        if (buttons.Count == count) return;
-        foreach (Button button in buttons)
-        {
-            list.RemoveChild(button);
-            button.QueueFree();
-        }
-        buttons.Clear();
+		HBoxContainer heading = new();
+		contents.AddChild(heading);
+		_title = new Label
+		{
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+		};
+		heading.AddChild(_title);
 
-        for (int i = 0; i < count; i++)
-        {
-            int index = i;
-            Button button = new()
-            {
-                FocusMode = Control.FocusModeEnum.None,
-                CustomMinimumSize = new Vector2(0, 36),
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                Alignment = HorizontalAlignment.Left
-            };
-            button.Pressed += () => Transfer(index, deposit);
-            list.AddChild(button);
-            buttons.Add(button);
-        }
-    }
-    #endregion
+		Button close = new()
+		{
+			Text = "Close [E / Esc]",
+			FocusMode = Control.FocusModeEnum.None
+		};
+		heading.AddChild(close);
+		close.Pressed += Close;
 
-    #region Interaction
-    // =========================================================
-    // Consume closing keys before they reach other gameplay handlers.
-    public override void _Input(InputEvent input)
-    {
-        if (_opened == null || input is not InputEventKey key ||
-            !key.Pressed || key.Echo) return;
-        if (key.PhysicalKeycode != Key.E && key.PhysicalKeycode != Key.Escape &&
-            key.PhysicalKeycode != Key.Delete) return;
+		_totals = new Label();
+		contents.AddChild(_totals);
 
-        Close();
-        GetViewport().SetInputAsHandled();
-    }
+		HBoxContainer columns = new()
+		{
+			SizeFlagsVertical = Control.SizeFlags.ExpandFill
+		};
+		columns.AddThemeConstantOverride("separation", 16);
+		contents.AddChild(columns);
 
-    // =========================================================
-    // Open the nearest eligible container while the backpack window is closed.
-    public override void _UnhandledInput(InputEvent input)
-    {
-        if (input is not InputEventKey key || !key.Pressed || key.Echo ||
-            key.PhysicalKeycode != Key.E || _backpack.IsOpen ||
-            _opened != null || !GodotObject.IsInstanceValid(_nearby) ||
-            !_nearby.CanInteract(_player)) return;
+		_bagGrid = AddColumn(columns, "BACKPACK → DEPOSIT");
+		_containerGrid = AddColumn(columns, "CONTAINER → TAKE");
 
-        _opened = _nearby;
-        _opened.Changed += Refresh;
-        _backpack.SetExternalWindowOpen(true);
-        _window.Show();
-        _prompt.Text = "";
-        _notice.Text = "Click an occupied slot to transfer its complete stack.";
-        Refresh();
-        GetViewport().SetInputAsHandled();
-    }
+		_notice = new Label
+		{
+			Text = "Click an occupied slot to transfer its complete stack.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart
+		};
+		contents.AddChild(_notice);
+	}
 
-    // =========================================================
-    // Disconnect the container and release the shared input block.
-    private void Close()
-    {
-        if (GodotObject.IsInstanceValid(_opened))
-            _opened.Changed -= Refresh;
-        _opened = null;
-        _window?.Hide();
-        if (GodotObject.IsInstanceValid(_backpack))
-            _backpack.SetExternalWindowOpen(false);
-        _scanTimer = 0.0;
-    }
+	// =========================================================
+	// Create a scrolling grid so larger definitions add rows automatically.
+	private static GridContainer AddColumn(Node parent, string title)
+	{
+		VBoxContainer column = new()
+		{
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+		};
+		parent.AddChild(column);
+		column.AddChild(new Label { Text = title });
 
-    // =========================================================
-    // Recheck interaction range before requesting a whole-stack transfer.
-    private void Transfer(int index, bool deposit)
-    {
-        if (!GodotObject.IsInstanceValid(_opened) ||
-            !_opened.CanInteract(_player))
-        {
-            Close();
-            return;
-        }
+		ScrollContainer scroll = new()
+		{
+			SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled
+		};
+		column.AddChild(scroll);
 
-        string reason;
-        bool success = deposit
-            ? _opened.TryDeposit(_inventory, index, out reason)
-            : _opened.TryWithdraw(_inventory, index, out reason);
-        _notice.Text = success ? "Transferred." : reason;
-    }
-    #endregion
+		GridContainer grid = new() { Columns = 5 };
+		grid.AddThemeConstantOverride("h_separation", 5);
+		grid.AddThemeConstantOverride("v_separation", 5);
+		scroll.AddChild(grid);
+		return grid;
+	}
 
-    #region Display
-    // =========================================================
-    // Refresh cached totals and stack labels after content changes.
-    private void Refresh()
-    {
-        if (!GodotObject.IsInstanceValid(_opened)) return;
-        EnsureButtons(_bagButtons, _bagList, _inventory.BagSlotCount, true);
-        EnsureButtons(_containerButtons, _containerList, _opened.SlotCount, false);
+	// =========================================================
+	// Fit the window when viewport dimensions change.
+	private void FitWindow()
+	{
+		Vector2 size = GetViewport().GetVisibleRect().Size;
+		float scale = Mathf.Clamp(Mathf.Min(
+			(size.X - 24f) / 860f, (size.Y - 40f) / 520f), 0.2f, 1f);
+		_window.Scale = Vector2.One * scale;
+	}
 
-        StorageDefinition definition = _opened.Definition;
-        _title.Text = definition.DisplayName;
-        _totals.Text =
-            $"Container: {_opened.WeightKg:0.0}/{definition.MaximumWeightKg:0.#} kg" +
-            $"   {_opened.VolumeLitres:0.0}/{definition.CapacityLitres:0.#} L\n" +
-            $"Carried: {_inventory.TotalWeightKg:0.0} kg" +
-            $"   {_inventory.UsedVolumeLitres:0.0} L";
+	// =========================================================
+	// Rebuild only when the definition's required slot count changes.
+	private void EnsureSlots(
+		List<InventorySlot> slots, GridContainer grid,
+		int count, bool deposit)
+	{
+		if (slots.Count == count) return;
 
-        for (int i = 0; i < _bagButtons.Count; i++)
-            RefreshButton(_bagButtons[i], i, _inventory.GetStack(
-                new InventoryAddress(InventoryArea.Bag, i)));
-        for (int i = 0; i < _containerButtons.Count; i++)
-            RefreshButton(_containerButtons[i], i, _opened.GetStack(i));
-    }
+		foreach (InventorySlot slot in slots)
+		{
+			grid.RemoveChild(slot);
+			slot.QueueFree();
+		}
+		slots.Clear();
 
-    // =========================================================
-    // Disable empty-slot requests and display stack quantities.
-    private static void RefreshButton(Button button, int index, InventoryStack stack)
-    {
-        button.Disabled = stack.IsEmpty;
-        button.Text = stack.IsEmpty ? $"{index + 1}. Empty"
-            : $"{index + 1}. {stack.Item.DisplayName} ×{stack.Count}";
-    }
-    #endregion
+		for (int i = 0; i < count; i++)
+		{
+			int index = i;
+			InventorySlot slot = new()
+			{
+				SlotSize = 76,
+				AllowDragging = false
+			};
+
+			if (deposit)
+			{
+				slot.Inventory = _inventory;
+				slot.Hotbar = _hotbar;
+				slot.Address = new InventoryAddress(InventoryArea.Bag, index);
+			}
+			else
+			{
+				slot.StackReader = () =>
+					GodotObject.IsInstanceValid(_opened)
+						? _opened.GetStack(index) : default;
+			}
+
+			slot.Pressed += () => Transfer(index, deposit);
+			grid.AddChild(slot);
+			slots.Add(slot);
+		}
+	}
+	#endregion
+
+	#region Interaction
+	// =========================================================
+	// Consume closing keys before other gameplay handlers receive them.
+	public override void _Input(InputEvent input)
+	{
+		if (_opened == null || input is not InputEventKey key ||
+			!key.Pressed || key.Echo) return;
+		if (key.PhysicalKeycode != Key.E &&
+			key.PhysicalKeycode != Key.Escape &&
+			key.PhysicalKeycode != Key.Delete) return;
+
+		Close();
+		GetViewport().SetInputAsHandled();
+	}
+
+	// =========================================================
+	// Open the nearest eligible container while the backpack window is closed.
+	public override void _UnhandledInput(InputEvent input)
+	{
+		if (input is not InputEventKey key || !key.Pressed || key.Echo ||
+			key.PhysicalKeycode != Key.E || _backpack.IsOpen ||
+			_opened != null || !GodotObject.IsInstanceValid(_nearby) ||
+			!_nearby.CanInteract(_player)) return;
+
+		_opened = _nearby;
+		_opened.Changed += Refresh;
+		_backpack.SetExternalWindowOpen(true);
+		_window.Show();
+		_prompt.Text = "";
+		_notice.Text = "Click an occupied slot to transfer its complete stack.";
+		Refresh();
+		GetViewport().SetInputAsHandled();
+	}
+
+	// =========================================================
+	// Disconnect the container and release inventory input protection.
+	private void Close()
+	{
+		if (GodotObject.IsInstanceValid(_opened))
+			_opened.Changed -= Refresh;
+		_opened = null;
+		_window?.Hide();
+
+		if (GodotObject.IsInstanceValid(_backpack))
+			_backpack.SetExternalWindowOpen(false);
+		_scanTimer = 0.0;
+	}
+
+	// =========================================================
+	// Recheck proximity before requesting an existing whole-stack transaction.
+	private void Transfer(int index, bool deposit)
+	{
+		if (!GodotObject.IsInstanceValid(_opened) ||
+			!_opened.CanInteract(_player))
+		{
+			Close();
+			return;
+		}
+
+		InventoryStack stack = deposit
+			? _inventory.GetStack(new InventoryAddress(InventoryArea.Bag, index))
+			: _opened.GetStack(index);
+		if (stack.IsEmpty) return;
+
+		string reason;
+		bool success = deposit
+			? _opened.TryDeposit(_inventory, index, out reason)
+			: _opened.TryWithdraw(_inventory, index, out reason);
+
+		_notice.Text = success ? "Transferred." : reason;
+	}
+	#endregion
+
+	#region Display
+	// =========================================================
+	// Refresh shared cells and cached physical totals after transactions.
+	private void Refresh()
+	{
+		if (!GodotObject.IsInstanceValid(_opened)) return;
+
+		EnsureSlots(_bagSlots, _bagGrid, _inventory.BagSlotCount, true);
+		EnsureSlots(_containerSlots, _containerGrid, _opened.SlotCount, false);
+
+		StorageDefinition definition = _opened.Definition;
+		_title.Text = definition.DisplayName;
+		_totals.Text =
+			$"Container: {_opened.WeightKg:0.0}/{definition.MaximumWeightKg:0.#} kg" +
+			$"   {_opened.VolumeLitres:0.0}/{definition.CapacityLitres:0.#} L\n" +
+			$"Player: {_inventory.TotalWeightKg:0.0}/" +
+			$"{_inventory.Rules.MaximumWeightKg:0.#} kg" +
+			$"   Backpack: {_inventory.BagSlotCount} slots";
+
+		foreach (InventorySlot slot in _bagSlots) slot.Refresh(false);
+		foreach (InventorySlot slot in _containerSlots) slot.Refresh(false);
+	}
+	#endregion
 }

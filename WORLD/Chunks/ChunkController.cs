@@ -351,47 +351,47 @@ public partial class ChunkController : Node
 // Place test crates outside basin reservations and existing solid obstacles.
 private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 {
-    List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
-    using RandomNumberGenerator rng = new();
+	List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
+	using RandomNumberGenerator rng = new();
 
-    Vector2I coordinate = chunk.Coordinate;
-    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
+	Vector2I coordinate = chunk.Coordinate;
+	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
 
-    float lowX = coordinate.X * ChunkSize - 0.5f;
-    float lowY = coordinate.Y * ChunkSize - 0.5f;
-    Vector2 footprint = new(72, 36);
+	float lowX = coordinate.X * ChunkSize - 0.5f;
+	float lowY = coordinate.Y * ChunkSize - 0.5f;
+	Vector2 footprint = new(72, 36);
 
-    for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
-    {
-        yield return ChunkBuildStage.Crates;
+	for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
+	{
+		yield return ChunkBuildStage.Crates;
 
-        Vector2 tile = new(
-            rng.RandfRange(lowX, lowX + ChunkSize),
-            rng.RandfRange(lowY, lowY + ChunkSize));
-        Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
-        Vector2 global = _groundRoot.ToGlobal(local);
+		Vector2 tile = new(
+			rng.RandfRange(lowX, lowX + ChunkSize),
+			rng.RandfRange(lowY, lowY + ChunkSize));
+		Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
+		Vector2 global = _groundRoot.ToGlobal(local);
 
-        if (global.DistanceSquaredTo(_spawnPoint) <
-                SpawnClearRadius * SpawnClearRadius ||
-            !ChasmFeature.HasGroundClearance(local, TileSize, 48f) ||
-            WorldPlacement.IsBlocked(
-                _objects, global, footprint, obstacles, new Vector2(12, 8)))
-            continue;
+		if (global.DistanceSquaredTo(_spawnPoint) <
+				SpawnClearRadius * SpawnClearRadius ||
+			!ChasmFeature.HasGroundClearance(local, TileSize, 48f) ||
+			WorldPlacement.IsBlocked(
+				_objects, global, footprint, obstacles, new Vector2(12, 8)))
+			continue;
 
-        Obstacle crate = new()
-        {
-            Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
-            Position = _objects.ToLocal(global),
-            Kind = Obstacle.ObstacleKind.Crate,
-            Footprint = footprint,
-            Height = 48f,
-            VisualOverride = CrateVisual
-        };
+		Obstacle crate = new()
+		{
+			Name = $"Crate_{coordinate.X}_{coordinate.Y}_{i}",
+			Position = _objects.ToLocal(global),
+			Kind = Obstacle.ObstacleKind.Crate,
+			Footprint = footprint,
+			Height = 48f,
+			VisualOverride = CrateVisual
+		};
 
-        _objects.AddChild(crate);
-        chunk.Obstacles.Add(crate);
-        obstacles.Add(crate);
-    }
+		_objects.AddChild(crate);
+		chunk.Obstacles.Add(crate);
+		obstacles.Add(crate);
+	}
 }
 	#endregion
 
