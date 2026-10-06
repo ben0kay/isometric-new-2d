@@ -1,5 +1,5 @@
-// Displays a cached procedural world overview for debugging.
-// Pan and zoom reuse the texture; only the initial build or F refresh samples terrain.
+// Displays a cached world overview without pausing simulation.
+// Claims DebugMap input while open; pan and zoom reuse the cached texture.
 using Godot;
 using System;
 using System.Diagnostics;
@@ -26,39 +26,31 @@ public partial class WorldMapDebug : Control
     [Export] public Color OtherColour { get; set; } = new("#626b68");
     #endregion
 
-    #region World State
+    #region State
+    private InputModes _modes;
     private WorldGenerator _generator;
     private ChunkController _chunks;
     private WaterBasinWorld _basins;
     private Node2D _ground;
     private Player _player;
 
-    private uint _cachedSeed;
-    private int _cachedWorldChunks;
-    private int _cachedChunkSize;
-    #endregion
-
-    #region Map State
     private Image _image;
     private ImageTexture _texture;
-    private Vector2 _centre;
-    private Vector2 _snapshotCentre;
-    private float _snapshotRadius;
-    private float _worldMinimum;
-    private float _worldMaximum;
-    private int _resolution;
-    private int _pixel;
-    private bool _open;
-    private bool _building;
-    private bool _dragging;
-    private bool _initialized;
+    private Vector2 _centre, _snapshotCentre;
+    private float _snapshotRadius, _minimum, _maximum;
+    private int _resolution, _pixel;
+    private bool _open, _building, _dragging, _initialized;
+
+    private uint _seed;
+    private int _worldChunks, _chunkSize;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Leave the removable debug interface inactive until first opened.
+    // Resolve input ownership and start with the map closed.
     public override void _Ready()
     {
+        _modes = InputModes.For(this);
         MouseFilter = MouseFilterEnum.Ignore;
         TextureFilter = TextureFilterEnum.Linear;
         Visible = false;
@@ -67,9 +59,12 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Release both CPU and GPU map resources when the scene closes.
+    // Release ownership and cached resources when the map leaves the scene.
     public override void _ExitTree()
     {
+        if (GodotObject.IsInstanceValid(_modes))
+            _modes.Release(this);
+
         _image?.Dispose();
         _texture?.Dispose();
         _image = null;
@@ -77,7 +72,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Resolve the current world and invalidate snapshots if its identity changes.
+    // Resolve world services and invalidate data if the world identity changes.
     private bool ResolveWorld()
     {
         WorldGenerator generator = GetTree()
@@ -99,9 +94,9 @@ public partial class WorldMapDebug : Control
 
         bool changed = _initialized &&
             (_generator != generator ||
-             _cachedSeed != chunks.WorldSeed ||
-             _cachedWorldChunks != chunks.WorldChunksPerAxis ||
-             _cachedChunkSize != chunks.ChunkSize ||
+             _seed != chunks.WorldSeed ||
+             _worldChunks != chunks.WorldChunksPerAxis ||
+             _chunkSize != chunks.ChunkSize ||
              _resolution != Mathf.Clamp(Resolution, 64, 512));
 
         _generator = generator;
@@ -126,43 +121,58 @@ public partial class WorldMapDebug : Control
 
     #region Input
     // =========================================================
-    // Toggle the cached map, navigate it and explicitly refresh when requested.
+    // Claim map input and prevent pointer events reaching underlying interfaces.
     public override void _Input(InputEvent input)
     {
         if (!Enabled) return;
 
-        if (input is InputEventKey key && key.Pressed && !key.Echo)
+        if (input is InputEventKey toggle &&
+            toggle.Pressed && !toggle.Echo &&
+            toggle.PhysicalKeycode == Key.M)
         {
-            if (key.PhysicalKeycode == Key.M)
+            if (_open)
             {
-                if (!_open && !ResolveWorld())
+                if (!_modes.OwnsInput(this)) return;
+                CloseMap();
+            }
+            else
+            {
+                if (GetViewport().GuiIsDragging() || !ResolveWorld())
                 {
-                    GD.Print("[Map] Wait for world loading to finish.");
                     GetViewport().SetInputAsHandled();
                     return;
                 }
 
-                _open = !_open;
-                _dragging = false;
-                Visible = _open;
+                _open = true;
+                Visible = true;
+                _modes.Push(this, PlayerInputMode.DebugMap);
 
-                if (_open && !_initialized)
+                if (!_initialized)
                 {
                     StartBuild();
                     FitWorld();
                 }
 
-                // An unfinished initial build can continue while the map is closed.
-                SetProcess(_open || _building);
+                SetProcess(true);
                 QueueRedraw();
-                GetViewport().SetInputAsHandled();
-                return;
             }
 
-            if (_open)
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
+        if (!_open || !_modes.OwnsInput(this)) return;
+
+        if (input is InputEventKey key)
+        {
+            if (key.Pressed && !key.Echo)
             {
                 switch (key.PhysicalKeycode)
                 {
+                    case Key.Escape:
+                        CloseMap();
+                        break;
+
                     case Key.G:
                         FitWorld();
                         break;
@@ -172,74 +182,69 @@ public partial class WorldMapDebug : Control
                             Mathf.Min(ViewRadiusTiles, 128f));
                         _centre = PlayerTile();
                         ClampCentre();
-                        QueueRedraw();
                         break;
 
                     case Key.F:
                         StartBuild();
                         break;
-
-                    default:
-                        return;
                 }
-
-                GetViewport().SetInputAsHandled();
-                return;
             }
-        }
 
-        if (!_open) return;
+            // Keyboard events belong to the map while it owns input.
+            GetViewport().SetInputAsHandled();
+            QueueRedraw();
+            return;
+        }
 
         if (input is InputEventMouseMotion motion)
         {
-            if (!_dragging) return;
+            if (_dragging)
+            {
+                Rect2 map = MapRect();
+                _centre -= motion.Relative / map.Size *
+                    (ViewRadiusTiles * 2f);
+                ClampCentre();
+                QueueRedraw();
+            }
 
-            Rect2 map = MapRect();
-            _centre -= motion.Relative / map.Size
-                * (ViewRadiusTiles * 2f);
-
-            ClampCentre();
-            QueueRedraw();
             GetViewport().SetInputAsHandled();
             return;
         }
 
-        if (input is not InputEventMouseButton mouse) return;
-
-        if (mouse.ButtonIndex == MouseButton.Left && !mouse.Pressed)
+        if (input is InputEventMouseButton mouse)
         {
-            bool wasDragging = _dragging;
-            _dragging = false;
+            Vector2 cursor = GetLocalMousePosition();
 
-            if (wasDragging || PanelRect().HasPoint(GetLocalMousePosition()))
-                GetViewport().SetInputAsHandled();
-
-            return;
-        }
-
-        Vector2 cursor = GetLocalMousePosition();
-
-        if (MapRect().HasPoint(cursor) && mouse.Pressed)
-        {
             if (mouse.ButtonIndex == MouseButton.Left)
             {
-                _dragging = true;
+                _dragging = mouse.Pressed && MapRect().HasPoint(cursor);
             }
-            else if (mouse.ButtonIndex == MouseButton.WheelUp ||
-                     mouse.ButtonIndex == MouseButton.WheelDown)
+            else if (mouse.Pressed && MapRect().HasPoint(cursor) &&
+                (mouse.ButtonIndex == MouseButton.WheelUp ||
+                 mouse.ButtonIndex == MouseButton.WheelDown))
             {
                 ZoomAt(cursor,
-                    mouse.ButtonIndex == MouseButton.WheelUp
-                        ? 0.8f : 1.25f);
+                    mouse.ButtonIndex == MouseButton.WheelUp ? 0.8f : 1.25f);
             }
-        }
 
-        if (PanelRect().HasPoint(cursor))
+            // Consume buttons everywhere, including over the underlying hotbar.
             GetViewport().SetInputAsHandled();
+        }
     }
 
     // =========================================================
-    // Zoom around the cursor without requesting another terrain snapshot.
+    // Restore the previous mode without discarding the map snapshot.
+    private void CloseMap()
+    {
+        _open = false;
+        _dragging = false;
+        Visible = false;
+        _modes.Release(this);
+        SetProcess(_building);
+    }
+
+    // =========================================================
+    // Zoom around the cursor using the existing overview.
     private void ZoomAt(Vector2 cursor, float factor)
     {
         Rect2 map = MapRect();
@@ -255,7 +260,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Fit the existing overview without rebuilding its texture.
+    // Show the complete cached overview.
     private void FitWorld()
     {
         _centre = _snapshotCentre;
@@ -264,7 +269,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Limit interactive zoom to the cached overview.
+    // Limit zoom to the cached map's available extent.
     private float ClampRadius(float requested)
     {
         float maximum = Mathf.Min(
@@ -276,25 +281,20 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Keep the visible map rectangle within the cached image.
+    // Keep the visible map inside the overview.
     private void ClampCentre()
     {
         float allowance = Mathf.Max(
             0f, _snapshotRadius - ViewRadiusTiles);
 
-        _centre.X = Mathf.Clamp(
-            _centre.X,
-            _snapshotCentre.X - allowance,
-            _snapshotCentre.X + allowance);
-
-        _centre.Y = Mathf.Clamp(
-            _centre.Y,
-            _snapshotCentre.Y - allowance,
-            _snapshotCentre.Y + allowance);
+        _centre.X = Mathf.Clamp(_centre.X,
+            _snapshotCentre.X - allowance, _snapshotCentre.X + allowance);
+        _centre.Y = Mathf.Clamp(_centre.Y,
+            _snapshotCentre.Y - allowance, _snapshotCentre.Y + allowance);
     }
 
     // =========================================================
-    // Read logical player position independently from visual elevation.
+    // Read player position on the logical terrain plane.
     private Vector2 PlayerTile()
     {
         return IsoGrid.WorldToTile(
@@ -304,22 +304,20 @@ public partial class WorldMapDebug : Control
 
     #region Building
     // =========================================================
-    // Build one full-world snapshot; keep an existing texture visible on refresh.
+    // Prepare a new overview while retaining the old texture during refresh.
     private void StartBuild()
     {
-        bool firstBuild = !_initialized;
+        bool first = !_initialized;
 
-        _cachedSeed = _chunks.WorldSeed;
-        _cachedWorldChunks = _chunks.WorldChunksPerAxis;
-        _cachedChunkSize = _chunks.ChunkSize;
+        _seed = _chunks.WorldSeed;
+        _worldChunks = _chunks.WorldChunksPerAxis;
+        _chunkSize = _chunks.ChunkSize;
         _resolution = Mathf.Clamp(Resolution, 64, 512);
 
-        float span = _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-
-        _worldMinimum = -(_chunks.WorldChunksPerAxis / 2)
-            * _chunks.ChunkSize - 0.5f;
-        _worldMaximum = _worldMinimum + span;
-        _snapshotCentre = Vector2.One * (_worldMinimum + span * 0.5f);
+        float span = _worldChunks * _chunkSize;
+        _minimum = -(_worldChunks / 2) * _chunkSize - 0.5f;
+        _maximum = _minimum + span;
+        _snapshotCentre = Vector2.One * (_minimum + span * 0.5f);
         _snapshotRadius = span * 0.52f;
 
         _image?.Dispose();
@@ -330,7 +328,7 @@ public partial class WorldMapDebug : Control
         _building = true;
         _initialized = true;
 
-        if (firstBuild)
+        if (first)
         {
             _centre = _snapshotCentre;
             ViewRadiusTiles = _snapshotRadius;
@@ -341,7 +339,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Budget snapshot sampling across frames and keep player overlays live.
+    // Budget initial generation across frames; reopening does not regenerate.
     public override void _Process(double delta)
     {
         if (_building)
@@ -385,11 +383,11 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Sample one terrain query per pixel and give Wilds its own debug colour.
+    // Show biome classification, liquid depth and restrained height shading.
     private Color SampleColour(Vector2 tile)
     {
-        if (tile.X < _worldMinimum || tile.Y < _worldMinimum ||
-            tile.X >= _worldMaximum || tile.Y >= _worldMaximum)
+        if (tile.X < _minimum || tile.Y < _minimum ||
+            tile.X >= _maximum || tile.Y >= _maximum)
             return new Color("#10161b");
 
         WorldSample sample = _generator.SampleTile(tile);
@@ -419,7 +417,6 @@ public partial class WorldMapDebug : Control
             _ => OtherColour
         };
 
-        // Keep gentle height variation without a second procedural height query.
         float altitude = Mathf.Clamp(
             sample.Height / Mathf.Max(1f, _generator.HeightRange), -1f, 1f);
         float light = 0.94f + altitude * 0.08f;
@@ -433,7 +430,7 @@ public partial class WorldMapDebug : Control
 
     #region Layout
     // =========================================================
-    // Centre the debug window in the current viewport.
+    // Centre the debug window within the viewport.
     private Rect2 PanelRect()
     {
         Vector2 viewport = GetViewportRect().Size;
@@ -445,7 +442,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Preserve equal tile distances on both map axes.
+    // Use a square map so both axes have the same scale.
     private Rect2 MapRect()
     {
         Rect2 panel = PanelRect();
@@ -454,26 +451,25 @@ public partial class WorldMapDebug : Control
 
         return new Rect2(
             panel.Position + new Vector2((panel.Size.X - side) * 0.5f, 44f),
-            new Vector2(side, side));
+            Vector2.One * side);
     }
 
     // =========================================================
-    // Select the cached image portion corresponding to the current view.
+    // Select the visible part of the cached overview.
     private Rect2 SourceRect()
     {
         Vector2 low = _centre - Vector2.One * ViewRadiusTiles;
         Vector2 snapshotLow =
             _snapshotCentre - Vector2.One * _snapshotRadius;
-
-        float pixelsPerTile = _resolution / (_snapshotRadius * 2f);
+        float scale = _resolution / (_snapshotRadius * 2f);
 
         return new Rect2(
-            (low - snapshotLow) * pixelsPerTile,
-            Vector2.One * (ViewRadiusTiles * 2f * pixelsPerTile));
+            (low - snapshotLow) * scale,
+            Vector2.One * (ViewRadiusTiles * 2f * scale));
     }
 
     // =========================================================
-    // Project logical world coordinates onto the currently visible map.
+    // Convert a world tile position into a map position.
     private Vector2 MapPoint(Vector2 tile, Rect2 map)
     {
         Vector2 normalized = (tile - _centre) / (ViewRadiusTiles * 2f)
@@ -485,7 +481,7 @@ public partial class WorldMapDebug : Control
 
     #region Drawing
     // =========================================================
-    // Draw the cached view with live player and basin markers.
+    // Display the cached map with live player and basin markers.
     public override void _Draw()
     {
         if (!_open) return;
@@ -498,7 +494,7 @@ public partial class WorldMapDebug : Control
         DrawRect(panel, new Color("#536674"), false, 1f);
 
         DrawString(font, panel.Position + new Vector2(16, 28),
-            "TERRAIN DEBUG  M close · Drag pan · Wheel zoom · R player · G world · F refresh",
+            "DEBUG MAP  M/Esc close · Drag pan · Wheel zoom · R player · G world · F refresh",
             HorizontalAlignment.Left, -1, 15, new Color("#d8e5ea"));
 
         DrawRect(map, new Color("#10161b"));
@@ -509,7 +505,6 @@ public partial class WorldMapDebug : Control
             DrawLiquids(map, font);
 
             Vector2 player = MapPoint(PlayerTile(), map);
-
             if (map.HasPoint(player))
             {
                 DrawCircle(player, 6f, Colors.Black);
@@ -520,10 +515,9 @@ public partial class WorldMapDebug : Control
         DrawRect(map, new Color("#526371"), false, 1f);
 
         string status = _building
-            ? $"Building overview {_pixel * 100 / (_resolution * _resolution)}%..."
-            : $"Width {ViewRadiusTiles * 2f:0} tiles · " +
-              $"Seed {_chunks.WorldSeed} · " +
-              $"Basins {_basins?.Basins.Count ?? 0} · Cached";
+            ? $"Building {_pixel * 100 / (_resolution * _resolution)}%..."
+            : $"Width {ViewRadiusTiles * 2f:0} tiles · Seed {_seed} · " +
+              $"Basins {_basins?.Basins.Count ?? 0} · Input: DebugMap";
 
         DrawString(font,
             panel.Position + new Vector2(16, panel.Size.Y - 34),
@@ -536,7 +530,7 @@ public partial class WorldMapDebug : Control
     }
 
     // =========================================================
-    // Mark accepted basins, including small bodies hidden by overview resolution.
+    // Mark accepted basins even when they are small on the overview.
     private void DrawLiquids(Rect2 map, Font font)
     {
         if (_basins == null) return;
@@ -544,7 +538,6 @@ public partial class WorldMapDebug : Control
         foreach (WaterBasinWorld.Basin basin in _basins.Basins)
         {
             Vector2 point = MapPoint(basin.Centre, map);
-
             if (!map.Grow(-8f).HasPoint(point)) continue;
 
             bool filled = basin.Fill > 0.0001f;
@@ -560,8 +553,7 @@ public partial class WorldMapDebug : Control
             label += $" ({basin.Centre.X:0}, {basin.Centre.Y:0})";
 
             Vector2 text = point + new Vector2(10, -10);
-            text.X = Mathf.Clamp(
-                text.X, map.Position.X + 4f,
+            text.X = Mathf.Clamp(text.X, map.Position.X + 4f,
                 Mathf.Max(map.Position.X + 4f, map.End.X - 190f));
             text.Y = Mathf.Clamp(
                 text.Y, map.Position.Y + 18f, map.End.Y - 4f);

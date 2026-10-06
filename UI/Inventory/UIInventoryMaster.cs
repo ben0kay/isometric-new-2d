@@ -53,14 +53,22 @@ public partial class UIInventoryMaster : CanvasLayer
         FitWindow();
     }
 
-    // =========================================================
-    // Disconnect master HUD subscriptions.
-    public override void _ExitTree()
+// =========================================================
+// Release this interface's input claim and disconnect HUD subscriptions.
+public override void _ExitTree()
+{
+    foreach (Node node in GetTree().GetNodesInGroup("input_modes"))
     {
-        if (GodotObject.IsInstanceValid(Hotbar))
-            Hotbar.Changed -= RefreshHotbar;
-        GetViewport().SizeChanged -= FitWindow;
+        if (node is InputModes modes &&
+            modes.GetViewport() == GetViewport())
+            modes.Release(this);
     }
+
+    if (GodotObject.IsInstanceValid(Hotbar))
+        Hotbar.Changed -= RefreshHotbar;
+
+    GetViewport().SizeChanged -= FitWindow;
+}
     #endregion
 
     #region Shared Styling
@@ -261,54 +269,78 @@ private void FitWindow()
     #endregion
 
     #region Input
-    // =========================================================
-    // Toggle inventory and select shortcuts using number keys or scrolling.
-    public override void _Input(InputEvent input)
+// =========================================================
+// Read inventory and hotbar shortcuts after higher-priority interfaces handle input.
+public override void _UnhandledInput(InputEvent input)
+{
+    InputModes modes = InputModes.For(this);
+
+    bool gameplay = modes.GameplayAllowed;
+    bool inventoryControl =
+        modes.CurrentMode == PlayerInputMode.Inventory &&
+        modes.OwnsInput(this);
+
+    if (!gameplay && !inventoryControl) return;
+
+    if (input is InputEventKey key && key.Pressed && !key.Echo)
     {
-        if (ExternalWindowOpen) return;
-
-        if (input is InputEventKey key && key.Pressed && !key.Echo)
+        if (key.PhysicalKeycode == Key.Delete ||
+            (inventoryControl && key.PhysicalKeycode == Key.Escape))
         {
-            if (key.PhysicalKeycode == Key.Delete ||
-                (IsOpen && key.PhysicalKeycode == Key.Escape))
-            {
-                if (!GetViewport().GuiIsDragging()) Toggle();
-                GetViewport().SetInputAsHandled();
-                return;
-            }
-
-            int index = key.PhysicalKeycode == Key.Key0 ? 9 :
-                (int)key.PhysicalKeycode - (int)Key.Key1;
-            if (!IsOpen && index >= 0 && index < Hotbar.SlotCount)
-            {
-                Hotbar.Select(index);
-                GetViewport().SetInputAsHandled();
-                return;
-            }
+            if (!GetViewport().GuiIsDragging()) Toggle();
+            GetViewport().SetInputAsHandled();
+            return;
         }
 
-        if (IsOpen || input is not InputEventMouseButton mouse ||
-            !mouse.Pressed) return;
+        int index = key.PhysicalKeycode == Key.Key0 ? 9 :
+            (int)key.PhysicalKeycode - (int)Key.Key1;
 
-        int direction = mouse.ButtonIndex == MouseButton.WheelDown ? 1 :
-            mouse.ButtonIndex == MouseButton.WheelUp ? -1 : 0;
-        if (direction == 0 || PointerOverHotbar() && GetViewport().GuiIsDragging())
+        if (gameplay && index >= 0 && index < Hotbar.SlotCount)
+        {
+            Hotbar.Select(index);
+            GetViewport().SetInputAsHandled();
             return;
-
-        Hotbar.Cycle(direction);
-        GetViewport().SetInputAsHandled();
+        }
     }
 
+    if (!gameplay || input is not InputEventMouseButton mouse ||
+        !mouse.Pressed) return;
+
+    int direction = mouse.ButtonIndex == MouseButton.WheelDown ? 1 :
+        mouse.ButtonIndex == MouseButton.WheelUp ? -1 : 0;
+
+    if (direction == 0 ||
+        PointerOverHotbar() && GetViewport().GuiIsDragging())
+        return;
+
+    Hotbar.Cycle(direction);
+    GetViewport().SetInputAsHandled();
+}
+
 // =========================================================
-// Open the live-world interface and refit after containers update.
+// Claim inventory input when opening and restore the previous mode when closing.
 private void Toggle()
 {
-    _window.Visible = !_window.Visible;
+    InputModes modes = InputModes.For(this);
+
+    if (IsOpen)
+    {
+        if (!modes.OwnsInput(this)) return;
+
+        _window.Hide();
+        modes.Release(this);
+    }
+    else
+    {
+        if (!modes.GameplayAllowed) return;
+
+        _window.Show();
+        modes.Push(this, PlayerInputMode.Inventory);
+        Callable.From(FitWindow).CallDeferred();
+    }
+
     _blockUntilRelease = true;
     _mining.Stop();
-
-    if (_window.Visible)
-        Callable.From(FitWindow).CallDeferred();
 }
 
     // =========================================================
@@ -319,19 +351,29 @@ private void Toggle()
             _root.GetGlobalMousePosition());
     }
 
-    // =========================================================
-    // Block world actions during inventory use and UI clicks.
-    public bool BlocksWorldAttack()
+// =========================================================
+// Respect shared input ownership and prevent firing through interface clicks.
+public bool BlocksWorldAttack()
+{
+    InputModes modes = InputModes.For(this);
+
+    if (!modes.WorldAttackAllowed)
     {
-        if (_blockUntilRelease)
-        {
-            if (!Input.IsMouseButtonPressed(MouseButton.Left))
-                _blockUntilRelease = false;
-            return true;
-        }
-        return IsOpen || ExternalWindowOpen ||
-            GetViewport().GuiIsDragging() || PointerOverHotbar();
+        _mining.Stop();
+        _blockUntilRelease = true;
+        return true;
     }
+
+    if (_blockUntilRelease)
+    {
+        if (!Input.IsMouseButtonPressed(MouseButton.Left))
+            _blockUntilRelease = false;
+
+        return true;
+    }
+
+    return GetViewport().GuiIsDragging() || PointerOverHotbar();
+}
 
     // =========================================================
     // Preserve compatibility with your separate container window.
