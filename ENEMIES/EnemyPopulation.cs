@@ -236,19 +236,25 @@ public partial class EnemyPopulation : Node
     #endregion
 
     #region Stage 3 - Activate Off Screen
-    // =========================================================
-    // Apply distance, visibility, loaded-ground, and collision gates at activation time.
-    private bool CanActivate(EnemyDefinition definition, Vector2 point)
-    {
-        if (!_chunks.IsNavigationPointAvailable(point, 12f) ||
-            NearPlayers(point, MinimumPlayerDistance) || IsOnScreen(definition, point) ||
-            _checksRemaining <= 0) return false;
+// =========================================================
+// Reject basin spawns before applying visibility and physics placement checks.
+private bool CanActivate(EnemyDefinition definition, Vector2 point)
+{
+    if (WorldPlacement.IsBasinReserved(
+            this, point, new Vector2(24f, 24f), Vector2.Zero) ||
+        !_chunks.IsNavigationPointAvailable(point, 12f) ||
+        NearPlayers(point, MinimumPlayerDistance) ||
+        IsOnScreen(definition, point) ||
+        _checksRemaining <= 0)
+        return false;
 
-        _checksRemaining--;
-        _spawnQuery.Transform = new Transform2D(0f, point);
-        _spawnQuery.Motion = Vector2.Zero;
-        return _objects.GetWorld2D().DirectSpaceState.IntersectShape(_spawnQuery, 1).Count == 0;
-    }
+    _checksRemaining--;
+    _spawnQuery.Transform = new Transform2D(0f, point);
+    _spawnQuery.Motion = Vector2.Zero;
+
+    return _objects.GetWorld2D().DirectSpaceState
+        .IntersectShape(_spawnQuery, 1).Count == 0;
+}
 
     // =========================================================
     // Reject artwork overlapping the actual camera view plus a conservative margin.

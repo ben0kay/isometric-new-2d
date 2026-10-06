@@ -320,4 +320,31 @@ public partial class WaterBasinWorld : Node
             if (basin.InwardDistance(tile) > 0f) return basin;
         return null;
     }
+
+    // =========================================================
+// Reserve the permanent basin against an object's logical ground footprint.
+// Uses a conservative tile-space radius, independently of current water fill.
+public bool OverlapsWorldFootprint(
+    Vector2 globalPoint, Vector2 footprint, Vector2 padding)
+{
+    Vector2 centre = IsoGrid.WorldToTile(
+        _ground.ToLocal(globalPoint), _chunks.TileSize);
+
+    Vector2 half = footprint.Abs() * 0.5f + padding.Abs();
+    float radius = 0f;
+
+    for (int y = -1; y <= 1; y += 2)
+    for (int x = -1; x <= 1; x += 2)
+    {
+        Vector2 corner = globalPoint +
+            new Vector2(half.X * x, half.Y * y);
+
+        Vector2 tile = IsoGrid.WorldToTile(
+            _ground.ToLocal(corner), _chunks.TileSize);
+
+        radius = Mathf.Max(radius, centre.DistanceTo(tile));
+    }
+
+    return Overlaps(centre, radius);
+}
 }
