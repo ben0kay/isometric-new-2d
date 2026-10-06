@@ -1,0 +1,14 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://DEBUG/DebugBiomeLauncher/DebugBiomeLauncher.cs" id="1_launcher"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="2_catalog"]
+
+[node name="DebugBiomeLauncher" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_launcher")
+Catalog = ExtResource("2_catalog")

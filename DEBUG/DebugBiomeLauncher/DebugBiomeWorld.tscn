@@ -1,0 +1,11 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://WORLD/world_test.tscn" id="1_world"]
+[ext_resource type="Script" path="res://DEBUG/DebugBiomeLauncher/DebugBiomeWorld.cs" id="2_debug_world"]
+[ext_resource type="Script" path="res://DEBUG/DebugBiomeLauncher/DebugBiomeChunkController.cs" id="3_debug_chunks"]
+
+[node name="WorldTest" instance=ExtResource("1_world")]
+script = ExtResource("2_debug_world")
+
+[node name="ChunkController" parent="Systems" index="6"]
+script = ExtResource("3_debug_chunks")
