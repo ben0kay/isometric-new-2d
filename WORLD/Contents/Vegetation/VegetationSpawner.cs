@@ -16,7 +16,7 @@ public partial class VegetationSpawner : Node
 
     #region Generation
   // =========================================================
-// Mix tree and plant recipes while keeping their placement out of basins.
+// Spawn biome-selected trees and plants through shared placement recipes.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
@@ -28,56 +28,50 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     List<Tree> trees = new();
     List<Vector2> placed = new();
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
+
     _plants.Add(coordinate, plants);
     _trees.Add(coordinate, trees);
 
-    float lowX = coordinate.X * chunkSize - 0.5f;
-    float lowY = coordinate.Y * chunkSize - 0.5f;
-    float highX = lowX + chunkSize, highY = lowY + chunkSize;
     float clearSquared = spawnClearRadius * spawnClearRadius;
 
     using RandomNumberGenerator treeRng = new();
-    treeRng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, seed ^ 0xC471u);
+    treeRng.Seed = IsoGrid.Hash(
+        coordinate.X, coordinate.Y, seed ^ 0xA471u);
 
-    int treeBudget = Generator.MaxTrees * 4;
-    for (int attempt = 0; attempt < treeBudget; attempt++)
+    foreach (BiomeScatterCandidate candidate in BiomeScatter.Generate(
+        Generator, BiomePopulationFamily.Trees,
+        coordinate, chunkSize, seed ^ 0xC471u))
     {
         yield return ChunkBuildStage.Trees;
-        Vector2 tile = new(
-            treeRng.RandfRange(lowX, highX),
-            treeRng.RandfRange(lowY, highY));
-        BiomeVegetation settings = Generator.PickBiome(tile, treeRng).Vegetation;
-        float chance = Mathf.Clamp(
-            (float)settings.TreesPerChunk / treeBudget, 0f, 1f);
-        if (treeRng.Randf() >= chance) continue;
+        if (candidate.Biome == null) continue;
 
-        TreeDefinition definition =
-            BiomeSpecies.Select<TreeDefinition>(settings.Trees, treeRng);
+        TreeDefinition definition = BiomeSpecies.Select<TreeDefinition>(
+            candidate.Biome.Vegetation.Trees, treeRng);
         if (definition == null) continue;
 
         float size = definition.RollSize(treeRng);
-        Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
+        Vector2 localPoint = IsoGrid.TileToWorld(candidate.Tile, tileSize);
         Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
         Vector2 footprint = definition.TrunkFootprint * size;
+
         float clearance = Mathf.Max(
             definition.GroundClearance * size, footprint.Length() * 0.5f);
 
-        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
-            continue;
-        if (!ChasmFeature.HasGroundClearance(localPoint, tileSize, clearance))
-            continue;
-        if (WorldPlacement.IsBlocked(
-            objects, globalPoint, footprint, obstacles, new Vector2(16, 12)))
-            continue;
-        if (WorldPlacement.NearTree(globalPoint, definition, size, obstacles))
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared ||
+            !ChasmFeature.HasGroundClearance(localPoint, tileSize, clearance) ||
+            WorldPlacement.IsBlocked(
+                objects, globalPoint, footprint,
+                obstacles, new Vector2(16, 12)) ||
+            WorldPlacement.NearTree(globalPoint, definition, size, obstacles))
             continue;
 
         Tree tree = new()
         {
-            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{attempt}",
+            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
             Position = objects.ToLocal(globalPoint),
             Definition = definition,
-            Variant = treeRng.RandiRange(0, CarbonTreeDrawing.VariantCount - 1),
+            Variant = treeRng.RandiRange(
+                0, CarbonTreeDrawing.VariantCount - 1),
             SizeMultiplier = size,
             Mirror = definition.RollMirror(treeRng)
         };
@@ -88,65 +82,47 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     }
 
     using RandomNumberGenerator rng = new();
-    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, seed ^ 0x7A93u);
+    rng.Seed = IsoGrid.Hash(
+        coordinate.X, coordinate.Y, seed ^ 0x5A93u);
 
-    int patchBudget = Generator.MaxPlantPatches;
-    for (int patch = 0; patch < patchBudget; patch++)
+    foreach (BiomeScatterCandidate candidate in BiomeScatter.Generate(
+        Generator, BiomePopulationFamily.Plants,
+        coordinate, chunkSize, seed ^ 0x7A93u))
     {
         yield return ChunkBuildStage.Plants;
-        Vector2 centre = new(
-            rng.RandfRange(lowX, highX),
-            rng.RandfRange(lowY, highY));
-        BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
-        float chance = Mathf.Clamp(
-            (float)settings.PlantPatches / patchBudget, 0f, 1f);
-        if (rng.Randf() >= chance) continue;
+        if (candidate.Biome == null) continue;
 
-        for (int i = 0; i < Mathf.Max(0, settings.PlantsPerPatch); i++)
-        {
-            yield return ChunkBuildStage.Plants;
-            Vector2 tile = centre + new Vector2(
-                rng.RandfRange(-1.8f, 1.8f),
-                rng.RandfRange(-1.8f, 1.8f));
-            if (tile.X < lowX || tile.X >= highX ||
-                tile.Y < lowY || tile.Y >= highY)
-                continue;
+        PlantDefinition definition = BiomeSpecies.Select<PlantDefinition>(
+            candidate.Biome.Vegetation.Plants, rng);
+        if (definition == null) continue;
 
-            PlantDefinition definition =
-                BiomeSpecies.Select<PlantDefinition>(settings.Plants, rng);
-            if (definition == null) continue;
+        float size = definition.RollSize(rng);
+        Vector2 localPoint = IsoGrid.TileToWorld(candidate.Tile, tileSize);
+        Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
 
-            float size = definition.RollSize(rng);
-            Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
-            Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
-
-            if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
-                continue;
-            if (!ChasmFeature.HasGroundClearance(
-                localPoint, tileSize, definition.GroundClearance * size))
-                continue;
-            if (WorldPlacement.IsBlocked(
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared ||
+            !ChasmFeature.HasGroundClearance(
+                localPoint, tileSize, definition.GroundClearance * size) ||
+            WorldPlacement.IsBlocked(
                 objects, globalPoint, Vector2.Zero,
-                obstacles, new Vector2(32, 24)))
-                continue;
-            if (WorldPlacement.IsCrowded(
+                obstacles, new Vector2(32, 24)) ||
+            WorldPlacement.IsCrowded(
                 localPoint, placed, definition.Spacing * size))
-                continue;
+            continue;
 
-            Plant plant = new()
-            {
-                Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{patch}_{i}",
-                Position = objects.ToLocal(globalPoint),
-                Definition = definition,
-                Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
-                SizeMultiplier = size,
-                Mirror = definition.RollMirror(rng)
-            };
+        Plant plant = new()
+        {
+            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
+            Position = objects.ToLocal(globalPoint),
+            Definition = definition,
+            Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
+            SizeMultiplier = size,
+            Mirror = definition.RollMirror(rng)
+        };
 
-            objects.AddChild(plant);
-            plants.Add(plant);
-            placed.Add(localPoint);
-        }
+        objects.AddChild(plant);
+        plants.Add(plant);
+        placed.Add(localPoint);
     }
 }
     #endregion

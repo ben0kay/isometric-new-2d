@@ -11,61 +11,57 @@ public partial class RockSpawner : Node
 
     #region Generation
 // =========================================================
-// Mix local biome rock recipes while rejecting basins and solid obstacles.
+// Spawn biome-selected rocks using the same placement recipes as vegetation.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
     float spawnClearRadius, List<Obstacle> owned)
 {
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
+
     using RandomNumberGenerator rng = new();
-    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, seed ^ 0xB041u);
+    rng.Seed = IsoGrid.Hash(
+        coordinate.X, coordinate.Y, seed ^ 0x9041u);
 
-    float lowX = coordinate.X * chunkSize - 0.5f;
-    float lowY = coordinate.Y * chunkSize - 0.5f;
     float clearSquared = spawnClearRadius * spawnClearRadius;
-    int budget = Generator.MaxRocks * 4;
 
-    for (int attempt = 0; attempt < budget; attempt++)
+    foreach (BiomeScatterCandidate candidate in BiomeScatter.Generate(
+        Generator, BiomePopulationFamily.Rocks,
+        coordinate, chunkSize, seed ^ 0xB041u))
     {
         yield return ChunkBuildStage.Rocks;
-        Vector2 tile = new(
-            rng.RandfRange(lowX, lowX + chunkSize),
-            rng.RandfRange(lowY, lowY + chunkSize));
-        BiomeDefinition biome = Generator.PickBiome(tile, rng);
-        float chance = Mathf.Clamp(
-            (float)biome.RocksPerChunk / budget, 0f, 1f);
-        if (rng.Randf() >= chance) continue;
+        if (candidate.Biome == null) continue;
 
-        RockDefinition definition =
-            BiomeSpecies.Select<RockDefinition>(biome.Rocks, rng);
+        RockDefinition definition = BiomeSpecies.Select<RockDefinition>(
+            candidate.Biome.Rocks, rng);
         if (definition == null) continue;
 
         float minWidth = Mathf.Max(16f, definition.WidthRange.X);
         float minHeight = Mathf.Max(8f, definition.HeightRange.X);
+
         float width = rng.RandfRange(
             minWidth, Mathf.Max(minWidth, definition.WidthRange.Y));
         float height = rng.RandfRange(
             minHeight, Mathf.Max(minHeight, definition.HeightRange.Y));
         float size = definition.RollSize(rng);
+
         Vector2 footprint = new Vector2(
             width, width * Mathf.Max(0.1f, definition.FootprintDepthRatio)) * size;
 
-        Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
+        Vector2 localPoint = IsoGrid.TileToWorld(candidate.Tile, tileSize);
         Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
 
-        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared)
-            continue;
-        if (!ChasmFeature.HasGroundClearance(
-            localPoint, tileSize, footprint.Length() * 0.5f + 8f))
-            continue;
-        if (WorldPlacement.IsBlocked(
-            objects, globalPoint, footprint, obstacles, new Vector2(12, 8)))
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < clearSquared ||
+            !ChasmFeature.HasGroundClearance(
+                localPoint, tileSize, footprint.Length() * 0.5f + 8f) ||
+            WorldPlacement.IsBlocked(
+                objects, globalPoint, footprint,
+                obstacles, new Vector2(12, 8)))
             continue;
 
         Rock rock = new()
         {
-            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{attempt}",
+            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
             Position = objects.ToLocal(globalPoint),
             Definition = definition,
             BaseWidth = width,

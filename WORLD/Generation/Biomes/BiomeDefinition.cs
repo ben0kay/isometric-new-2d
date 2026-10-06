@@ -1,5 +1,5 @@
-// Defines biome terrain, climate eligibility and weighted species recipes.
-// Tags describe the biome; continuous climate ranges determine natural placement.
+// Defines biome identity, climate, terrain and object population recipes.
+// Shared generators read these resources rather than hardcoding biome behaviour.
 using Godot;
 using System;
 
@@ -35,6 +35,7 @@ public partial class BiomeDefinition : Resource
     [Export] public float PlateauSpacing { get; set; } = 32f;
     [Export] public float PlateauRadius { get; set; } = 6f;
     [Export] public float PlateauShoulder { get; set; } = 6f;
+
     [Export(PropertyHint.Range, "0,1,0.01")]
     public float PlateauChance { get; set; } = 0.55f;
     #endregion
@@ -47,45 +48,59 @@ public partial class BiomeDefinition : Resource
     #region Rocks
     [ExportGroup("Rocks")]
     [Export] public int RocksPerChunk { get; set; } = 8;
-    [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; } = new();
+    [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; }
+        = new();
+
+    [Export] public BiomePlacementSettings RocksPlacement { get; set; }
+        = new();
     #endregion
 
     #region Enemies
-[ExportGroup("Enemies")]
-[Export] public BiomeEnemies Enemies { get; set; }
-#endregion
+    [ExportGroup("Enemies")]
+    [Export] public BiomeEnemies Enemies { get; set; }
+    #endregion
 
     #region Climate Queries
     // =========================================================
-    // Return the natural selection weight only when the climate fits this biome.
+    // Return selection weight only when the climate fits this biome.
     public float GetClimateWeight(ClimateSample climate)
     {
         if (climate.Temperature < TemperatureRange.X ||
             climate.Temperature > TemperatureRange.Y ||
             climate.Moisture < MoistureRange.X ||
-            climate.Moisture > MoistureRange.Y) return 0f;
+            climate.Moisture > MoistureRange.Y)
+            return 0f;
+
         return SelectionWeight;
     }
 
     // =========================================================
-    // Reject invalid normalized ranges and selection weights before world generation.
+    // Validate climate intervals and biome rock placement.
     public void ValidateClimate()
     {
         ValidateRange(TemperatureRange, "Temperature");
         ValidateRange(MoistureRange, "Moisture");
+
         if (!float.IsFinite(SelectionWeight) || SelectionWeight < 0f)
             throw new InvalidOperationException(
                 $"Biome '{Id}' requires a finite, non-negative SelectionWeight.");
+
+        if (RocksPlacement == null)
+            throw new InvalidOperationException(
+                $"Biome '{Id}' requires RocksPlacement.");
+
+        RocksPlacement.Validate($"{Id}/Rocks");
     }
 
     // =========================================================
-    // Require an ordered climate interval within the normalized zero-to-one range.
+    // Require an ordered climate interval within zero to one.
     private void ValidateRange(Vector2 range, string label)
     {
         if (!float.IsFinite(range.X) || !float.IsFinite(range.Y) ||
             range.X < 0f || range.Y > 1f || range.X > range.Y)
             throw new InvalidOperationException(
-                $"Biome '{Id}': {label}Range must satisfy 0 <= minimum <= maximum <= 1.");
+                $"Biome '{Id}': {label}Range must satisfy " +
+                "0 <= minimum <= maximum <= 1.");
     }
     #endregion
 }

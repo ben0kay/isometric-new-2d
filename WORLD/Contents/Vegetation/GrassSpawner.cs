@@ -14,8 +14,8 @@ public partial class GrassSpawner : Node
     #endregion
 
     #region Generation
-   // =========================================================
-// Mix biome grass recipes while rejecting basin reservations.
+ // =========================================================
+// Spawn biome-selected grass using shared frequency and distribution settings.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint)
@@ -28,69 +28,47 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     _grass.Add(coordinate, tufts);
 
     using RandomNumberGenerator rng = new();
-    rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, seed ^ 0x6A55u);
+    rng.Seed = IsoGrid.Hash(
+        coordinate.X, coordinate.Y, seed ^ 0x4A55u);
 
-    float lowX = coordinate.X * chunkSize - 0.5f;
-    float lowY = coordinate.Y * chunkSize - 0.5f;
-    float highX = lowX + chunkSize, highY = lowY + chunkSize;
-
-    int patchBudget = Generator.MaxGrassPatches;
-    for (int patch = 0; patch < patchBudget; patch++)
+    foreach (BiomeScatterCandidate candidate in BiomeScatter.Generate(
+        Generator, BiomePopulationFamily.Grass,
+        coordinate, chunkSize, seed ^ 0x6A55u))
     {
         yield return ChunkBuildStage.Grass;
-        Vector2 centre = new(
-            rng.RandfRange(lowX, highX),
-            rng.RandfRange(lowY, highY));
-        BiomeVegetation settings = Generator.PickBiome(centre, rng).Vegetation;
-        float chance = Mathf.Clamp(
-            (float)settings.GrassPatches / patchBudget, 0f, 1f);
-        if (rng.Randf() >= chance) continue;
+        if (candidate.Biome == null) continue;
 
-        for (int tuft = 0; tuft < Mathf.Max(0, settings.GrassTuftsPerPatch); tuft++)
-        {
-            yield return ChunkBuildStage.Grass;
-            Vector2 tile = centre + new Vector2(
-                rng.RandfRange(-1.3f, 1.3f),
-                rng.RandfRange(-1.3f, 1.3f));
-            if (tile.X < lowX || tile.X >= highX ||
-                tile.Y < lowY || tile.Y >= highY)
-                continue;
+        GrassDefinition definition = BiomeSpecies.Select<GrassDefinition>(
+            candidate.Biome.Vegetation.Grass, rng);
+        if (definition == null) continue;
 
-            GrassDefinition definition =
-                BiomeSpecies.Select<GrassDefinition>(settings.Grass, rng);
-            if (definition == null) continue;
+        float size = definition.RollSize(rng);
+        Vector2 localPoint = IsoGrid.TileToWorld(candidate.Tile, tileSize);
+        Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
 
-            float size = definition.RollSize(rng);
-            Vector2 localPoint = IsoGrid.TileToWorld(tile, tileSize);
-            Vector2 globalPoint = groundRoot.ToGlobal(localPoint);
-
-            if (globalPoint.DistanceSquaredTo(spawnPoint) < 72f * 72f)
-                continue;
-            if (!ChasmFeature.HasGroundClearance(
-                localPoint, tileSize, definition.GroundClearance * size))
-                continue;
-            if (WorldPlacement.IsBlocked(
+        if (globalPoint.DistanceSquaredTo(spawnPoint) < 72f * 72f ||
+            !ChasmFeature.HasGroundClearance(
+                localPoint, tileSize, definition.GroundClearance * size) ||
+            WorldPlacement.IsBlocked(
                 objects, globalPoint, Vector2.Zero,
-                obstacles, new Vector2(20, 12)))
-                continue;
-            if (WorldPlacement.IsCrowded(
+                obstacles, new Vector2(20, 12)) ||
+            WorldPlacement.IsCrowded(
                 localPoint, placed, definition.Spacing * size))
-                continue;
+            continue;
 
-            Grass grass = new()
-            {
-                Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{patch}_{tuft}",
-                Position = objects.ToLocal(globalPoint),
-                Definition = definition,
-                Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
-                SizeMultiplier = size,
-                Mirror = definition.RollMirror(rng)
-            };
+        Grass grass = new()
+        {
+            Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
+            Position = objects.ToLocal(globalPoint),
+            Definition = definition,
+            Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
+            SizeMultiplier = size,
+            Mirror = definition.RollMirror(rng)
+        };
 
-            objects.AddChild(grass);
-            tufts.Add(grass);
-            placed.Add(localPoint);
-        }
+        objects.AddChild(grass);
+        tufts.Add(grass);
+        placed.Add(localPoint);
     }
 }
     #endregion

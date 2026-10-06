@@ -348,58 +348,74 @@ public partial class ChunkController : Node
 	}
 
 // =========================================================
-// Spawn armoured loot crates using the actual scene path and stable loot identities.
+// Spawn world loot using CONFIG's shared frequency and stable chunk identities.
 private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 {
-	LootWorld.GetOrCreate(this);
+    WorldConfig config = WorldConfig.Find(this);
+    Vector2I coordinate = chunk.Coordinate;
 
-	PackedScene scene = GD.Load<PackedScene>(
-		"res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrateLoot.tscn");
+    int attempts = config.GetLootSpawnAttempts(
+        CratesPerChunk,
+        IsoGrid.Hash(
+            coordinate.X, coordinate.Y, WorldSeed ^ 0x10A7u));
 
-	if (scene == null)
-		throw new InvalidOperationException("ArmouredCrateLoot.tscn is missing.");
+    if (attempts == 0) yield break;
 
-	List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
-	using RandomNumberGenerator rng = new();
+    LootWorld.GetOrCreate(this);
 
-	Vector2I coordinate = chunk.Coordinate;
-	rng.Seed = IsoGrid.Hash(coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
-	float lowX = coordinate.X * ChunkSize - 0.5f;
-	float lowY = coordinate.Y * ChunkSize - 0.5f;
+    PackedScene scene = GD.Load<PackedScene>(
+        "res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrateLoot.tscn");
 
-	for (int i = 0; i < Mathf.Max(0, CratesPerChunk); i++)
-	{
-		yield return ChunkBuildStage.Crates;
+    if (scene == null)
+        throw new InvalidOperationException(
+            "ArmouredCrateLoot.tscn is missing.");
 
-		Vector2 tile = new(
-			rng.RandfRange(lowX, lowX + ChunkSize),
-			rng.RandfRange(lowY, lowY + ChunkSize));
-		Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
-		Vector2 global = _groundRoot.ToGlobal(local);
+    List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
+    using RandomNumberGenerator rng = new();
 
-		Obstacle crate = scene.Instantiate<Obstacle>();
-		Vector2 footprint = crate.Footprint;
+    rng.Seed = IsoGrid.Hash(
+        coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
 
-		if (global.DistanceSquaredTo(_spawnPoint) <
-				SpawnClearRadius * SpawnClearRadius ||
-			!ChasmFeature.HasGroundClearance(
-				local, TileSize, footprint.Length() * 0.5f + 12f) ||
-			WorldPlacement.IsBlocked(
-				_objects, global, footprint, obstacles, new Vector2(12, 8)))
-		{
-			crate.Free();
-			continue;
-		}
+    float lowX = coordinate.X * ChunkSize - 0.5f;
+    float lowY = coordinate.Y * ChunkSize - 0.5f;
 
-		crate.Name = $"ArmouredLootCrate_{coordinate.X}_{coordinate.Y}_{i}";
-		crate.Position = _objects.ToLocal(global);
-		crate.GetNode<LootContainer>("Systems/Loot").PersistentId =
-			$"armoured_crate:{coordinate.X}:{coordinate.Y}:{i}";
+    for (int i = 0; i < attempts; i++)
+    {
+        yield return ChunkBuildStage.Crates;
 
-		_objects.AddChild(crate);
-		chunk.Obstacles.Add(crate);
-		obstacles.Add(crate);
-	}
+        Vector2 tile = new(
+            rng.RandfRange(lowX, lowX + ChunkSize),
+            rng.RandfRange(lowY, lowY + ChunkSize));
+
+        Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
+        Vector2 global = _groundRoot.ToGlobal(local);
+
+        Obstacle crate = scene.Instantiate<Obstacle>();
+        Vector2 footprint = crate.Footprint;
+
+        if (global.DistanceSquaredTo(_spawnPoint) <
+                SpawnClearRadius * SpawnClearRadius ||
+            !ChasmFeature.HasGroundClearance(
+                local, TileSize, footprint.Length() * 0.5f + 12f) ||
+            WorldPlacement.IsBlocked(
+                _objects, global, footprint,
+                obstacles, new Vector2(12, 8)))
+        {
+            crate.Free();
+            continue;
+        }
+
+        crate.Name =
+            $"ArmouredLootCrate_{coordinate.X}_{coordinate.Y}_{i}";
+
+        crate.Position = _objects.ToLocal(global);
+        crate.GetNode<LootContainer>("Systems/Loot").PersistentId =
+            $"armoured_crate:{coordinate.X}:{coordinate.Y}:{i}";
+
+        _objects.AddChild(crate);
+        chunk.Obstacles.Add(crate);
+        obstacles.Add(crate);
+    }
 }
 	#endregion
 
