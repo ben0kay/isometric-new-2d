@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" path="res://ENEMIES/Enemy.cs" id="1_enemy"]
 [ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
-[ext_resource type="Script" path="res://COMBAT/CombatLife.cs" id="3_life"]
 [ext_resource type="Script" path="res://ENEMIES/EnemyMotor.cs" id="4_motor"]
 [ext_resource type="Script" path="res://ENEMIES/EnemyCombat.cs" id="5_combat"]
 [ext_resource type="Script" path="res://COMBAT/Weapons/Weapon.cs" id="6_weapon"]
@@ -26,9 +25,6 @@ shape = SubResource("EnemyShape")
 
 [node name="Health" type="Node" parent="Systems"]
 script = ExtResource("2_health")
-
-[node name="CombatLife" type="Node" parent="Systems"]
-script = ExtResource("3_life")
 
 [node name="Weapon" type="Node" parent="Systems"]
 script = ExtResource("6_weapon")
