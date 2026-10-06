@@ -1,5 +1,5 @@
-// Owns one container's contents and performs complete-stack inventory transfers.
-// Works beneath any structure's Systems node, independently of its artwork.
+// Owns container contents and performs complete-stack inventory transfers.
+// Loot containers extend this component without duplicating storage or transfer rules.
 using Godot;
 using System;
 
@@ -23,19 +23,21 @@ public partial class WorldStorage : Node
     public int SlotCount => _contents.SlotCount;
     public float WeightKg { get; private set; }
     public float VolumeLitres { get; private set; }
-    private InventoryStorage _contents = new(0);
+    public virtual bool CanDeposit => true;
+
+    protected InventoryStorage _contents = new(0);
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Register containers for periodic interaction searches.
+    // Register regular storage and loot with the same interaction interface.
     public override void _EnterTree()
     {
         AddToGroup("world_storage");
     }
 
     // =========================================================
-    // Allocate private contents and resolve the configured physical owner.
+    // Allocate contents and resolve the physical container.
     public override void _Ready()
     {
         if (Definition == null)
@@ -52,14 +54,14 @@ public partial class WorldStorage : Node
 
     #region Queries
     // =========================================================
-    // Expose immutable stack values instead of mutable storage.
+    // Read a stack without exposing mutable storage.
     public InventoryStack GetStack(int index)
     {
         return _contents.Get(index);
     }
 
     // =========================================================
-    // Check proximity on the logical ground plane.
+    // Check interaction distance on the logical ground plane.
     public bool CanInteract(Player player)
     {
         return Initialized && GodotObject.IsInstanceValid(Host) &&
@@ -74,11 +76,16 @@ public partial class WorldStorage : Node
 
     #region Transfers
     // =========================================================
-    // Validate staged container contents before removing a backpack stack.
+    // Validate capacity before removing a complete backpack stack.
     public bool TryDeposit(PlayerInventory player, int index, out string reason)
     {
         reason = "";
         if (!Initialized || player == null) return false;
+        if (!CanDeposit)
+        {
+            reason = "This is salvage, not a storage container.";
+            return false;
+        }
 
         InventoryStack stack = player.GetStack(
             new InventoryAddress(InventoryArea.Bag, index));
@@ -114,7 +121,7 @@ public partial class WorldStorage : Node
     }
 
     // =========================================================
-    // Apply existing backpack capacity rules before removing container contents.
+    // Accept the stack into the backpack before removing container contents.
     public bool TryWithdraw(PlayerInventory player, int index, out string reason)
     {
         reason = "";
@@ -136,8 +143,8 @@ public partial class WorldStorage : Node
     }
 
     // =========================================================
-    // Cache physical totals and notify observers after contents change.
-    private void PublishContents()
+    // Update physical totals and notify the shared inventory window.
+    protected virtual void PublishContents()
     {
         _contents.GetTotals(out float weight, out float volume);
         WeightKg = weight;

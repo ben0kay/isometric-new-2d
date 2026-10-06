@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="LootTable" format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Loot/LootTable.cs" id="1_table"]
+[ext_resource type="Script" path="res://SYSTEMS/Loot/LootEntry.cs" id="2_entry"]
+
+[sub_resource type="Resource" id="Scrap"]
+script = ExtResource("2_entry")
+ItemId = "scrap_metal"
+Weight = 6.0
+MinimumCount = 2
+MaximumCount = 5
+
+[sub_resource type="Resource" id="Wire"]
+script = ExtResource("2_entry")
+ItemId = "copper_wiring"
+Weight = 3.0
+MinimumCount = 1
+MaximumCount = 3
+
+[sub_resource type="Resource" id="Board"]
+script = ExtResource("2_entry")
+ItemId = "circuit_board"
+Weight = 1.0
+MinimumCount = 1
+MaximumCount = 1
+
+[resource]
+script = ExtResource("1_table")
+Entries = Array[ExtResource("2_entry")]([SubResource("Scrap"), SubResource("Wire"), SubResource("Board")])
+MinimumRolls = 3
+MaximumRolls = 5
