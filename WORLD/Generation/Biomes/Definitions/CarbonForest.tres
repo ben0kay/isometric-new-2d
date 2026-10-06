@@ -1,16 +1,16 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://dynmwcmhxu4le"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="4_small"]
+[ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
+[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="4_small"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="5_boulder"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="6_short"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="7_medium"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
+[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
+[ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
+[ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -45,7 +45,6 @@ Weight = 65.0
 [sub_resource type="Resource" id="TreeEntry"]
 script = ExtResource("3_entry")
 Definition = ExtResource("10_tree")
-Weight = 1.0
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
