@@ -114,36 +114,63 @@ public partial class LootWorld : Node
     #endregion
 
     #region Robot Deaths
-    // =========================================================
-    // Record one wreck and defer scene creation outside combat physics callbacks.
-    public void RecordRobotDeath(string id, Vector2 position)
+// =========================================================
+// Record one death and report whether its wreck creation is requested.
+public void RecordRobotDeath(string id, Vector2 position)
+{
+    GD.Print($"[Wreck] Death received: {id} at {position}");
+
+    if (_wrecks.ContainsKey(id))
     {
-        if (_wrecks.ContainsKey(id)) return;
+        GD.PushWarning($"[Wreck] Duplicate death identity: {id}");
+        return;
+    }
 
-        DeathWreck wreck = new() { Id = id, Position = position };
-        _wrecks.Add(id, wreck);
+    DeathWreck wreck = new() { Id = id, Position = position };
+    _wrecks.Add(id, wreck);
 
-        Callable.From(() =>
+    Callable.From(() =>
+    {
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+        try
         {
-            if (IsInsideTree() && !IsQueuedForDeletion())
-                RestoreWreck(wreck);
-        }).CallDeferred();
-    }
+            RestoreWreck(wreck);
+        }
+        catch (Exception error)
+        {
+            GD.PushError($"[Wreck] Creation failed: {error}");
+        }
+    }).CallDeferred();
+}
 
-    // =========================================================
-    // Restore the same identity and contents at the robot's death position.
-    private void RestoreWreck(DeathWreck record)
+// =========================================================
+// Create a wreck and report its scene, position and interaction registration.
+private void RestoreWreck(DeathWreck record)
+{
+    if (GodotObject.IsInstanceValid(record.Actor)) return;
+
+    if (!_chunks.IsNavigationPointAvailable(record.Position))
     {
-        if (GodotObject.IsInstanceValid(record.Actor) ||
-            !_chunks.IsNavigationPointAvailable(record.Position)) return;
-
-        Node2D wreck = _wreckScene.Instantiate<Node2D>();
-        LootContainer loot = wreck.GetNode<LootContainer>("Systems/Loot");
-        loot.PersistentId = record.Id;
-        wreck.Position = _objects.ToLocal(record.Position);
-        record.Actor = wreck;
-        _objects.AddChild(wreck);
+        GD.Print($"[Wreck] Waiting for available ground at {record.Position}");
+        return;
     }
+
+    Node2D wreck = _wreckScene.Instantiate<Node2D>();
+    LootContainer loot = wreck.GetNode<LootContainer>("Systems/Loot");
+    loot.PersistentId = record.Id;
+    wreck.Position = _objects.ToLocal(record.Position);
+
+    record.Actor = wreck;
+    _objects.AddChild(wreck);
+
+    GD.Print(
+        $"[Wreck] Created: {wreck.GetPath()}" +
+        $" | Position: {wreck.GlobalPosition}" +
+        $" | Storage initialized: {loot.Initialized}" +
+        $" | Interaction group: {loot.IsInGroup("world_storage")}" +
+        $" | Range: {loot.Definition.InteractionRange}");
+}
 
     // =========================================================
     // Retire unloaded wreck artwork and restore at most one wreck per update.
