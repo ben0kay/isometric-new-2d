@@ -14,8 +14,8 @@ public partial class GrassSpawner : Node
     #endregion
 
     #region Generation
- // =========================================================
-// Spawn biome-selected grass using shared frequency and distribution settings.
+// =========================================================
+// Spawn biome-selected grass with optional locally blended biome colouring.
 public IEnumerable<ChunkBuildStage> PopulateSteps(
     Vector2I coordinate, int chunkSize, Vector2 tileSize, uint seed,
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint)
@@ -56,6 +56,9 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
                 localPoint, placed, definition.Spacing * size))
             continue;
 
+        Color tint = Generator.SampleGrassTint(
+            candidate.Tile, out float tintStrength);
+
         Grass grass = new()
         {
             Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
@@ -63,7 +66,9 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Definition = definition,
             Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
             SizeMultiplier = size,
-            Mirror = definition.RollMirror(rng)
+            Mirror = definition.RollMirror(rng),
+            BiomeTint = tint,
+            BiomeTintStrength = tintStrength
         };
 
         objects.AddChild(grass);

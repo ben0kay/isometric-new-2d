@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b8baj35qrgr7u" path="res://WORLD/Generation/Biomes/BiomeDefaults.cs" id="1_defaults"]
 [ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="2_placement"]
+[ext_resource type="Resource" path="res://CONFIG/Biomes/DefaultGround.tres" id="3_ground"]
 
 [sub_resource type="Resource" id="Grass"]
 script = ExtResource("2_placement")
@@ -27,3 +28,6 @@ Trees = SubResource("Trees")
 Plants = SubResource("Plants")
 Grass = SubResource("Grass")
 Rocks = SubResource("Rocks")
+Features = Dictionary[String, Resource]({
+"ground": ExtResource("3_ground")
+})

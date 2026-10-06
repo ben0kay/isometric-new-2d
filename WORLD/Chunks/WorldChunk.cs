@@ -172,45 +172,67 @@ public IEnumerable<ChunkBuildStage> PrepareSteps()
 }
 
 // =========================================================
-// Upload existing terrain and bind resource colours without changing its geometry.
+// Upload existing terrain and bind biome colours plus harvestable deposits.
 public IEnumerable<ChunkBuildStage> UploadSteps()
 {
+	BiomeGroundMap groundMap = new() { Name = "BiomeGround" };
+	AddChild(groundMap);
+
+	foreach (ChunkBuildStage stage in groundMap.Prepare(this))
+		yield return stage;
+
 	yield return ChunkBuildStage.TerrainUpload;
-	_mesh = Upload(_surfaceData); _surfaceData = null;
+	_mesh = Upload(_surfaceData);
+	_surfaceData = null;
 
 	if (_atmosphere?.GroundMaterial != null)
-		Material = _groundResources.BindMaterial(
-			this, _atmosphere.GroundMaterial);
+	{
+		ShaderMaterial biomeMaterial =
+			groundMap.Bind(_atmosphere.GroundMaterial);
+
+		Material = _groundResources.BindMaterial(this, biomeMaterial);
+	}
 
 	yield return ChunkBuildStage.TerrainUpload;
-	_floorMesh = Upload(_floorData); _floorData = null;
+	_floorMesh = Upload(_floorData);
+	_floorData = null;
+
 	yield return ChunkBuildStage.TerrainUpload;
-	_cliffMesh = Upload(_cliffData); _cliffData = null;
+	_cliffMesh = Upload(_cliffData);
+	_cliffData = null;
 
 	yield return ChunkBuildStage.TerrainUpload;
 	Material fog = _atmosphere != null
 		? _atmosphere.FogMaterial : PlaceholderAtlas.BakedMaterial;
+
 	if (_floorMesh != null)
 		AddChild(new MeshInstance2D
 		{
-			Name = "RavineFloor", Mesh = _floorMesh,
-			Material = fog, ZIndex = -2
+			Name = "RavineFloor",
+			Mesh = _floorMesh,
+			Material = fog,
+			ZIndex = -2
 		});
 
 	yield return ChunkBuildStage.TerrainUpload;
+
 	if (_cliffMesh != null)
 		AddChild(new MeshInstance2D
 		{
-			Name = "CliffVisual", Mesh = _cliffMesh,
-			Material = fog, ZIndex = -1
+			Name = "CliffVisual",
+			Mesh = _cliffMesh,
+			Material = fog,
+			ZIndex = -1
 		});
 
 	foreach (ChunkBuildStage stage in CreateTerrainCollisionSteps())
 		yield return stage;
 
 	yield return ChunkBuildStage.TerrainUpload;
-	GroundFog fogService = GetTree().GetFirstNodeInGroup("ground_fog")
-		as GroundFog;
+
+	GroundFog fogService = GetTree()
+		.GetFirstNodeInGroup("ground_fog") as GroundFog;
+
 	if (_mesh != null) fogService?.Attach(this, _mesh);
 	QueueRedraw();
 }

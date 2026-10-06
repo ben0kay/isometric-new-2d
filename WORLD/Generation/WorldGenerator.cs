@@ -220,5 +220,92 @@ public WorldSample SampleTile(Vector2 tile)
         return SampleTile(IsoGrid.WorldToTile(
             _ground.ToLocal(globalPoint), _chunks.TileSize));
     }
+
+    #endregion
+
+        #region Ground Queries
+    // =========================================================
+    // Blend ground recipes using the existing smooth biome influences.
+    public void SampleGround(
+        Vector2 tile, out Color settings,
+        out Color shade, out Color main)
+    {
+        BiomeBlend blend = _sampler.Sample(tile);
+        settings = new Color(0, 0, 0, 0);
+
+        Color shadeSum = new(0, 0, 0, 0);
+        Color mainSum = new(0, 0, 0, 0);
+        float grassWeight = 0f;
+        float patchScale = 0f;
+        float mudStrength = 0f;
+
+        for (int i = 0; i < blend.Count; i++)
+        {
+            BiomeInfluence entry = blend.Get(i);
+            BiomeGroundProfile profile =
+                _biomes[entry.Index].GetFeature<BiomeGroundProfile>("ground");
+
+            if (profile == null)
+                throw new InvalidOperationException(
+                    $"Biome '{_biomes[entry.Index].Id}' has no ground profile.");
+
+            profile.Validate();
+
+            settings += new Color(
+                profile.DustAmount, profile.MineralAmount,
+                profile.DetailStrength, profile.GrassCoverage) * entry.Weight;
+
+            float contribution = profile.GrassCoverage * entry.Weight;
+            grassWeight += contribution;
+            shadeSum += profile.GrassShadeTint * contribution;
+            mainSum += profile.GrassMainTint * contribution;
+            patchScale += profile.GrassPatchScaleTiles * contribution;
+
+            mudStrength += profile.MudStrength * entry.Weight;
+        }
+
+        // Ignore colours from biomes that have no grass ground coverage.
+        if (grassWeight > 0.0001f)
+        {
+            shade = shadeSum / grassWeight;
+            main = mainSum / grassWeight;
+            shade.A = patchScale / grassWeight;
+        }
+        else
+        {
+            shade = new Color(0, 0, 0, 32f);
+            main = new Color(0, 0, 0, 0);
+        }
+
+        // Texture alpha channels carry settings, not transparency.
+        main.A = mudStrength;
+    }
+
+    // =========================================================
+    // Blend optional tuft colours at the actual grass spawn position.
+    public Color SampleGrassTint(Vector2 tile, out float tintStrength)
+    {
+        BiomeBlend blend = _sampler.Sample(tile);
+        Color sum = new(0, 0, 0, 0);
+        tintStrength = 0f;
+
+        for (int i = 0; i < blend.Count; i++)
+        {
+            BiomeInfluence entry = blend.Get(i);
+            BiomeGroundProfile profile =
+                _biomes[entry.Index].GetFeature<BiomeGroundProfile>("ground");
+
+            if (profile == null || !profile.TintGrassTufts) continue;
+
+            sum += profile.GrassTuftTint * entry.Weight;
+            tintStrength += entry.Weight;
+        }
+
+        if (tintStrength <= 0.0001f) return Colors.White;
+
+        Color result = sum / tintStrength;
+        result.A = 1f;
+        return result;
+    }
     #endregion
 }
