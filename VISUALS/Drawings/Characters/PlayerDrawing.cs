@@ -9,7 +9,6 @@ public static class PlayerDrawing
     // Bake the player body, feet shadow and cyan visor.
     public static void Draw(CanvasItem canvas)
     {
-        DrawingHelpers.Shadow(canvas, 19f, 0.45f, 0.35f);
         canvas.DrawLine(new Vector2(-7, -15), new Vector2(-7, -3), new Color("#24313e"), 7f);
         canvas.DrawLine(new Vector2(7, -15), new Vector2(7, -3), new Color("#24313e"), 7f);
         canvas.DrawRect(new Rect2(-13, -39, 26, 27), new Color("#465d70"));
