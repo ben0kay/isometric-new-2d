@@ -51,7 +51,7 @@ public partial class ChunkController : Node
 	private ChunkRecord _building, _retiring;
 	public event Action<Vector2I> ChunkAvailabilityChanged;
 	public bool WorldReady { get; private set; }
-	    public bool CavePlanReady { get; set; } = true;
+		public bool CavePlanReady { get; set; } = true;
 	#endregion
 
 	#region References And Timing
@@ -120,48 +120,48 @@ public partial class ChunkController : Node
 		catch (Exception error) { FailStreaming(error); }
 	}
 
-    // =========================================================
-    // Wait for entrance reservations, then resume normal surface streaming.
-    public override void _Process(double delta)
-    {
-        if (!CavePlanReady) return;
+	// =========================================================
+	// Wait for entrance reservations, then resume normal surface streaming.
+	public override void _Process(double delta)
+	{
+		if (!CavePlanReady) return;
 
-        try
-        {
-            _coverageTimer -= delta;
-            _debugTimer -= delta;
+		try
+		{
+			_coverageTimer -= delta;
+			_debugTimer -= delta;
 
-            if (_coverageTimer <= 0)
-            {
-                _coverageTimer = Math.Max(0.03, CoverageInterval);
-                RefreshCoverage();
-            }
+			if (_coverageTimer <= 0)
+			{
+				_coverageTimer = Math.Max(0.03, CoverageInterval);
+				RefreshCoverage();
+			}
 
-            long started = Stopwatch.GetTimestamp();
-            RunBuildBudget(WorldReady ? BuildBudgetMs : StartupBudgetMs);
-            if (WorldReady) RunRetirementBudget();
-            _lastWorkMs = ElapsedMs(started);
+			long started = Stopwatch.GetTimestamp();
+			RunBuildBudget(WorldReady ? BuildBudgetMs : StartupBudgetMs);
+			if (WorldReady) RunRetirementBudget();
+			_lastWorkMs = ElapsedMs(started);
 
-            if (!WorldReady && StartingAreaReady())
-            {
-                WorldReady = true;
-                _objects.ProcessMode = _previousObjectsMode;
-                _camera.ResetSmoothing();
-                _peakStepMs = 0;
-                _peakStage = ChunkBuildStage.Ready;
-            }
+			if (!WorldReady && StartingAreaReady())
+			{
+				WorldReady = true;
+				_objects.ProcessMode = _previousObjectsMode;
+				_camera.ResetSmoothing();
+				_peakStepMs = 0;
+				_peakStage = ChunkBuildStage.Ready;
+			}
 
-            if (_debugTimer <= 0)
-            {
-                _debugTimer = 0.25;
-                UpdateDebug();
-            }
-        }
-        catch (Exception error)
-        {
-            FailStreaming(error);
-        }
-    }
+			if (_debugTimer <= 0)
+			{
+				_debugTimer = 0.25;
+				UpdateDebug();
+			}
+		}
+		catch (Exception error)
+		{
+			FailStreaming(error);
+		}
+	}
 
 	// =========================================================
 	// Dispose suspended iterators so their temporary RNGs and buffers can be released.
@@ -518,25 +518,25 @@ public bool IsNavigationPointAvailable(
 				Shape = new SegmentShape2D { A = corners[i], B = corners[(i + 1) % 4] } });
 	}
 
-    // =========================================================
-    // Test initialized world bounds without requiring built surface chunks.
-    public bool IsDestinationWithinBounds(
-        Vector2 point, float clearance = 120f)
-    {
-        if (_groundRoot == null) return false;
+	// =========================================================
+	// Test initialized world bounds without requiring built surface chunks.
+	public bool IsDestinationWithinBounds(
+		Vector2 point, float clearance = 120f)
+	{
+		if (_groundRoot == null) return false;
 
-        Vector2 tile = IsoGrid.WorldToTile(
-            _groundRoot.ToLocal(point), TileSize);
-        float low = _worldMin * ChunkSize - 0.5f;
-        float high = (_worldMax + 1) * ChunkSize - 0.5f;
+		Vector2 tile = IsoGrid.WorldToTile(
+			_groundRoot.ToLocal(point), TileSize);
+		float low = _worldMin * ChunkSize - 0.5f;
+		float high = (_worldMax + 1) * ChunkSize - 0.5f;
 
-        float extent = clearance * Mathf.Sqrt(
-            1f / (TileSize.X * TileSize.X) +
-            1f / (TileSize.Y * TileSize.Y));
+		float extent = clearance * Mathf.Sqrt(
+			1f / (TileSize.X * TileSize.X) +
+			1f / (TileSize.Y * TileSize.Y));
 
-        return tile.X - extent >= low && tile.Y - extent >= low &&
-            tile.X + extent < high && tile.Y + extent < high;
-    }
+		return tile.X - extent >= low && tile.Y - extent >= low &&
+			tile.X + extent < high && tile.Y + extent < high;
+	}
 
 // =========================================================
 // Advance destination loading only until its activation buffer is ready.
