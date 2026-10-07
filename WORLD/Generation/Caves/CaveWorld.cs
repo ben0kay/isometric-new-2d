@@ -171,21 +171,33 @@ public partial class CaveWorld : Node2D
     #endregion
 
     #region Surface Reservations
-    // =========================================================
-    // Reserve surface mouths and their landing space before new props spawn.
-    public static bool IsHoleReserved(
-        Node context, Vector2 point, Vector2 footprint, Vector2 padding)
+// =========================================================
+// Reserve both the surface mouth and its outside landing before props spawn.
+public static bool IsHoleReserved(
+    Node context, Vector2 point, Vector2 footprint, Vector2 padding)
+{
+    CaveWorld world = context.GetTree().GetFirstNodeInGroup(
+        "cave_world") as CaveWorld;
+
+    if (world == null) return false;
+
+    float objectRadius =
+        footprint.Length() * 0.5f + padding.Length();
+
+    foreach (CaveHole hole in world.Holes)
     {
-        CaveWorld world = context.GetTree().GetFirstNodeInGroup(
-            "cave_world") as CaveWorld;
-        if (world == null) return false;
+        float radius = hole.SurfaceClearRadius + objectRadius;
+        float squared = radius * radius;
 
-        float radius = 100f + footprint.Length() * 0.5f + padding.Length();
-        foreach (CaveHole hole in world.Holes)
-            if (point.DistanceSquaredTo(hole.SurfacePosition) < radius * radius)
-                return true;
-
-        return false;
+        if (point.DistanceSquaredTo(hole.SurfacePosition) < squared ||
+            point.DistanceSquaredTo(
+                hole.OutsidePosition(world.TileSize)) < squared)
+        {
+            return true;
+        }
     }
+
+    return false;
+}
     #endregion
 }

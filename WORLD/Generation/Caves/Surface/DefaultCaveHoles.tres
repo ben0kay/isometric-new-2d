@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CaveHoleProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Caves/Surface/CaveHoleProfile.cs" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+Enabled = true
+Chance = 1.0
+ClearRadius = 100.0
+MaximumHeightVariation = 32.0

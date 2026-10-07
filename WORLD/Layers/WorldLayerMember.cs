@@ -1,5 +1,5 @@
-// Preserves world-layer processing, collision and visibility.
-// Inactive snapshots can include new descendants created by destination preloading.
+// Preserves processing, collision and visibility when switching world layers.
+// Each root is captured once per deactivation rather than rescanned every frame.
 using Godot;
 using System.Collections.Generic;
 
@@ -7,8 +7,10 @@ public partial class WorldLayerMember : Node
 {
     #region State
     public WorldLayer Layer { get; private set; }
+
     private Node _root;
     private bool _active = true;
+    private float _opacity = float.NaN;
 
     private readonly HashSet<Node> _known = new();
     private readonly List<(Node Node, ProcessModeEnum Mode)> _process = new();
@@ -23,6 +25,7 @@ public partial class WorldLayerMember : Node
     {
         WorldLayerMember member =
             root.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
+
         if (member != null) return member;
 
         member = new WorldLayerMember
@@ -31,6 +34,7 @@ public partial class WorldLayerMember : Node
             Layer = layer,
             _root = root
         };
+
         root.AddChild(member);
         return member;
     }
@@ -39,7 +43,8 @@ public partial class WorldLayerMember : Node
     // Resolve ownership while the shared player follows location state.
     public static WorldLayer For(Node node)
     {
-        for (Node current = node; current != null; current = current.GetParent())
+        for (Node current = node;
+            current != null; current = current.GetParent())
         {
             if (current is Player)
                 return WorldLayerController.Find(current)?.Current
@@ -47,8 +52,10 @@ public partial class WorldLayerMember : Node
 
             WorldLayerMember member =
                 current.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
+
             if (member != null) return member.Layer;
         }
+
         return WorldLayer.Surface;
     }
 
@@ -58,30 +65,46 @@ public partial class WorldLayerMember : Node
     {
         return For(a) == For(b);
     }
+
+    // =========================================================
+    // Identify descendants already included in this root's snapshot.
+    public bool Covers(Node node)
+    {
+        return _known.Contains(node);
+    }
     #endregion
 
     #region Activation
     // =========================================================
-    // Pause new descendants as well as previously captured objects.
+    // Snapshot and pause once; restore the original settings on activation.
     public void SetActive(bool active)
     {
+        if (_active == active) return;
+
         if (!active)
         {
-            if (_active)
-            {
-                _known.Clear();
-                _process.Clear();
-                _physics.Clear();
-                _canvas.Clear();
-            }
+            _known.Clear();
+            _process.Clear();
+            _physics.Clear();
+            _canvas.Clear();
+            _opacity = float.NaN;
 
             Capture(_root, false);
-            PauseCaptured();
+
+            foreach (var record in _process)
+                if (GodotObject.IsInstanceValid(record.Node))
+                    record.Node.ProcessMode = ProcessModeEnum.Disabled;
+
+            foreach (var record in _physics)
+            {
+                if (!GodotObject.IsInstanceValid(record.Body)) continue;
+                record.Body.CollisionLayer = 0;
+                record.Body.CollisionMask = 0;
+            }
+
             _active = false;
             return;
         }
-
-        if (_active) return;
 
         foreach (var record in _process)
             if (GodotObject.IsInstanceValid(record.Node))
@@ -94,88 +117,4 @@ public partial class WorldLayerMember : Node
             record.Body.CollisionMask = record.Mask;
         }
 
-        SetOpacity(1f);
-        _active = true;
-    }
-
-    // =========================================================
-    // Preserve completed initialization changes, then suppress inactive physics.
-    private void PauseCaptured()
-    {
-        for (int i = 0; i < _process.Count; i++)
-        {
-            var record = _process[i];
-            if (!GodotObject.IsInstanceValid(record.Node)) continue;
-
-            if (record.Node.ProcessMode != ProcessModeEnum.Disabled)
-            {
-                record.Mode = record.Node.ProcessMode;
-                _process[i] = record;
-            }
-            record.Node.ProcessMode = ProcessModeEnum.Disabled;
-        }
-
-        for (int i = 0; i < _physics.Count; i++)
-        {
-            var record = _physics[i];
-            if (!GodotObject.IsInstanceValid(record.Body)) continue;
-
-            if (record.Body.CollisionLayer != 0)
-                record.Layer = record.Body.CollisionLayer;
-            if (record.Body.CollisionMask != 0)
-                record.Mask = record.Body.CollisionMask;
-
-            _physics[i] = record;
-            record.Body.CollisionLayer = 0;
-            record.Body.CollisionMask = 0;
-        }
-    }
-
-    // =========================================================
-    // Fade only the top canvas item in each branch.
-    public void SetOpacity(float opacity)
-    {
-        opacity = Mathf.Clamp(opacity, 0f, 1f);
-
-        foreach (var record in _canvas)
-        {
-            if (!GodotObject.IsInstanceValid(record.Item)) continue;
-            Color colour = record.Colour;
-            colour.A *= opacity;
-            record.Item.Modulate = colour;
-            record.Item.Visible = record.Visible && opacity > 0.001f;
-        }
-    }
-
-    // =========================================================
-    // Capture new descendants without overwriting their existing original settings.
-    private void Capture(Node node, bool beneathCanvas)
-    {
-        if (node is WorldLayerMember || node.IsQueuedForDeletion()) return;
-
-        if (node != _root &&
-            node.GetNodeOrNull<WorldLayerMember>("WorldLayerMember") != null)
-            return;
-
-        bool added = _known.Add(node);
-        if (added)
-        {
-            _process.Add((node, node.ProcessMode));
-
-            if (node is CollisionObject2D body)
-                _physics.Add((body, body.CollisionLayer, body.CollisionMask));
-        }
-
-        bool canvasFound = beneathCanvas;
-        if (node is CanvasItem item)
-        {
-            if (added && !beneathCanvas)
-                _canvas.Add((item, item.Modulate, item.Visible));
-            canvasFound = true;
-        }
-
-        foreach (Node child in node.GetChildren())
-            Capture(child, canvasFound);
-    }
-    #endregion
-}
+        Set

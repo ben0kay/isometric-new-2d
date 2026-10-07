@@ -163,12 +163,25 @@ _catalog = GD.Load<GroundResourceCatalog>(
     }
 
 // =========================================================
-// Reserve basin terrain even when its water is completely drained.
+// Keep deposits out of permanent basins and registered cave approaches.
 private bool IsFlat(Vector2 centre, float radius, float tolerance)
 {
     WaterBasinWorld basins = WaterBasinWorld.Find(this);
-    if (basins != null && basins.Overlaps(centre, radius)) return false;
-    return SurfaceGeometry.IsFlat(_elevation, centre, radius, tolerance);
+    if (basins != null && basins.Overlaps(centre, radius))
+        return false;
+
+    Vector2 point = _ground.ToGlobal(
+        IsoGrid.TileToWorld(centre, _chunks.TileSize));
+
+    Vector2 footprint =
+        _chunks.TileSize * (radius * Mathf.Sqrt(2f));
+
+    if (CaveWorld.IsHoleReserved(
+            this, point, footprint, Vector2.Zero))
+        return false;
+
+    return SurfaceGeometry.IsFlat(
+        _elevation, centre, radius, tolerance);
 }
 
     // =========================================================

@@ -1,5 +1,5 @@
 // Describes one surface hole connected to the shared cave network.
-// Positions are generation data; the marker is only its visual representation.
+// Its surface clearance is reserved independently from rendered artwork.
 using Godot;
 
 public sealed class CaveHole
@@ -11,6 +11,7 @@ public sealed class CaveHole
     public readonly Vector2I AnchorCell;
     public readonly float RimHeight, TunnelLength;
 
+    public float SurfaceClearRadius { get; set; } = 100f;
     public CaveEntrance Marker { get; set; }
     #endregion
 

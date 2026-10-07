@@ -1,21 +1,33 @@
-// Registers two linked test holes in the existing world.
-// The second surface destination is validated from generation data before streaming.
+// Creates the existing cave test using incremental surface-data checks.
+// The starting debug hole bypasses probability, but not terrain suitability.
 using Godot;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 
 public partial class CaveLayerTest : Node
 {
     #region Configuration
     [Export] public bool Enabled { get; set; } = true;
     [Export] public CaveGenerationSettings GenerationSettings { get; set; }
+
+    [ExportGroup("Surface Sampling")]
+    [Export] public double SamplingBudgetMs { get; set; } = 1.0;
+    #endregion
+
+    #region State
+    private IEnumerator<int> _work;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Wait for surface startup, then register the shared two-hole cave test.
+    // Wait for startup, then advance selection under a small frame budget.
     public override void _Process(double delta)
     {
         if (!Enabled)
         {
+            _work?.Dispose();
+            _work = null;
             SetProcess(false);
             return;
         }
@@ -23,25 +35,75 @@ public partial class CaveLayerTest : Node
         Node world = GetParent();
         ChunkController chunks = world.GetNode<ChunkController>(
             "Systems/ChunkController");
-        if (!chunks.WorldReady) return;
-        SetProcess(false);
 
+        if (!chunks.WorldReady) return;
+
+        try
+        {
+            _work ??= CreateTest(world, chunks).GetEnumerator();
+            long started = Stopwatch.GetTimestamp();
+            double budget = double.IsFinite(SamplingBudgetMs)
+                ? Math.Max(0.05, SamplingBudgetMs) : 1.0;
+
+            while (ElapsedMs(started) < budget)
+            {
+                if (_work.MoveNext()) continue;
+
+                _work.Dispose();
+                _work = null;
+                SetProcess(false);
+                break;
+            }
+        }
+        catch (Exception error)
+        {
+            _work?.Dispose();
+            _work = null;
+            SetProcess(false);
+            GD.PushError($"[Cave test] Setup failed: {error}");
+        }
+    }
+
+    // =========================================================
+    // Release unfinished sampling when this helper is removed.
+    public override void _ExitTree()
+    {
+        _work?.Dispose();
+        _work = null;
+    }
+
+    // =========================================================
+    // Measure elapsed work without allocating a stopwatch each frame.
+    private static double ElapsedMs(long started)
+    {
+        return (Stopwatch.GetTimestamp() - started) *
+            1000.0 / Stopwatch.Frequency;
+    }
+    #endregion
+
+    #region Test Construction
+    // =========================================================
+    // Find a loaded starting entrance and a generation-valid remote exit.
+    private IEnumerable<int> CreateTest(
+        Node world, ChunkController chunks)
+    {
         Player player = world.GetNode<Player>("WorldObjects/Player");
-        TerrainElevation elevation = world.GetNode<TerrainElevation>(
-            "Systems/TerrainElevation");
 
         CaveGenerationSettings settings = GenerationSettings ??
             GD.Load<CaveGenerationSettings>(
                 "res://WORLD/Generation/Caves/DefaultCaveGeneration.tres");
 
         if (settings == null)
-        {
-            GD.PushError("[Cave test] Missing generation profile.");
-            return;
-        }
+            throw new InvalidOperationException(
+                "Missing cave generation profile.");
+
         settings.Validate();
 
-        using CircleShape2D shape = new() { Radius = 80f };
+        CaveSurfaceSampler sampler = new(world, chunks);
+        CaveSurfaceSampler.Result first = null;
+        Vector2 origin = Vector2.Zero;
+
+        using CircleShape2D shape = new();
         using PhysicsShapeQueryParameters2D query = new()
         {
             Shape = shape,
@@ -49,121 +111,146 @@ public partial class CaveLayerTest : Node
             CollideWithAreas = false
         };
 
-        Vector2 origin = Vector2.Zero;
-        bool found = false;
-
         for (int i = 0; i < 24; i++)
         {
-            Vector2 candidate = player.GlobalPosition +
+            yield return 0;
+
+            Vector2 point = player.GlobalPosition +
                 Vector2.FromAngle(Mathf.Tau * i / 24f) * 420f;
-            Vector2 approach = candidate -
-                IsoGrid.TileToWorld(new Vector2(0.9f, 0f), chunks.TileSize);
 
-            if (!chunks.IsNavigationPointAvailable(candidate, 16f) ||
-                !chunks.IsNavigationPointAvailable(approach, 16f))
+            Vector2 outside = point -
+                IsoGrid.TileToWorld(
+                    Vector2.Right * 0.9f, chunks.TileSize);
+
+            if (!chunks.IsNavigationPointAvailable(point, 16f) ||
+                !chunks.IsNavigationPointAvailable(outside, 16f))
                 continue;
 
-            query.Transform = new Transform2D(0f, candidate);
-            if (player.GetWorld2D().DirectSpaceState.IntersectShape(query, 1).Count > 0)
-                continue;
+            CaveSurfaceSampler.Result result = new();
 
-            origin = candidate;
-            found = true;
+            foreach (int step in sampler.Evaluate(
+                point, Vector2.Right, true, result))
+                yield return step;
+
+            if (!result.Accepted) continue;
+
+            shape.Radius = result.ClearRadius;
+            bool blocked = false;
+
+            foreach (Vector2 centre in new[] { point, outside })
+            {
+                query.Transform = new Transform2D(0f, centre);
+
+                if (player.GetWorld2D().DirectSpaceState
+                        .IntersectShape(query, 1).Count > 0)
+                {
+                    blocked = true;
+                    break;
+                }
+
+                yield return 0;
+            }
+
+            if (blocked) continue;
+
+            origin = point;
+            first = result;
             break;
         }
 
-        if (!found)
+        if (first == null)
         {
-            GD.PushError("[Cave test] No clear starting hole. Try another seed.");
-            return;
+            GD.PushWarning(
+                "[Cave test] No suitable clear starting hole. " +
+                "Check the biome's cave-hole profile or try another seed.");
+            yield break;
         }
 
-        CaveHole second = FindSecondHole(world, chunks, elevation, settings, origin);
-        if (second == null)
+        CaveHole second = null;
+        float hub = settings.EntranceTunnelLengthTiles + 8f;
+        float edge =
+            (settings.CellsEitherSide + 1) * settings.CellSpacingTiles;
+
+        for (int sideIndex = 0;
+            sideIndex < 2 && second == null; sideIndex++)
         {
-            GD.PushError(
-                "[Cave test] No suitable second surface hole for this test layout. " +
-                "Try another seed or a flatter starting biome.");
-            return;
+            int side = sideIndex == 0 ? -1 : 1;
+            Vector2 direction =
+                side < 0 ? Vector2.Down : Vector2.Up;
+
+            for (int cell = 0;
+                cell < settings.CellsAcross && second == null; cell++)
+            {
+                for (int offsetIndex = 0;
+                    offsetIndex < 3 && second == null; offsetIndex++)
+                {
+                    float offset = offsetIndex == 0 ? 0f :
+                        offsetIndex == 1 ? -6f : 6f;
+
+                    Vector2 tile = new(
+                        hub + cell * settings.CellSpacingTiles + offset,
+                        side * edge);
+
+                    Vector2 point = origin +
+                        IsoGrid.TileToWorld(tile, chunks.TileSize);
+
+                    CaveSurfaceSampler.Result result = new();
+
+                    foreach (int step in sampler.Evaluate(
+                        point, direction, false, result))
+                        yield return step;
+
+                    if (!result.Accepted) continue;
+
+                    second = new CaveHole(
+                        "B", tile, direction, point,
+                        result.RimHeight,
+                        settings.EntranceTunnelLengthTiles,
+                        new Vector2I(
+                            cell, side * settings.CellsEitherSide))
+                    {
+                        SurfaceClearRadius = result.ClearRadius
+                    };
+                }
+            }
         }
 
         CaveWorld cave = new() { Name = "CaveWorld" };
         AddChild(cave);
+
         cave.Build(
-            origin, chunks.TileSize, elevation.SampleWorldHeight(origin),
+            origin, chunks.TileSize, first.RimHeight,
             chunks.WorldSeed, settings, second);
 
-        WorldLayerController controller = new() { Name = "WorldLayers" };
+        cave.Holes[0].SurfaceClearRadius = first.ClearRadius;
+
+        WorldLayerController controller = new()
+        {
+            Name = "WorldLayers"
+        };
         AddChild(controller);
         controller.Configure(world, player, cave);
 
-        GD.Print($"[Cave test] Hole A: {origin}");
         GD.Print(
-            $"[Cave test] Hole B: {second.SurfacePosition}; " +
-            $"cave tile {second.MouthTile}; anchor chamber {second.AnchorCell}.");
-        GD.Print(
-            "[Cave test] Both holes share one network. " +
-            "Hole B's surface loads when approached underground.");
-    }
-    #endregion
+            $"[Cave test] Hole A: {origin}; biome: {first.BiomeId}.");
 
-    #region Destination Selection
-    // =========================================================
-    // Choose an opening beyond the upper or lower edge of the generated network.
-    private static CaveHole FindSecondHole(
-        Node world, ChunkController chunks, TerrainElevation elevation,
-        CaveGenerationSettings settings, Vector2 origin)
-    {
-        Node2D ground = world.GetNode<Node2D>("GroundChunks");
-        TerrainSlopeWorld slopes = TerrainSlopeWorld.Ensure(world);
-        float hub = settings.EntranceTunnelLengthTiles + 8f;
-        float edge = (settings.CellsEitherSide + 1) * settings.CellSpacingTiles;
-
-        for (int sideIndex = 0; sideIndex < 2; sideIndex++)
+        if (second != null)
         {
-            int side = sideIndex == 0 ? -1 : 1;
-            Vector2 direction = side < 0 ? Vector2.Down : Vector2.Up;
-
-            for (int cell = 0; cell < settings.CellsAcross; cell++)
-            for (int offsetIndex = 0; offsetIndex < 3; offsetIndex++)
-            {
-                float offset = offsetIndex == 0 ? 0f :
-                    offsetIndex == 1 ? -6f : 6f;
-
-                Vector2 tile = new(
-                    hub + cell * settings.CellSpacingTiles + offset,
-                    side * edge);
-                Vector2 point = origin + IsoGrid.TileToWorld(tile, chunks.TileSize);
-                Vector2 outside = point -
-                    IsoGrid.TileToWorld(direction * 0.9f, chunks.TileSize);
-
-                if (!chunks.IsDestinationWithinBounds(point, 120f) ||
-                    !chunks.IsDestinationWithinBounds(outside, 120f))
-                    continue;
-
-                if (WorldPlacement.IsBasinReserved(
-                    world, point, new Vector2(200f, 200f), Vector2.Zero))
-                    continue;
-
-                if (!ChasmFeature.HasGroundClearance(
-                    ground.ToLocal(point), chunks.TileSize, 100f) ||
-                    !ChasmFeature.HasGroundClearance(
-                    ground.ToLocal(outside), chunks.TileSize, 100f))
-                    continue;
-
-                if (!slopes.HasClearance(point, 100f) ||
-                    !slopes.HasClearance(outside, 100f))
-                    continue;
-
-                return new CaveHole(
-                    "B", tile, direction, point,
-                    elevation.SampleWorldHeight(point),
-                    settings.EntranceTunnelLengthTiles,
-                    new Vector2I(cell, side * settings.CellsEitherSide));
-            }
+            GD.Print(
+                $"[Cave test] Hole B: {second.SurfacePosition}; " +
+                $"anchor chamber: {second.AnchorCell}.");
+        }
+        else
+        {
+            GD.PushWarning(
+                "[Cave test] No suitable second hole. " +
+                "The cave remains usable through A. Check chance, " +
+                "height variation or try another seed.");
         }
 
-        return null;
+        GD.Print(
+            "[Cave test] Surface suitability used generation data only. " +
+            "Full surface chunks load when a ramp is approached.");
     }
     #endregion
 }
