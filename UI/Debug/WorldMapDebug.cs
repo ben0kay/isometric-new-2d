@@ -114,88 +114,134 @@ public override void _ExitTree()
     #endregion
 
     #region Input
-    // =========================================================
-    // Toggle the preview and keep map gestures out of other interfaces.
-    public override void _Input(InputEvent input)
+// =========================================================
+// Reopen cached previews and keep map gestures out of gameplay.
+public override void _Input(InputEvent input)
+{
+    if (!Enabled) return;
+
+    if (input is InputEventKey toggle &&
+        toggle.Pressed && !toggle.Echo &&
+        toggle.PhysicalKeycode == Key.M)
     {
-        if (!Enabled) return;
-
-        if (input is InputEventKey toggle &&
-            toggle.Pressed && !toggle.Echo &&
-            toggle.PhysicalKeycode == Key.M)
+        if (_open)
         {
-            if (_open)
-            {
-                if (_modes.OwnsInput(this)) CloseMap();
-            }
-            else if (!GetViewport().GuiIsDragging() && ResolveWorld())
-            {
-                _open = true;
-                Visible = true;
-                _modes.Push(this, PlayerInputMode.DebugMap);
-                StartBuild();
-            }
-
-            GetViewport().SetInputAsHandled();
-            return;
+            if (_modes.OwnsInput(this)) CloseMap();
         }
+        else if (!GetViewport().GuiIsDragging() && ResolveWorld())
+            OpenMap();
 
-        if (!_open || !_modes.OwnsInput(this)) return;
-
-        if (input is InputEventKey key)
-        {
-            if (key.Pressed && !key.Echo)
-            {
-                switch (key.PhysicalKeycode)
-                {
-                    case Key.Escape:
-                        CloseMap();
-                        break;
-                    case Key.R:
-                    case Key.F:
-                        StartBuild();
-                        break;
-                    case Key.G:
-                        _viewCentre = _snapshotPlane;
-                        _viewRadius = _snapshotRadius;
-                        break;
-                }
-            }
-
-            GetViewport().SetInputAsHandled();
-            QueueRedraw();
-            return;
-        }
-
-        if (input is InputEventMouseMotion motion)
-        {
-            if (_dragging)
-            {
-                _viewCentre -= motion.Relative / MapRect().Size *
-                    (_viewRadius * 2f);
-                ClampCentre();
-                QueueRedraw();
-            }
-
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-
-        if (input is InputEventMouseButton mouse)
-        {
-            Vector2 cursor = GetLocalMousePosition();
-
-            if (mouse.ButtonIndex == MouseButton.Left)
-                _dragging = mouse.Pressed && MapRect().HasPoint(cursor);
-            else if (mouse.Pressed && MapRect().HasPoint(cursor) &&
-                (mouse.ButtonIndex == MouseButton.WheelUp ||
-                 mouse.ButtonIndex == MouseButton.WheelDown))
-                ZoomAt(cursor,
-                    mouse.ButtonIndex == MouseButton.WheelUp ? 0.8f : 1.25f);
-
-            GetViewport().SetInputAsHandled();
-        }
+        GetViewport().SetInputAsHandled();
+        return;
     }
+
+    if (!_open || !_modes.OwnsInput(this)) return;
+
+    if (input is InputEventKey key)
+    {
+        if (key.Pressed && !key.Echo)
+        {
+            switch (key.PhysicalKeycode)
+            {
+                case Key.Escape:
+                    CloseMap();
+                    break;
+
+                case Key.R:
+                case Key.F:
+                    StartBuild();
+                    break;
+
+                case Key.G:
+                    _viewCentre = _snapshotPlane;
+                    _viewRadius = _snapshotRadius;
+                    break;
+            }
+        }
+
+        GetViewport().SetInputAsHandled();
+        QueueRedraw();
+        return;
+    }
+
+    if (input is InputEventMouseMotion motion)
+    {
+        if (_dragging)
+        {
+            _viewCentre -= motion.Relative / MapRect().Size *
+                (_viewRadius * 2f);
+            ClampCentre();
+            QueueRedraw();
+        }
+
+        GetViewport().SetInputAsHandled();
+        return;
+    }
+
+    if (input is InputEventMouseButton mouse)
+    {
+        Vector2 cursor = GetLocalMousePosition();
+
+        if (mouse.ButtonIndex == MouseButton.Left)
+            _dragging = mouse.Pressed && MapRect().HasPoint(cursor);
+        else if (mouse.Pressed && MapRect().HasPoint(cursor) &&
+            (mouse.ButtonIndex == MouseButton.WheelUp ||
+             mouse.ButtonIndex == MouseButton.WheelDown))
+            ZoomAt(cursor,
+                mouse.ButtonIndex == MouseButton.WheelUp ? 0.8f : 1.25f);
+
+        GetViewport().SetInputAsHandled();
+    }
+}
+
+// =========================================================
+// Reuse biome pixels while refreshing nearby POIs independently.
+private void OpenMap()
+{
+    float radius = _config.DebugMapRadiusTiles;
+
+    if (!float.IsFinite(radius) || radius < 16f)
+        throw new InvalidOperationException(
+            "DebugMapRadiusTiles must be finite and at least 16.");
+
+    Vector2 playerTile = PlayerTile();
+    Vector2 distance = (playerTile - _snapshotTile).Abs();
+
+    bool reusable =
+        (_texture != null || _building) &&
+        Mathf.IsEqualApprox(radius, _tileRadius) &&
+        Mathf.Clamp(Resolution, 64, 512) == _resolution &&
+        distance.X <= _tileRadius &&
+        distance.Y <= _tileRadius;
+
+    _open = true;
+    _dragging = false;
+    Visible = true;
+    _modes.Push(this, PlayerInputMode.DebugMap);
+
+    if (!reusable)
+    {
+        StartBuild();
+        return;
+    }
+
+    // Closing releases POI protection; reopening reacquires it locally.
+    // Completed entrance decisions remain reusable in the generation cache.
+    _pois?.Dispose();
+    _pois = new WorldMapPoiPreview(
+        this, _ground, _chunks, _config, playerTile);
+
+    // Preserve zoom and pan unless the player has moved outside the view.
+    Rect2 map = MapRect();
+    if (!map.HasPoint(MapPoint(playerTile, map)))
+    {
+        _viewCentre = Project(playerTile);
+        ClampCentre();
+    }
+
+    SetProcess(true);
+    QueueRedraw();
+}
 
 // =========================================================
 // Restore gameplay and release map-owned POI preparation.

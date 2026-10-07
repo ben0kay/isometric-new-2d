@@ -114,6 +114,7 @@ script = ExtResource("13_collision")
 
 [node name="CONFIG" parent="." unique_id=485093835 instance=ExtResource("16_config")]
 SpawnFrequencyMultiplier = 0.5
+DebugMapPoiRadiusTiles = 512.0
 
 [node name="InfiniteGeneration" type="Node" parent="." unique_id=1419098382]
 script = ExtResource("21_infinite")
