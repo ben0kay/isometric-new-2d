@@ -34,12 +34,13 @@ public float JumpHeight => _jump?.Height ?? 0f;
 public bool IsAirborne => _jump?.IsAirborne ?? false;
 private PlayerSurvival _survival;
 private PlayerConsumption _consumption;
+public PlayerInput Controls { get; private set; }
 	
 	#endregion
 
 	#region Lifecycle
 // =========================================================
-// Resolve player systems and attach artwork with its separate ground shadow.
+// Resolve player systems, centralized controls, artwork, and ground shadow.
 public override async void _Ready()
 {
 	MotionMode = MotionModeEnum.Floating;
@@ -49,6 +50,7 @@ public override async void _Ready()
 	_inventory = GetNode<PlayerInventory>("Systems/Inventory");
 	_inventoryHud = GetNode<InventoryHud>("InventoryHud");
 	_surfaceEffects = GetNode<PlayerSurfaceEffects>("Systems/SurfaceEffects");
+	Controls = new PlayerInput(this, _inventoryHud, _health);
 	SetPhysicsProcess(false);
 
 	try
@@ -56,7 +58,6 @@ public override async void _Ready()
 		await PlaceholderAtlas.EnsureReady(this);
 		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-		// Add the shadow before the visual so artwork draws above it.
 		_jump = new PlayerJump { Name = "Jump" };
 		AddChild(_jump);
 
@@ -75,21 +76,16 @@ public override async void _Ready()
 }
 
 // =========================================================
-// Handle sprint input and report actions to the survival helper.
+// Route centralized controls to movement, jumping, tools, and survival.
 public override void _PhysicsProcess(double delta)
 {
 	_survival ??= GetNode<PlayerSurvival>("Systems/Survival");
 	_consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
 	_weapon.Tick(delta);
+	Controls.Read();
 
-	bool gameplayAllowed = InputModes.For(this).GameplayAllowed;
-	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-	bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
-		gameplayAllowed;
-
-	bool jumped = _jump.Tick(delta,
-		movementAllowed && !attackBlocked, _health.IsAlive,
-		JumpPeakHeight, JumpDuration);
+	bool jumped = _jump.Tick(delta, Controls.JumpPressed,
+		_health.IsAlive, JumpPeakHeight, JumpDuration);
 
 	if (jumped) _survival.OnJump();
 
@@ -105,16 +101,15 @@ public override void _PhysicsProcess(double delta)
 
 	_surfaceEffects.UpdateState(_visual);
 
-	Vector2 direction = movementAllowed ? ReadMovement() : Vector2.Zero;
+	Vector2 direction = Controls.Movement;
 	Vector2 beforeMovement = GlobalPosition;
 
-	bool sprintRequested = movementAllowed &&
-		direction.LengthSquared() > 0f && !IsAirborne && !jumped &&
-		Input.IsPhysicalKeyPressed(Key.Shift);
+	bool sprintRequested = Controls.SprintHeld &&
+		direction.LengthSquared() > 0f && !IsAirborne && !jumped;
 
 	float sprintMultiplier = _survival.UpdateSprint(delta, sprintRequested);
 
-	Velocity = direction.Normalized() *
+	Velocity = direction *
 		_stats.Get(PlayerStat.MovementSpeed) *
 		_inventory.MovementFactor *
 		_surfaceEffects.MovementMultiplier *
@@ -139,13 +134,10 @@ public override void _PhysicsProcess(double delta)
 		return;
 	}
 
-	bool useHeld = gameplayAllowed && !attackBlocked &&
-		Input.IsMouseButtonPressed(MouseButton.Left);
-
-	_consumption.Tick(delta, useHeld);
+	_consumption.Tick(delta, Controls.UseHeld);
 
 	AttackDefinition attack = _weapon.Attack;
-	bool firing = useHeld && attack != null;
+	bool firing = Controls.UseHeld && attack != null;
 	float horizontal = firing
 		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
@@ -176,19 +168,6 @@ public override void _PhysicsProcess(double delta)
 	}
 }
 
-// =========================================================
-// Read movement only when gameplay owns player input.
-private Vector2 ReadMovement()
-{
-	if (!InputModes.For(this).GameplayAllowed)
-		return Vector2.Zero;
-
-	return new Vector2(
-		(Input.IsPhysicalKeyPressed(Key.Right) ? 1f : 0f) -
-		(Input.IsPhysicalKeyPressed(Key.Left) ? 1f : 0f),
-		(Input.IsPhysicalKeyPressed(Key.Down) ? 1f : 0f) -
-		(Input.IsPhysicalKeyPressed(Key.Up) ? 1f : 0f));
-}
 	#endregion
 
 	// =========================================================

@@ -12,7 +12,7 @@ public partial class PlayerJump : Node2D
     private Node2D _artwork;
     private Vector2 _artworkOrigin;
     private float _elapsed, _duration, _peak;
-    private bool _rightHeld;
+
     private int _layerEpoch;
     #endregion
 
@@ -44,15 +44,11 @@ public partial class PlayerJump : Node2D
 
     #region Jump
 // =========================================================
-// Advance jumping and report a successful takeoff exactly once.
+// Advance jumping using the press supplied by centralized player input.
 public bool Tick(
-    double delta, bool inputAllowed, bool alive,
+    double delta, bool jumpPressed, bool alive,
     float peakHeight, float duration)
 {
-    bool rightHeld = Input.IsMouseButtonPressed(MouseButton.Right);
-    bool pressed = rightHeld && !_rightHeld;
-    _rightHeld = rightHeld;
-
     int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
     if (!alive || epoch != _layerEpoch)
     {
@@ -62,7 +58,7 @@ public bool Tick(
     }
 
     bool started = false;
-    if (pressed && inputAllowed && !IsAirborne)
+    if (jumpPressed && !IsAirborne)
     {
         _elapsed = 0f;
         _peak = Mathf.Max(1f, peakHeight);

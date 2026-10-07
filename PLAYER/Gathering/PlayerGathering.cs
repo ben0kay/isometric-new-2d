@@ -12,7 +12,7 @@ public partial class PlayerGathering : Node
     #region State
     private Player _player;
     private PlayerEquipment _equipment;
-    private InventoryHud _hud;
+
     private Health _health;
     private CircleShape2D _shape;
     private PhysicsShapeQueryParameters2D _query;
@@ -27,7 +27,7 @@ public partial class PlayerGathering : Node
         _player = GetParent().GetParent<Player>();
         _equipment = GetNode<PlayerEquipment>("../Equipment");
         _health = GetNode<Health>("../Health");
-        _hud = _player.GetNode<InventoryHud>("InventoryHud");
+
         _shape = new CircleShape2D
         {
             Radius = Mathf.Max(8f, GatheringRange)
@@ -52,14 +52,15 @@ public partial class PlayerGathering : Node
 
     #region Gathering
 // =========================================================
-// Gather nearby plants and report exertion only after successful harvesting.
+// Gather with centralized use input and report successful exertion.
 public override void _PhysicsProcess(double delta)
 {
     _cooldown -= delta;
+    if (_player.Controls == null) return;
+    _player.Controls.Read();
+
     if (_cooldown > 0 || !_health.IsAlive ||
-        _equipment.CurrentTool != null || _hud.BlocksWorldAttack() ||
-        !InputModes.For(this).GameplayAllowed ||
-        !Input.IsMouseButtonPressed(MouseButton.Left))
+        _equipment.CurrentTool != null || !_player.Controls.UseHeld)
         return;
 
     _cooldown = System.Math.Max(0.1, GatheringInterval);

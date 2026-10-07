@@ -6,21 +6,21 @@ using System;
 [Tool, GlobalClass]
 public partial class ConsumableDefinition : Resource
 {
-    #region Configuration
-    [ExportGroup("Replenishment")]
-    [Export(PropertyHint.Range, "0,1000,0.5")]
+#region Configuration
+[ExportGroup("Replenishment")]
+[Export(PropertyHint.Range, "0,1000,0.5")]
+public float FoodRestored { get; set; }
 
-    [Export(PropertyHint.Range, "0,100,0.05")]
+[Export(PropertyHint.Range, "0,1000,0.5")]
+public float WaterRestored { get; set; }
+
+[Export(PropertyHint.Range, "0,100,0.05")]
 public float FatigueRelief { get; set; }
-    public float FoodRestored { get; set; }
 
-    [Export(PropertyHint.Range, "0,1000,0.5")]
-    public float WaterRestored { get; set; }
-
-    [ExportGroup("Consumption")]
-    [Export(PropertyHint.Range, "0.1,10,0.05")]
-    public double UseIntervalSeconds { get; set; } = 0.75;
-    #endregion
+[ExportGroup("Consumption")]
+[Export(PropertyHint.Range, "0.1,10,0.05")]
+public double UseIntervalSeconds { get; set; } = 0.75;
+#endregion
 
     #region Validation
 // =========================================================
