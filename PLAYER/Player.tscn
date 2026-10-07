@@ -27,6 +27,8 @@
 [ext_resource type="Script" path="res://PLAYER/Survival/PlayerSurvival.cs" id="26_survival"]
 [ext_resource type="Resource" path="res://PLAYER/Survival/DefaultSurvivalProfile.tres" id="27_survival_profile"]
 [ext_resource type="Script" path="res://PLAYER/Survival/PlayerConsumption.cs" id="28_consumption"]
+[ext_resource type="Script" path="res://SYSTEMS/Placement/PlayerPlacement.cs" id="29_placement"]
+[ext_resource type="Resource" path="res://WORLDABLES/Objects/Building/TestCube/TestCubeItem.tres" id="30_cube"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 
@@ -103,6 +105,13 @@ Profile = ExtResource("27_survival_profile")
 
 [node name="Consumption" type="Node" parent="Systems"]
 script = ExtResource("28_consumption")
+
+[node name="Placement" type="Node2D" parent="Systems"]
+script = ExtResource("29_placement")
+PlacementRange = 320.0
+GridRadiusCells = 4
+StartingItem = ExtResource("30_cube")
+StartingCount = 12
 
 [node name="InventoryHud" type="CanvasLayer" parent="." unique_id=296340240]
 layer = 20

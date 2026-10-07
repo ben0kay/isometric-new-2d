@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://sm76vxbux235" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
 [ext_resource type="Script" uid="uid://dk80brlaqernn" path="res://ITEMS/ItemDefinition.cs" id="2_item"]
 [ext_resource type="Resource" path="res://ITEMS/Food/FoodCatalog.tres" id="3_food"]
+[ext_resource type="Resource" path="res://WORLDABLES/Objects/Building/BuildingCatalog.tres" id="4_building"]
 
 [sub_resource type="Resource" id="Rock"]
 script = ExtResource("2_item")
@@ -127,4 +128,4 @@ Tint = Color(0.4, 0.85, 0.65, 1)
 [resource]
 script = ExtResource("1_catalog")
 Items = Array[ExtResource("2_item")]([SubResource("Rock"), SubResource("Carbon"), SubResource("Fiber"), SubResource("Iron"), SubResource("AlienResin"), SubResource("Biomass"), SubResource("Ice"), SubResource("Sand"), SubResource("Clay"), SubResource("ScrapMetal"), SubResource("CopperWiring"), SubResource("CircuitBoard")])
-Categories = Array[ExtResource("1_catalog")]([ExtResource("3_food")])
+Categories = Array[ExtResource("1_catalog")]([ExtResource("3_food"), ExtResource("4_building")])

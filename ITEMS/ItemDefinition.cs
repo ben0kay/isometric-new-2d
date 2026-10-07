@@ -30,5 +30,6 @@ public partial class ItemDefinition : Resource
 [ExportGroup("Use")]
 [Export] public AttackDefinition Attack { get; set; }
 [Export] public ConsumableDefinition Consumable { get; set; }
+[Export] public PlaceableDefinition Placeable { get; set; }
 #endregion
 }

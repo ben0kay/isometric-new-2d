@@ -29,7 +29,7 @@ public void Initialize()
 }
 
 // =========================================================
-// Register nested entries while rejecting cycles and duplicate item IDs.
+// Register nested items, validate use capabilities, and reject duplicate IDs.
 private void RegisterCatalog(
     ItemCatalog catalog, HashSet<ItemCatalog> visiting)
 {
@@ -46,10 +46,15 @@ private void RegisterCatalog(
             throw new InvalidOperationException("Invalid item catalog entry.");
 
         item.Consumable?.Validate();
+        item.Placeable?.Validate();
 
-        if (item.Consumable != null && item.Attack != null)
+        int useModes = (item.Attack != null ? 1 : 0) +
+            (item.Consumable != null ? 1 : 0) +
+            (item.Placeable != null ? 1 : 0);
+
+        if (useModes > 1)
             throw new InvalidOperationException(
-                $"Item '{item.Id}' cannot attack and consume on the same input.");
+                $"Item '{item.Id}' has conflicting primary-use capabilities.");
 
         if (!_items.TryAdd(item.Id, item))
             throw new InvalidOperationException(

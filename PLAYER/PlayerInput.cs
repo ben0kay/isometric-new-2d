@@ -25,6 +25,8 @@ public sealed class PlayerInput
     private readonly Health _health;
     private ulong _frame = ulong.MaxValue;
     private bool _jumpHeld;
+    public bool UsePressed { get; private set; }
+private bool _useHeld;
     #endregion
 
     #region Setup
@@ -69,32 +71,36 @@ public sealed class PlayerInput
     #endregion
 
     #region Reading
-    // =========================================================
-    // Capture one shared input snapshot for the current physics tick.
-    public void Read()
-    {
-        ulong frame = Engine.GetPhysicsFrames();
-        if (_frame == frame) return;
-        _frame = frame;
+// =========================================================
+// Capture shared held states and one-shot presses for the current physics tick.
+public void Read()
+{
+    ulong frame = Engine.GetPhysicsFrames();
+    if (_frame == frame) return;
+    _frame = frame;
 
-        // Track the raw press even while blocked, preventing queued jumps.
-        bool jumpHeld = Input.IsActionPressed(Jump);
-        bool jumpPressed = jumpHeld && !_jumpHeld;
-        _jumpHeld = jumpHeld;
+    bool jumpHeld = Input.IsActionPressed(Jump);
+    bool jumpPressed = jumpHeld && !_jumpHeld;
+    _jumpHeld = jumpHeld;
 
-        bool gameplayAllowed = _health.IsAlive &&
-            InputModes.For(_player).GameplayAllowed;
-        bool movementAllowed = gameplayAllowed &&
-            !_hud.BlocksWorldMovement;
-        bool useAllowed = gameplayAllowed && !_hud.BlocksWorldAttack();
+    bool useHeld = Input.IsActionPressed(Use);
+    bool usePressed = useHeld && !_useHeld;
+    _useHeld = useHeld;
 
-        Movement = movementAllowed
-            ? Input.GetVector(MoveLeft, MoveRight, MoveUp, MoveDown)
-            : Vector2.Zero;
+    bool gameplayAllowed = _health.IsAlive &&
+        InputModes.For(_player).GameplayAllowed;
+    bool movementAllowed = gameplayAllowed &&
+        !_hud.BlocksWorldMovement;
+    bool useAllowed = gameplayAllowed && !_hud.BlocksWorldAttack();
 
-        SprintHeld = movementAllowed && Input.IsActionPressed(Sprint);
-        JumpPressed = movementAllowed && useAllowed && jumpPressed;
-        UseHeld = useAllowed && Input.IsActionPressed(Use);
-    }
+    Movement = movementAllowed
+        ? Input.GetVector(MoveLeft, MoveRight, MoveUp, MoveDown)
+        : Vector2.Zero;
+
+    SprintHeld = movementAllowed && Input.IsActionPressed(Sprint);
+    JumpPressed = movementAllowed && useAllowed && jumpPressed;
+    UseHeld = useAllowed && useHeld;
+    UsePressed = useAllowed && usePressed;
+}
     #endregion
 }

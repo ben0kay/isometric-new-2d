@@ -1,0 +1,261 @@
+// Validates surface placement, tracks occupied cells, and spawns world objects.
+// Created once per world; placement previews share its terrain and physics rules.
+using Godot;
+using System.Collections.Generic;
+
+public partial class PlacementWorld : Node
+{
+    #region State
+    public BuildingGrid Grid { get; private set; }
+
+    private ChunkController _chunks;
+    private TerrainElevation _elevation;
+    private Node2D _objects;
+    private SurfaceWorld _surfaces;
+
+    private readonly Dictionary<Vector2I, PlacedObject> _occupied = new();
+    private readonly ConvexPolygonShape2D _shape = new();
+    private readonly PhysicsShapeQueryParameters2D _query = new();
+    #endregion
+
+    #region Lifecycle
+    // =========================================================
+    // Reuse one placement service under the existing world Systems node.
+    public static PlacementWorld Ensure(Node context)
+    {
+        Node generator = context.GetTree().GetFirstNodeInGroup("world_generator");
+        if (generator == null) return null;
+
+        Node systems = generator.GetParent();
+        PlacementWorld existing =
+            systems.GetNodeOrNull<PlacementWorld>("PlacementWorld");
+        if (existing != null) return existing;
+
+        Node world = systems.GetParent();
+        ChunkController chunks = systems.GetNode<ChunkController>("ChunkController");
+
+        PlacementWorld service = new()
+        {
+            Name = "PlacementWorld",
+            _chunks = chunks,
+            _elevation = systems.GetNode<TerrainElevation>("TerrainElevation"),
+            _objects = world.GetNode<Node2D>("WorldObjects"),
+            Grid = new BuildingGrid(
+                world.GetNode<Node2D>("GroundChunks"), chunks.TileSize)
+        };
+
+        systems.AddChild(service);
+        return service;
+    }
+
+    // =========================================================
+    // Configure one reusable query for solids, actors, and gap collision.
+    public override void _Ready()
+    {
+        _query.Shape = _shape;
+        _query.CollisionMask = 1u | 2u | 4u | 8u;
+        _query.CollideWithBodies = true;
+        _query.CollideWithAreas = false;
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Release native query resources when the world closes.
+    public override void _ExitTree()
+    {
+        _query.Dispose();
+        _shape.Dispose();
+        _occupied.Clear();
+    }
+    #endregion
+
+    #region Targeting
+    // =========================================================
+    // Return surface elevation for grid lines and artwork.
+    public float HeightAt(Vector2 world)
+    {
+        return _elevation.SampleWorldHeight(world);
+    }
+
+    // =========================================================
+    // Unproject the visible cursor onto terrain before snapping.
+    public bool TryCursorCell(Vector2 cursor, out Vector2I cell)
+    {
+        Vector2 ground = cursor;
+        bool converged = false;
+
+        for (int i = 0; i < 24; i++)
+        {
+            Vector2 next = cursor + Vector2.Down * HeightAt(ground);
+            if (next.DistanceSquaredTo(ground) < 0.01f)
+            {
+                ground = next;
+                converged = true;
+                break;
+            }
+            ground = next;
+        }
+
+        cell = Grid.CellAt(ground);
+        return converged;
+    }
+    #endregion
+
+    #region Validation
+    // =========================================================
+    // Check the entire footprint using shared terrain and collision rules.
+    public bool CanPlace(
+        Player player, PlaceableDefinition definition, Vector2I anchor,
+        float reach, out string reason)
+    {
+        reason = "";
+        if (WorldLayerMember.For(player) != WorldLayer.Surface)
+        {
+            reason = "Surface placement only";
+            return false;
+        }
+
+        Vector2 centre = Grid.Centre(anchor, definition.Cells);
+        Vector2[] corners = Grid.Corners(anchor, definition.Cells);
+        float maximumDistance = Mathf.Max(0f, reach);
+        float distanceSquared = maximumDistance * maximumDistance;
+
+        // Include the farthest footprint corner, not just its centre.
+        foreach (Vector2 corner in corners)
+            if (player.GlobalPosition.DistanceSquaredTo(corner) > distanceSquared)
+            {
+                reason = "Too far away";
+                return false;
+            }
+
+        for (int y = 0; y < definition.Cells.Y; y++)
+        for (int x = 0; x < definition.Cells.X; x++)
+        {
+            Vector2I cell = anchor + new Vector2I(x, y);
+            if (_occupied.TryGetValue(cell, out PlacedObject owner) &&
+                GodotObject.IsInstanceValid(owner) &&
+                !owner.IsQueuedForDeletion())
+            {
+                reason = "Occupied";
+                return false;
+            }
+        }
+
+        _surfaces ??= SurfaceWorld.Find(this);
+        float lowest = float.PositiveInfinity;
+        float highest = float.NegativeInfinity;
+
+        // Half-cell sampling includes all centres, corners, and edge midpoints.
+        for (int y = 0; y <= definition.Cells.Y * 2; y++)
+        for (int x = 0; x <= definition.Cells.X * 2; x++)
+        {
+            Vector2 tile = new(
+                anchor.X - 0.5f + x * 0.5f,
+                anchor.Y - 0.5f + y * 0.5f);
+            Vector2 point = Grid.ToWorld(tile);
+
+            if (!_chunks.IsNavigationPointAvailable(point, 2f))
+            {
+                reason = "Ground unavailable or unsafe";
+                return false;
+            }
+
+            if (_surfaces != null &&
+                _surfaces.Sample(point).SubmersionPixels > 0.1f)
+            {
+                reason = "Liquid or unsuitable surface";
+                return false;
+            }
+
+            float height = HeightAt(point);
+            lowest = Mathf.Min(lowest, height);
+            highest = Mathf.Max(highest, height);
+
+            if (highest - lowest > definition.MaximumHeightDifference)
+            {
+                reason = "Ground too uneven";
+                return false;
+            }
+        }
+
+        Vector2[] local = new Vector2[corners.Length];
+        for (int i = 0; i < local.Length; i++)
+            local[i] = (corners[i] - centre) * 0.98f;
+
+        _shape.Points = local;
+        _query.Transform = new Transform2D(0f, centre);
+
+        if (player.GetWorld2D().DirectSpaceState.IntersectShape(_query, 1).Count > 0)
+        {
+            reason = "Object or actor in the way";
+            return false;
+        }
+
+        return true;
+    }
+    #endregion
+
+    #region Placement
+    // =========================================================
+    // Revalidate, prepare the object, and consume one verified inventory item.
+    public bool TryPlace(
+        Player player, ItemDefinition item, InventoryAddress address,
+        Vector2I anchor, float reach)
+    {
+        PlaceableDefinition definition = item?.Placeable;
+        if (definition == null ||
+            !CanPlace(player, definition, anchor, reach, out _))
+            return false;
+
+        Node instance = definition.WorldScene.Instantiate();
+        if (instance is not PlacedObject placed ||
+            placed.GetNodeOrNull<Health>("Systems/Health") == null)
+        {
+            instance.Free();
+            GD.PushError("Placeable world scene requires PlacedObject and Systems/Health.");
+            return false;
+        }
+
+        // Configure before entering the tree so navigation sees its full footprint.
+        placed.Configure(this, definition, anchor);
+        placed.Position = _objects.ToLocal(Grid.Centre(anchor, definition.Cells));
+
+        PlayerInventory inventory =
+            player.GetNode<PlayerInventory>("Systems/Inventory");
+
+        if (!inventory.TryTakeOne(address, item))
+        {
+            placed.Free();
+            return false;
+        }
+
+        _objects.AddChild(placed);
+        Register(placed, anchor, definition.Cells);
+        return true;
+    }
+
+    // =========================================================
+    // Reserve every occupied cell without splitting larger footprints.
+    private void Register(PlacedObject owner, Vector2I anchor, Vector2I cells)
+    {
+        for (int y = 0; y < cells.Y; y++)
+        for (int x = 0; x < cells.X; x++)
+            _occupied[anchor + new Vector2I(x, y)] = owner;
+    }
+
+    // =========================================================
+    // Release only cells still owned by the departing object.
+    public void Unregister(PlacedObject owner, Vector2I anchor, Vector2I cells)
+    {
+        for (int y = 0; y < cells.Y; y++)
+        for (int x = 0; x < cells.X; x++)
+        {
+            Vector2I cell = anchor + new Vector2I(x, y);
+            if (_occupied.TryGetValue(cell, out PlacedObject current) &&
+                current == owner)
+                _occupied.Remove(cell);
+        }
+    }
+    #endregion
+}

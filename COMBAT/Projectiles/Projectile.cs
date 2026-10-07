@@ -56,69 +56,71 @@ public override void _ExitTree()
     _worldExcluded.Clear();
 }
 
-    // =========================================================
-    // Sweep cover and actor hits, resolving whichever occurs first.
-    public override void _PhysicsProcess(double delta)
+   // =========================================================
+// Resolve cover and actor impacts, damaging placed objects struck as cover.
+public override void _PhysicsProcess(double delta)
+{
+    if (!_active) return;
+
+    int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
+    int launchedEpoch = HasMeta("world_layer_epoch")
+        ? GetMeta("world_layer_epoch").AsInt32() : 0;
+
+    if (epoch != launchedEpoch)
     {
-        if (!_active) return;
-
-        int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
-        int launchedEpoch = HasMeta("world_layer_epoch")
-            ? GetMeta("world_layer_epoch").AsInt32() : 0;
-
-        if (epoch != launchedEpoch)
-        {
-            Release();
-            return;
-        }
-
-        float step = Mathf.Min((float)delta, _remaining);
-        if (step <= 0f) { Release(); return; }
-
-        Vector2 start = GlobalPosition;
-        Vector2 next = start + _direction * _speed * step;
-        Vector2 visualOffset =
-            Vector2.Up * (_launchHeight + _visualHeight);
-
-        var worldHit = CombatCover.FindHit(
-            GetWorld2D().DirectSpaceState,
-            _worldQuery, _worldExcluded,
-            start, next, _coverHeight, _layer);
-
-        var actorHit = FindActorHit(
-            start + visualOffset, next + visualOffset);
-
-        float worldDistance = float.PositiveInfinity;
-        float actorDistance = float.PositiveInfinity;
-
-        if (worldHit.Count > 0)
-            worldDistance =
-                (worldHit["position"].AsVector2() - start).Dot(_direction);
-
-        if (actorHit.Count > 0)
-            actorDistance =
-                (actorHit["position"].AsVector2() -
-                    (start + visualOffset)).Dot(_direction);
-
-        if (worldHit.Count > 0 && worldDistance <= actorDistance)
-        {
-            Release();
-            return;
-        }
-
-        if (actorHit.Count > 0)
-        {
-            CombatHitbox hitbox =
-                actorHit["collider"].AsGodotObject() as CombatHitbox;
-            hitbox?.ReceiveDamage(_damage, _damageType);
-            Release();
-            return;
-        }
-
-        GlobalPosition = next;
-        _remaining -= step;
-        if (_remaining <= 0f) Release();
+        Release();
+        return;
     }
+
+    float step = Mathf.Min((float)delta, _remaining);
+    if (step <= 0f) { Release(); return; }
+
+    Vector2 start = GlobalPosition;
+    Vector2 next = start + _direction * _speed * step;
+    Vector2 visualOffset = Vector2.Up * (_launchHeight + _visualHeight);
+
+    var worldHit = CombatCover.FindHit(
+        GetWorld2D().DirectSpaceState,
+        _worldQuery, _worldExcluded,
+        start, next, _coverHeight, _layer);
+
+    var actorHit = FindActorHit(
+        start + visualOffset, next + visualOffset);
+
+    float worldDistance = float.PositiveInfinity;
+    float actorDistance = float.PositiveInfinity;
+
+    if (worldHit.Count > 0)
+        worldDistance =
+            (worldHit["position"].AsVector2() - start).Dot(_direction);
+
+    if (actorHit.Count > 0)
+        actorDistance =
+            (actorHit["position"].AsVector2() -
+                (start + visualOffset)).Dot(_direction);
+
+    if (worldHit.Count > 0 && worldDistance <= actorDistance)
+    {
+        if (worldHit["collider"].AsGodotObject() is PlacedObject placed)
+            placed.ObjectHealth?.Damage(_damage, _damageType);
+
+        Release();
+        return;
+    }
+
+    if (actorHit.Count > 0)
+    {
+        CombatHitbox hitbox =
+            actorHit["collider"].AsGodotObject() as CombatHitbox;
+        hitbox?.ReceiveDamage(_damage, _damageType);
+        Release();
+        return;
+    }
+
+    GlobalPosition = next;
+    _remaining -= step;
+    if (_remaining <= 0f) Release();
+}
 
     // =========================================================
     // Reset every pooled shot's captured combat and layer settings.

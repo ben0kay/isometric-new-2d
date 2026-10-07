@@ -35,6 +35,7 @@ public bool IsAirborne => _jump?.IsAirborne ?? false;
 private PlayerSurvival _survival;
 private PlayerConsumption _consumption;
 public PlayerInput Controls { get; private set; }
+private PlayerPlacement _placement;
 	
 	#endregion
 
@@ -76,11 +77,12 @@ public override async void _Ready()
 }
 
 // =========================================================
-// Route centralized controls to movement, jumping, tools, and survival.
+// Route centralized controls to movement, placement, tools, and survival.
 public override void _PhysicsProcess(double delta)
 {
 	_survival ??= GetNode<PlayerSurvival>("Systems/Survival");
 	_consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
+	_placement ??= GetNode<PlayerPlacement>("Systems/Placement");
 	_weapon.Tick(delta);
 	Controls.Read();
 
@@ -93,6 +95,7 @@ public override void _PhysicsProcess(double delta)
 	{
 		_survival.Tick(delta, false);
 		_consumption.Tick(delta, false);
+		_placement.Tick(delta);
 		Velocity = Vector2.Zero;
 		_visual.UpdateHeight();
 		_jump.UpdatePose(_visual);
@@ -129,15 +132,19 @@ public override void _PhysicsProcess(double delta)
 	{
 		_survival.Tick(delta, false);
 		_consumption.Tick(delta, false);
+		_placement.Tick(delta);
 		Velocity = Vector2.Zero;
 		_jump.Reset();
 		return;
 	}
 
-	_consumption.Tick(delta, Controls.UseHeld);
-
+	// Capture the selected attack before consuming or placing the final item.
 	AttackDefinition attack = _weapon.Attack;
 	bool firing = Controls.UseHeld && attack != null;
+
+	_consumption.Tick(delta, Controls.UseHeld);
+	_placement.Tick(delta);
+
 	float horizontal = firing
 		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
