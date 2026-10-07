@@ -91,31 +91,37 @@ public partial class BiomeDefinition : Resource
             $"{Id}/{family}: shared placement profile is missing.");
     }
 
-    // =========================================================
-    // Resolve a named feature profile without adding it to every biome file.
-    public T GetFeature<T>(string id) where T : Resource
-    {
-        Resource profile = null;
+// =========================================================
+// Resolve an explicit override, biome-specific default, or shared default.
+public T GetFeature<T>(string id) where T : Resource
+{
+    Resource profile = null;
 
-        if (FeatureOverrides != null &&
-            FeatureOverrides.TryGetValue(id, out Resource local) &&
-            local != null)
+    if (FeatureOverrides != null &&
+        FeatureOverrides.TryGetValue(id, out Resource local) &&
+        local != null)
+    {
+        profile = local;
+    }
+    else
+    {
+        BiomeDefaults defaults = BiomeDefaults.GetShared();
+
+        if (defaults.Features != null)
         {
-            profile = local;
-        }
-        else
-        {
-            BiomeDefaults defaults = BiomeDefaults.GetShared();
-            if (defaults.Features != null)
+            defaults.Features.TryGetValue($"{Id}/{id}", out profile);
+
+            if (profile == null)
                 defaults.Features.TryGetValue(id, out profile);
         }
-
-        if (profile == null) return null;
-        if (profile is T typed) return typed;
-
-        throw new InvalidOperationException(
-            $"Biome '{Id}': feature '{id}' requires {typeof(T).Name}.");
     }
+
+    if (profile == null) return null;
+    if (profile is T typed) return typed;
+
+    throw new InvalidOperationException(
+        $"Biome '{Id}': feature '{id}' requires {typeof(T).Name}.");
+}
     #endregion
 
     #region Terrain Factory

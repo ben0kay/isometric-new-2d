@@ -1,5 +1,5 @@
-// Draws the water-specific artwork for a reusable liquid body.
-// Fill, immersion and debug contours are handled by LiquidBody.
+// Draws water using neutral shader detail and the basin's selected tint.
+// Fill, immersion and debug contours remain handled by LiquidBody.
 using Godot;
 
 public partial class WaterPatch : LiquidBody
@@ -10,7 +10,7 @@ public partial class WaterPatch : LiquidBody
 
     #region Lifecycle
     // =========================================================
-    // Build one static surface quad using the existing water shader.
+    // Build a static surface quad using this basin's geometry and water tint.
     public override void _Ready()
     {
         WaterDefinition water = Basin.Definition;
@@ -18,7 +18,8 @@ public partial class WaterPatch : LiquidBody
         ZAsRelative = false;
 
         _material = new ShaderMaterial { Shader = water.WaterShader };
-        _material.SetShaderParameter("water_color", Liquid.SurfaceColour);
+        _material.SetShaderParameter(
+            "water_color", Liquid.SurfaceColour * water.SurfaceTint);
         _material.SetShaderParameter("radius_tiles", water.RadiusTiles);
         _material.SetShaderParameter("phase", Phase);
         _material.SetShaderParameter("wave_speed", water.WaveSpeed);
@@ -56,7 +57,7 @@ public partial class WaterPatch : LiquidBody
 
     #region Rendering
     // =========================================================
-    // Move the shader contour when the liquid level changes.
+    // Update the shader contour when liquid level changes.
     protected override void UpdateFillArtwork()
     {
         _material?.SetShaderParameter("water_drop", Basin.WaterDrop);

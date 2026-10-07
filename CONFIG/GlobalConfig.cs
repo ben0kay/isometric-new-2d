@@ -4,6 +4,21 @@ using Godot;
 
 public partial class GlobalConfig : Node
 {
+    #region Biomes
+    [ExportGroup("BIOMES")]
+    [Export(PropertyHint.Range, "0.25,8,0.25")]
+    public float BiomeScaleMultiplier { get; set; } = 1f;
+    #endregion
+
+    #region Basins
+    [ExportGroup("BASINS")]
+    [Export] public bool GenerateBiomeBasins { get; set; } = true;
+
+    // One potential basin location per square of this width in tile units.
+    [Export(PropertyHint.Range, "16,256,8")]
+    public float BasinCandidateSpacingTiles { get; set; } = 64f;
+    #endregion
+
     #region Visibility
     [ExportGroup("VISIBILITY")]
     [Export] public bool ObstructionFadingEnabled { get; set; } = true;

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WaterDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Water/WaterDefinition.cs" id="1_definition"]
+[ext_resource type="Shader" path="res://WORLD/Contents/Water/Water.gdshader" id="2_shader"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Liquids/WaterLiquid.tres" id="3_liquid"]
+
+[resource]
+script = ExtResource("1_definition")
+Id = "long_basin"
+Liquid = ExtResource("3_liquid")
+WaterShader = ExtResource("2_shader")
+RadiusTiles = Vector2(16, 7)
+MaximumHeightVariation = 2.0
+BasinDepth = 16.0
+ShoreWidthTiles = 3.0
+WaterSurfaceDrop = 4.0
+SurfaceTint = Color(0.35, 0.35, 0.35, 1)

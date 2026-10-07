@@ -1,8 +1,8 @@
-// Renders smooth water inside the basin's current filled contour.
+// Renders neutral water detail tinted by its basin's biome profile.
 shader_type canvas_item;
 render_mode unshaded;
 
-uniform vec4 water_color : source_color = vec4(0.12, 0.30, 0.35, 1.0);
+uniform vec4 water_color : source_color = vec4(0.35, 0.35, 0.35, 1.0);
 uniform vec2 radius_tiles = vec2(6.0, 4.0);
 uniform float phase = 1.7;
 uniform float wave_speed = 0.6;
@@ -13,13 +13,13 @@ uniform float shore_width = 0.9;
 uniform float water_drop = 6.0;
 
 // =========================================================
-// Produce continuous low-frequency variation rather than repeating bright dots.
+// Produce continuous low-frequency variation.
 float water_hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
 // =========================================================
-// Smoothly interpolate random values between neighbouring lattice points.
+// Smoothly interpolate neighbouring lattice values.
 float water_noise(vec2 p) {
     vec2 cell = floor(p);
     vec2 f = fract(p);
@@ -32,7 +32,7 @@ float water_noise(vec2 p) {
 }
 
 // =========================================================
-// Match basin depth, animate broad ripples and soften the shallow-water edge.
+// Match basin geometry and shade water without an imposed colour cast.
 void fragment() {
     vec2 q = (UV * 2.0 - 1.0) * 1.15;
     float angle = atan(q.y, q.x);
@@ -54,14 +54,12 @@ void fragment() {
     float reflection = smoothstep(0.72, 0.95, fine) * (0.5 + broad * 0.5);
 
     float depth_mix = smoothstep(0.0, 16.0, water_depth);
-    vec3 shallow = water_color.rgb * vec3(1.05, 1.15, 1.08);
-    vec3 deep = water_color.rgb * vec3(0.45, 0.65, 0.75);
-    vec3 color = mix(shallow, deep, depth_mix);
+    vec3 color = water_color.rgb * mix(1.12, 0.55, depth_mix);
     color *= 1.0 + ripple * wave_strength * 0.25;
-    color += vec3(0.18, 0.28, 0.30) * reflection * wave_strength;
+    color += vec3(0.25) * reflection * wave_strength;
 
     float shore = 1.0 - smoothstep(0.0, 3.0, water_depth);
-    color = mix(color, vec3(0.21, 0.28, 0.25), shore * 0.25);
+    color = mix(color, water_color.rgb * 0.85, shore * 0.25);
 
-    COLOR = vec4(color, coverage * opacity);
+    COLOR = vec4(color, coverage * opacity * water_color.a);
 }

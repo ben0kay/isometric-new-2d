@@ -55,7 +55,7 @@ public partial class WorldGenerator : Node
     }
 
 // =========================================================
-// Resolve shared defaults and let each biome select its terrain sampler.
+// Build scaled biome placement, then prepare permanent basin geometry.
 public override void _Ready()
 {
     _chunks = GetNode<ChunkController>("../ChunkController");
@@ -80,7 +80,6 @@ public override void _Ready()
         if (PlacementMode == BiomePlacementMode.Single)
             throw new InvalidOperationException(
                 $"Sandbox biome '{SandboxBiomeId}' is missing or disabled.");
-
         singleIndex = 0;
     }
 
@@ -117,7 +116,15 @@ public override void _Ready()
         MaxRocks = Mathf.Max(MaxRocks, biome.RocksPerChunk);
     }
 
-    float scale = Mathf.Clamp(GenerationScale, 0.125f, 4f);
+    WorldConfig config = WorldConfig.Find(this);
+    float multiplier = config.BiomeScaleMultiplier;
+
+    if (!float.IsFinite(multiplier) || multiplier <= 0f)
+        throw new InvalidOperationException(
+            "BiomeScaleMultiplier must be finite and positive.");
+
+    float scale = Mathf.Clamp(GenerationScale, 0.125f, 4f) * multiplier;
+
     _sampler = new BiomeSampler(
         _biomes, _chunks.WorldSeed, PlacementMode, singleIndex,
         RegionSizeTiles * scale, BiomeSizeTiles * scale,
@@ -132,7 +139,7 @@ public override void _Ready()
     _sampler.Sample(Vector2.Zero);
     GD.Print(
         $"[World] {_biomes.Count} biome(s); " +
-        $"mode: {PlacementMode}; scale: {scale}");
+        $"mode: {PlacementMode}; biome scale: {scale}");
 
     SetProcess(false);
 }

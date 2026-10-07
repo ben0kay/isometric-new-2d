@@ -89,110 +89,38 @@ public partial class WaterBasinWorld : Node
             as WaterBasinWorld;
     }
 
-    // =========================================================
-    // Prepare marker basins, then search the finite world for the nearest valid test.
-    public void Initialize(
-        WorldGenerator generator, ChunkController chunks, Node2D ground)
+// =========================================================
+// Register explicit sandbox markers, then generate biome-owned basins.
+public void Initialize(
+    WorldGenerator generator, ChunkController chunks, Node2D ground)
+{
+    _generator = generator;
+    _chunks = chunks;
+    _ground = ground;
+
+    foreach (Node node in GetTree().GetNodesInGroup("water_placements"))
     {
-        _generator = generator;
-        _chunks = chunks;
-        _ground = ground;
+        if (node is not WaterPlacement marker ||
+            marker.Definition == null) continue;
 
-        foreach (Node node in GetTree().GetNodesInGroup("water_placements"))
-        {
-            if (node is not WaterPlacement marker ||
-                marker.Definition == null) continue;
+        Vector2 centre = IsoGrid.WorldToTile(
+            _ground.ToLocal(marker.GlobalPosition), _chunks.TileSize);
 
-            Vector2 centre = IsoGrid.WorldToTile(
-                _ground.ToLocal(marker.GlobalPosition), _chunks.TileSize);
-            Basin basin = TryRegister(
-                marker.Definition, centre,
-                marker.ShapePhase, marker.InitialFill);
+        Basin basin = TryRegister(
+            marker.Definition, centre,
+            marker.ShapePhase, marker.InitialFill);
 
-            if (basin == null)
-                GD.PushWarning(
-                    $"Basin '{marker.Name}' rejected at tile {centre}.");
-            else
-                GD.Print(
-                    $"Basin '{marker.Name}' registered at tile {centre}.");
-        }
-
-        SurfaceWorld surfaces =
-            generator.GetParent().GetNodeOrNull<SurfaceWorld>("Surfaces");
-        if (surfaces?.PlaceTestWater != true || surfaces.TestWater == null)
-            return;
-
-        WaterDefinition definition = surfaces.TestWater;
-        definition.Validate();
-
-        Player player = generator.GetNode<Player>(
-            "../../WorldObjects/Player");
-        Vector2 origin = IsoGrid.WorldToTile(
-            _ground.ToLocal(player.GlobalPosition), _chunks.TileSize);
-
-        float minimum = -(_chunks.WorldChunksPerAxis / 2) *
-            _chunks.ChunkSize - 0.5f;
-        float span = _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-        float maximum = minimum + span;
-        float extent = Mathf.Max(
-            definition.RadiusTiles.X, definition.RadiusTiles.Y) * 1.1f;
-        float margin = extent + definition.ClearanceTiles;
-        float usable = span - margin * 2f;
-
-        if (usable <= 0f)
-        {
-            GD.PushWarning("[Water] Test basin is larger than the world.");
-            return;
-        }
-
-        int budget = Mathf.Clamp(surfaces.TestAttempts, 16, 4096);
-        int side = Mathf.Max(4, Mathf.FloorToInt(Mathf.Sqrt(budget)));
-        List<Vector2> candidates = new(side * side);
-
-        for (int y = 0; y < side; y++)
-        for (int x = 0; x < side; x++)
-        {
-            Vector2 centre = new(
-                minimum + margin + (x + 0.5f) / side * usable,
-                minimum + margin + (y + 0.5f) / side * usable);
-
-            // Keep the test body away from the starting equipment.
-            if (centre.DistanceTo(origin) < extent + 6f) continue;
-            candidates.Add(centre);
-        }
-
-        candidates.Sort((a, b) =>
-        {
-            int distance = a.DistanceSquaredTo(origin)
-                .CompareTo(b.DistanceSquaredTo(origin));
-            if (distance != 0) return distance;
-            int order = a.Y.CompareTo(b.Y);
-            return order != 0 ? order : a.X.CompareTo(b.X);
-        });
-
-        int checkedCount = 0;
-        foreach (Vector2 centre in candidates)
-        {
-            checkedCount++;
-            Basin basin = TryRegister(definition, centre, 1.7f, 1f);
-            if (basin == null) continue;
-
-            string biome = generator.GetBiome(centre).DisplayName;
-            Vector2 worldPoint = _ground.ToGlobal(
-                IsoGrid.TileToWorld(centre, _chunks.TileSize));
-
+        if (basin == null)
+            GD.PushWarning(
+                $"Basin '{marker.Name}' rejected at tile {centre}.");
+        else
             GD.Print(
-                $"[Water] Test basin accepted in {biome}; " +
-                $"tile {centre}; world {worldPoint}; " +
-                $"checked {checkedCount} location(s).");
-            return;
-        }
-
-        GD.PushWarning(
-            $"[Water] No valid test basin among {checkedCount} locations. " +
-            $"Height variation limit: {definition.MaximumHeightVariation}. " +
-            "No basin was carved.");
+                $"Basin '{marker.Name}' registered at tile {centre}.");
     }
+
+    BiomeBasinGenerator.Generate(
+        generator, chunks, ground, TryRegister);
+}
     #endregion
 
     #region Placement

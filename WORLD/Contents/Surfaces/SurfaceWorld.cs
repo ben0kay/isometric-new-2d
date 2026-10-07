@@ -143,61 +143,62 @@ public partial class SurfaceWorld : Node
         return _ground.ToGlobal(IsoGrid.TileToWorld(tile, _chunks.TileSize));
     }
 
-    // =========================================================
-    // Combine surface slowing and select the strongest active liquid exposure.
-    public SurfaceSample Sample(Vector2 point)
+// =========================================================
+// Query indexed basin immersion and combine other placed surface effects.
+public SurfaceSample Sample(Vector2 point)
+{
+    Vector2 tile = WorldToTile(point);
+    float movement = 1f, deepest = 0f, damage = 0f;
+    Color tint = Colors.White;
+    LiquidDefinition exposure = null;
+
+    WaterBasinWorld.Basin basin = _basins?.GetBasinAt(tile);
+    if (basin != null && basin.Fill > 0.0001f)
     {
-        Vector2 tile = WorldToTile(point);
-        float movement = 1f, deepest = 0f, damage = 0f;
-        Color tint = Colors.White;
-        LiquidDefinition exposure = null;
         float floorHeight = _elevation.SampleWorldHeight(point);
+        float depth = Mathf.Max(0f, basin.WaterHeight - floorHeight);
 
-        foreach (SurfacePatch patch in _patches)
+        if (depth > 0f)
         {
-            if (patch is LiquidBody body)
+            LiquidDefinition liquid = basin.Definition.Liquid;
+            float resistance = Mathf.Clamp(
+                depth / liquid.FullResistanceDepthPixels, 0f, 1f);
+
+            movement = Mathf.Lerp(
+                1f, liquid.WadingSpeedMultiplier, resistance);
+            deepest = depth;
+            tint = liquid.SurfaceColour * basin.Definition.SurfaceTint;
+
+            if (depth >= liquid.MinimumDamageDepthPixels &&
+                liquid.DamagePerSecond > 0f)
             {
-                float depth = body.GetDepth(tile, floorHeight);
-                if (depth <= 0f) continue;
-
-                LiquidDefinition liquid = body.Liquid;
-                float resistance = Mathf.Clamp(
-                    depth / liquid.FullResistanceDepthPixels, 0f, 1f);
-                movement = Mathf.Min(movement, Mathf.Lerp(
-                    1f, liquid.WadingSpeedMultiplier, resistance));
-
-                if (depth > deepest)
-                {
-                    deepest = depth;
-                    tint = liquid.SurfaceColour;
-                }
-
-                if (depth >= liquid.MinimumDamageDepthPixels &&
-                    liquid.DamagePerSecond > damage)
-                {
-                    damage = liquid.DamagePerSecond;
-                    exposure = liquid;
-                }
-                continue;
-            }
-
-            float influence = patch.GetInfluence(tile);
-            if (influence <= 0f) continue;
-
-            movement = Mathf.Min(movement, Mathf.Lerp(
-                1f, patch.Definition.MovementMultiplier, influence));
-            float surfaceDepth =
-                patch.Definition.SubmersionPixels * influence;
-            if (surfaceDepth > deepest)
-            {
-                deepest = surfaceDepth;
-                tint = patch.Definition.SurfaceTint;
+                damage = liquid.DamagePerSecond;
+                exposure = liquid;
             }
         }
-
-        return new SurfaceSample(
-            movement, deepest, tint, exposure, damage);
     }
+
+    foreach (SurfacePatch patch in _patches)
+    {
+        if (patch is LiquidBody) continue;
+
+        float influence = patch.GetInfluence(tile);
+        if (influence <= 0f) continue;
+
+        movement = Mathf.Min(movement, Mathf.Lerp(
+            1f, patch.Definition.MovementMultiplier, influence));
+
+        float surfaceDepth = patch.Definition.SubmersionPixels * influence;
+        if (surfaceDepth > deepest)
+        {
+            deepest = surfaceDepth;
+            tint = patch.Definition.SurfaceTint;
+        }
+    }
+
+    return new SurfaceSample(
+        movement, deepest, tint, exposure, damage);
+}
 
     // =========================================================
     // Expose placed surfaces to the existing collision debug overlay.

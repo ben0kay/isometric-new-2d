@@ -3,6 +3,11 @@
 [ext_resource type="Script" uid="uid://b8baj35qrgr7u" path="res://WORLD/Generation/Biomes/BiomeDefaults.cs" id="1_defaults"]
 [ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="2_placement"]
 [ext_resource type="Resource" path="res://CONFIG/Biomes/DefaultGround.tres" id="3_ground"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/BasaltFlats/BasaltBasins.tres" id="4_basalt"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="5_wilds"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RollingHills/RollingBasins.tres" id="6_rolling"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest/ForestBasins.tres" id="7_forest"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/MountainBasins.tres" id="8_mountains"]
 
 [sub_resource type="Resource" id="Grass"]
 script = ExtResource("2_placement")
@@ -29,5 +34,10 @@ Plants = SubResource("Plants")
 Grass = SubResource("Grass")
 Rocks = SubResource("Rocks")
 Features = Dictionary[String, Resource]({
-"ground": ExtResource("3_ground")
+"ground": ExtResource("3_ground"),
+"basalt_flats/basins": ExtResource("4_basalt"),
+"verdigris_wilds/basins": ExtResource("5_wilds"),
+"rolling_hills/basins": ExtResource("6_rolling"),
+"carbon_forest/basins": ExtResource("7_forest"),
+"rocky_mountains/basins": ExtResource("8_mountains")
 })
