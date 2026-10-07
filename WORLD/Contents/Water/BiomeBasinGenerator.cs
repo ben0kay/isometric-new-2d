@@ -68,6 +68,13 @@ public static class BiomeBasinGenerator
 
             WaterDefinition definition = profile.CreateDefinition(
                 template, size, rotation, elevationSize);
+            BiomeColourProfile colours = biome.ColourProfile;
+            if (colours != null && colours.TintWater)
+            {
+                Color tint = colours.WaterTint;
+                tint.A = 1f;
+                definition.SurfaceTint = tint;
+            }
             definition.Validate();
 
             float extent = Mathf.Max(

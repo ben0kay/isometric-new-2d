@@ -15,4 +15,3 @@ BasinDepth = 16.0
 ShoreWidthTiles = 3.0
 WaterSurfaceDrop = 4.0
 InitialFillRange = Vector2(0.85, 1)
-WaterTint = Color(0.18, 0.38, 0.3, 1)

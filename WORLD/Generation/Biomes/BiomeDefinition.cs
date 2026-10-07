@@ -41,6 +41,11 @@ public partial class BiomeDefinition : Resource
     public float PlateauChance { get; set; } = 0.55f;
     #endregion
 
+    #region Colour Profile
+    [ExportGroup("Colour Profile")]
+    [Export] public BiomeColourProfile ColourProfile { get; set; }
+    #endregion
+
     #region Vegetation
     [ExportGroup("Vegetation")]
     [Export] public BiomeVegetation Vegetation { get; set; } = new();
@@ -150,6 +155,7 @@ public T GetFeature<T>(string id) where T : Resource
     {
         ValidateRange(TemperatureRange, "Temperature");
         ValidateRange(MoistureRange, "Moisture");
+        ColourProfile?.Validate(Id);
 
         if (!float.IsFinite(BaseElevation))
             throw new InvalidOperationException(

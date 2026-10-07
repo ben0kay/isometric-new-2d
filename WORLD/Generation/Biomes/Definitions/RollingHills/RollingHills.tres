@@ -14,6 +14,8 @@
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="13_22mgi"]
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="14_o3ske"]
 
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RollingHills/RollingColours.tres" id="40_colours"]
+
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("2_elski")
 Definition = ExtResource("3_ujsqg")
@@ -71,6 +73,7 @@ Grass = Array[ExtResource("2_elski")]([SubResource("ShortGrassEntry"), SubResour
 script = ExtResource("14_o3ske")
 Id = "rolling_hills"
 DisplayName = "Rolling Hills"
+ColourProfile = ExtResource("40_colours")
 SandboxOrder = 1
 Tags = PackedStringArray("Alien", "Rolling", "Vegetated")
 MoistureRange = Vector2(0.25, 0.8)
@@ -81,3 +84,4 @@ Vegetation = SubResource("Vegetation")
 RocksPerChunk = 3
 Rocks = Array[ExtResource("2_elski")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
 Enemies = ExtResource("1_dy8ah")
+

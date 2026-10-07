@@ -269,8 +269,12 @@ public WorldSample SampleTile(Vector2 tile)
 
             float contribution = profile.GrassCoverage * entry.Weight;
             grassWeight += contribution;
-            shadeSum += profile.GrassShadeTint * contribution;
-            mainSum += profile.GrassMainTint * contribution;
+            BiomeColourProfile colours = _biomes[entry.Index].ColourProfile;
+            bool tinted = colours != null && colours.TintGroundGrass;
+            shadeSum += (tinted ? colours.GroundGrassShade
+                : BiomeColourProfile.DefaultGroundGrassShade) * contribution;
+            mainSum += (tinted ? colours.GroundGrassMain
+                : BiomeColourProfile.DefaultGroundGrassMain) * contribution;
             patchScale += profile.GrassPatchScaleTiles * contribution;
 
             mudStrength += profile.MudStrength * entry.Weight;
@@ -304,13 +308,12 @@ public WorldSample SampleTile(Vector2 tile)
         for (int i = 0; i < blend.Count; i++)
         {
             BiomeInfluence entry = blend.Get(i);
-            BiomeGroundProfile profile =
-                _biomes[entry.Index].GetFeature<BiomeGroundProfile>("ground");
+            BiomeColourProfile colours = _biomes[entry.Index].ColourProfile;
+            if (colours == null || !colours.TintGrass) continue;
 
-            if (profile == null || !profile.TintGrassTufts) continue;
-
-            sum += profile.GrassTuftTint * entry.Weight;
-            tintStrength += entry.Weight;
+            float contribution = entry.Weight * colours.GrassTintStrength;
+            sum += colours.GrassTint * contribution;
+            tintStrength += contribution;
         }
 
         if (tintStrength <= 0.0001f) return Colors.White;
