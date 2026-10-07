@@ -70,6 +70,32 @@ public partial class WorldLayerMember : Node
     {
         return _known.Contains(node);
     }
+
+// =========================================================
+// Change an actor's ownership without recreating it or resetting combat state.
+public void SetLayer(WorldLayer layer)
+{
+    Layer = layer;
+}
+
+// =========================================================
+// Separate pursuit simulation from physical interaction on the visible layer.
+public void SetPhysicsEnabled(bool enabled)
+{
+    foreach (var record in _physics)
+    {
+        if (!GodotObject.IsInstanceValid(record.Body)) continue;
+
+        uint layer = enabled ? record.Layer : 0u;
+        uint mask = enabled ? record.Mask : 0u;
+
+        if (record.Body.CollisionLayer != layer)
+            record.Body.CollisionLayer = layer;
+        if (record.Body.CollisionMask != mask)
+            record.Body.CollisionMask = mask;
+    }
+}
+
     #endregion
 
     #region Activation

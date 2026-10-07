@@ -291,45 +291,49 @@ private bool CanActivate(EnemyDefinition definition, Vector2 point)
     #endregion
 
     #region Stage 4 - Preserve And Retire
-    // =========================================================
-    // Activate prepared actors and retire distant idle actors without resetting vitality.
-    private void MaintainActors()
+// =========================================================
+// Maintain surface population ownership without retiring transferred cave actors.
+private void MaintainActors()
+{
+    for (int i = _active.Count - 1; i >= 0; i--)
     {
-        for (int i = _active.Count - 1; i >= 0; i--)
+        SpawnRecord record = _active[i];
+        Enemy actor = record.Actor;
+
+        if (!GodotObject.IsInstanceValid(actor) || actor.IsQueuedForDeletion())
         {
-            SpawnRecord record = _active[i];
-            Enemy actor = record.Actor;
-
-            if (!GodotObject.IsInstanceValid(actor) || actor.IsQueuedForDeletion())
-            {
-                record.Actor = null;
-                _active.RemoveAt(i);
-                continue;
-            }
-
-            Vector2 point = actor.GlobalPosition;
-            bool visible = IsOnScreen(record.Definition, point);
-            bool retire = !actor.HasTarget && !visible &&
-                (!NearPlayers(point, RetireDistance) ||
-                 !_chunks.IsNavigationPointAvailable(point));
-
-            if (retire)
-            {
-                record.Position = point;
-                record.Vitality = actor.Health.Current;
-                actor.CollisionLayer = 0;
-                actor.Hide();
-                actor.SetPhysicsProcess(false);
-                actor.QueueFree();
-                record.Actor = null;
-                _active.RemoveAt(i);
-                continue;
-            }
-
-            if (!actor.IsActivated && actor.Initialized &&
-                CanActivate(record.Definition, point))
-                actor.Activate();
+            record.Actor = null;
+            _active.RemoveAt(i);
+            continue;
         }
+
+        if (WorldLayerMember.For(actor) != WorldLayer.Surface)
+            continue;
+
+        Vector2 point = actor.GlobalPosition;
+        bool visible = IsOnScreen(record.Definition, point);
+        bool retire = !actor.HasTarget && !visible &&
+            (!NearPlayers(point, RetireDistance) ||
+             !_chunks.IsNavigationPointAvailable(point));
+
+        if (retire)
+        {
+            record.Position = point;
+            record.Home = actor.Home;
+            record.Vitality = actor.Health.Current;
+            actor.CollisionLayer = 0;
+            actor.Hide();
+            actor.SetPhysicsProcess(false);
+            actor.QueueFree();
+            record.Actor = null;
+            _active.RemoveAt(i);
+            continue;
+        }
+
+        if (!actor.IsActivated && actor.Initialized &&
+            CanActivate(record.Definition, point))
+            actor.Activate();
     }
+}
     #endregion
 }

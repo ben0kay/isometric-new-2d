@@ -295,38 +295,51 @@ public partial class ChunkController : Node
 		}
 	}
 
-	// =========================================================
-	// Retire a limited number of instances, even while new chunks are being built.
-	private void RunRetirementBudget()
-	{
-		long started = Stopwatch.GetTimestamp();
-		int steps = 0;
-		while (steps < Mathf.Max(1, MaxRetireStepsPerFrame) && ElapsedMs(started) < Math.Max(0.01, RetirementBudgetMs))
-		{
-			if (_retiring == null)
-			{
-				double now = Time.GetTicksMsec() / 1000.0;
-				foreach (ChunkRecord chunk in _chunks.Values)
-				{
-					if (chunk == _building || WithinMargin(chunk.Coordinate, RetentionMargin)
-						|| now - chunk.LastRetained < Math.Max(0, RetireDelaySeconds)) continue;
-					_retiring = chunk;
-					chunk.Work?.Dispose();
-					chunk.Retiring = true; chunk.Ready = false;
-					chunk.Stage = ChunkBuildStage.Retiring;
-					ChunkAvailabilityChanged?.Invoke(chunk.Coordinate);
-					chunk.Work = RetireChunk(chunk).GetEnumerator();
-					break;
-				}
-				if (_retiring == null) break;
-			}
-			steps++;
-			if (Advance(_retiring)) continue;
-			_retiring.Work.Dispose(); _retiring.Work = null;
-			_chunks.Remove(_retiring.Coordinate); _retiring = null;
-		}
-	}
+// =========================================================
+// Retire old buffers while preserving loaded routes used by surface pursuers.
+private void RunRetirementBudget()
+{
+	long started = Stopwatch.GetTimestamp();
+	int steps = 0;
+	CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
 
+	while (steps < Mathf.Max(1, MaxRetireStepsPerFrame) &&
+		ElapsedMs(started) < Math.Max(0.01, RetirementBudgetMs))
+	{
+		if (_retiring == null)
+		{
+			double now = Time.GetTicksMsec() / 1000.0;
+
+			foreach (ChunkRecord chunk in _chunks.Values)
+			{
+				if (chunk == _building ||
+					WithinMargin(chunk.Coordinate, RetentionMargin) ||
+					now - chunk.LastRetained < Math.Max(0, RetireDelaySeconds) ||
+					pursuit?.RetainSurface(chunk.Coordinate) == true)
+					continue;
+
+				_retiring = chunk;
+				chunk.Work?.Dispose();
+				chunk.Retiring = true;
+				chunk.Ready = false;
+				chunk.Stage = ChunkBuildStage.Retiring;
+				ChunkAvailabilityChanged?.Invoke(chunk.Coordinate);
+				chunk.Work = RetireChunk(chunk).GetEnumerator();
+				break;
+			}
+
+			if (_retiring == null) break;
+		}
+
+		steps++;
+		if (Advance(_retiring)) continue;
+
+		_retiring.Work.Dispose();
+		_retiring.Work = null;
+		_chunks.Remove(_retiring.Coordinate);
+		_retiring = null;
+	}
+}
 	// =========================================================
 	// Measure one resumable step; a single mesh upload can still exceed the requested budget.
 	private bool Advance(ChunkRecord chunk)

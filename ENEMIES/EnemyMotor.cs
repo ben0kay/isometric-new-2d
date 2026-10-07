@@ -58,49 +58,71 @@ public partial class EnemyMotor : Node
     #endregion
 
     #region Movement
-    // =========================================================
-    // Advance physical movement while scheduling route work at a lower frequency.
-    public void Tick(double delta)
+// =========================================================
+// Follow the actor's layer navigation and constrain movement to loaded ground.
+public void Tick(double delta)
+{
+    if (!HasGoal || delta <= 0.0) return;
+
+    WorldNavigation navigation = WorldNavigation.For(_actor);
+    if (navigation != _navigation)
     {
-        if (!HasGoal || delta <= 0.0) return;
-        _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
-        if (_navigation == null || Arrived) { _actor.Velocity = Vector2.Zero; return; }
+        _navigation = navigation;
+        _path = Array.Empty<Vector2>();
+        _pathIndex = 0;
+        _pathTimer = 0.0;
+        _direct = false;
+        _stalled = 0f;
+    }
 
-        _pathTimer -= delta;
-        if (_pathTimer <= 0.0) RefreshPath();
+    if (_navigation == null || Arrived)
+    {
+        _actor.Velocity = Vector2.Zero;
+        return;
+    }
 
-        Vector2 position = _actor.GlobalPosition;
-        Vector2 destination = _goal;
+    _pathTimer -= delta;
+    if (_pathTimer <= 0.0) RefreshPath();
 
-        if (!_direct)
+    Vector2 position = _actor.GlobalPosition;
+    Vector2 destination = _goal;
+
+    if (!_direct)
+    {
+        while (_pathIndex < _path.Length &&
+            position.DistanceSquaredTo(_path[_pathIndex]) < 16f)
+            _pathIndex++;
+
+        if (_pathIndex >= _path.Length)
         {
-            while (_pathIndex < _path.Length &&
-                position.DistanceSquaredTo(_path[_pathIndex]) < 16f)
-                _pathIndex++;
-
-            if (_pathIndex >= _path.Length)
-            {
-                _actor.Velocity = Vector2.Zero;
-                if (!_navigation.IsBuilding) _stalled += (float)delta;
-                return;
-            }
-            destination = _path[_pathIndex];
+            _actor.Velocity = Vector2.Zero;
+            if (!_navigation.IsBuilding) _stalled += (float)delta;
+            return;
         }
 
-        Vector2 difference = destination - position;
-        float distance = difference.Length();
-        float remaining = _direct ? Mathf.Max(0f, distance - _stopDistance) : distance;
-        float speed = Mathf.Min(_speed, remaining / (float)delta);
-        _actor.Velocity = distance > 0.001f ? difference / distance * speed : Vector2.Zero;
-        _actor.MoveAndSlide();
-
-        if (_actor.GlobalPosition.DistanceSquaredTo(position) < 0.01f)
-            _stalled += (float)delta;
-        else _stalled = 0f;
-
-        if (_actor.GetSlideCollisionCount() > 0)
-            _pathTimer = Math.Min(_pathTimer, 0.1);
+        destination = _path[_pathIndex];
     }
+
+    Vector2 difference = destination - position;
+    float distance = difference.Length();
+    float remaining = _direct
+        ? Mathf.Max(0f, distance - _stopDistance) : distance;
+    float speed = Mathf.Min(_speed, remaining / (float)delta);
+
+    Vector2 velocity = distance > 0.001f
+        ? difference / distance * speed : Vector2.Zero;
+    _actor.Velocity = _navigation.ConstrainVelocity(
+        position, velocity, delta);
+    _actor.MoveAndSlide();
+
+    if (_actor.GlobalPosition.DistanceSquaredTo(position) < 0.01f)
+        _stalled += (float)delta;
+    else
+        _stalled = 0f;
+
+    if (_actor.GetSlideCollisionCount() > 0)
+        _pathTimer = Math.Min(_pathTimer, 0.1);
+}
 
     // =========================================================
     // Refresh direct travel or A* while retaining routes during incremental builds.

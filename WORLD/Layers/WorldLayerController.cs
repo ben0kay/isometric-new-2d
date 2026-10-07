@@ -78,36 +78,38 @@ public partial class WorldLayerController : Node
             _camera.Position = _cameraPosition;
     }
 
-    // =========================================================
-    // Connect the shared player, surface streamer and cave services.
-    public void Configure(Node world, Player player, CaveWorld cave)
-    {
-        _world = world;
-        _player = player;
-        Cave = cave;
-        _ground = world.GetNode<Node2D>("GroundChunks");
-        _objects = world.GetNode<Node2D>("WorldObjects");
-        _config = WorldConfig.Find(world);
-        _surfaceChunks = world.GetNode<ChunkController>("Systems/ChunkController");
-        _camera = player.GetNode<Camera2D>("Camera2D");
-        _cameraPosition = _camera.Position;
+// =========================================================
+// Connect player, streaming, layer presentation and enemy pursuit.
+public void Configure(Node world, Player player, CaveWorld cave)
+{
+    _world = world;
+    _player = player;
+    Cave = cave;
+    _ground = world.GetNode<Node2D>("GroundChunks");
+    _objects = world.GetNode<Node2D>("WorldObjects");
+    _config = WorldConfig.Find(world);
+    _surfaceChunks = world.GetNode<ChunkController>("Systems/ChunkController");
+    _camera = player.GetNode<Camera2D>("Camera2D");
+    _cameraPosition = _camera.Position;
 
-        _underground = WorldLayerMember.Attach(cave.Root, WorldLayer.Cave);
-        _underground.SetActive(false);
-        _underground.SetOpacity(0f);
-        cave.Streaming.ConfigurePlayer(player);
-        cave.Streaming.SetActive(false);
+    _underground = WorldLayerMember.Attach(cave.Root, WorldLayer.Cave);
+    _underground.SetActive(false);
+    _underground.SetOpacity(0f);
+    cave.Streaming.ConfigurePlayer(player);
+    cave.Streaming.SetActive(false);
 
-        _tree = GetTree();
-        _tree.NodeAdded += OnNodeAdded;
+    _tree = GetTree();
+    _tree.NodeAdded += OnNodeAdded;
 
-        CanvasLayer hud = new() { Name = "LayerHUD", Layer = 40 };
-        AddChild(hud);
-        _status = new Label { Position = new Vector2(16, 200) };
-        _status.AddThemeColorOverride("font_color", new Color("#8be4cf"));
-        hud.AddChild(_status);
-        SetProcess(true);
-    }
+    CanvasLayer hud = new() { Name = "LayerHUD", Layer = 40 };
+    AddChild(hud);
+    _status = new Label { Position = new Vector2(16, 200) };
+    _status.AddThemeColorOverride("font_color", new Color("#8be4cf"));
+    hud.AddChild(_status);
+
+    CaveEnemyPursuit.Ensure(this, world);
+    SetProcess(true);
+}
 
     // =========================================================
     // Preload nearby exits while exploring, then switch layers at the mouth.
@@ -239,22 +241,24 @@ public partial class WorldLayerController : Node
     #endregion
 
     #region Incremental Surface Registration
-    // =========================================================
-    // Queue newly added surface content while excluding shared gameplay nodes.
-    private void OnNodeAdded(Node node)
+// =========================================================
+// Queue surface scenery while leaving independently managed actors alone.
+private void OnNodeAdded(Node node)
+{
+    if (Current != WorldLayer.Cave || node is WorldLayerMember)
+        return;
+
+    bool surface = _ground.IsAncestorOf(node) || _objects.IsAncestorOf(node);
+
+    for (Node parent = node; parent != null; parent = parent.GetParent())
     {
-        if (Current != WorldLayer.Cave || node is WorldLayerMember)
+        if (parent is Player || parent is Enemy || parent is Projectile)
             return;
-
-        bool surface = _ground.IsAncestorOf(node) || _objects.IsAncestorOf(node);
-        for (Node parent = node; parent != null; parent = parent.GetParent())
-        {
-            if (parent is Player || parent is Projectile) return;
-            if (_roots.ContainsKey(parent)) surface = true;
-        }
-
-        if (surface) _addedSurface.Enqueue(node);
+        if (_roots.ContainsKey(parent)) surface = true;
     }
+
+    if (surface) _addedSurface.Enqueue(node);
+}
 
     // =========================================================
     // Pause new branches without revisiting existing surface hierarchies.
@@ -324,80 +328,86 @@ public partial class WorldLayerController : Node
             RegisterExistingBranches(child);
     }
 
-    // =========================================================
-    // Collect surface ownership once when entering a cave.
-    private void CaptureSurface()
+// =========================================================
+// Pause scenery and population work while pursuit owns enemy activation.
+private void CaptureSurface()
+{
+    _surface.Clear();
+    _roots.Clear();
+    _inheritedFade.Clear();
+    _addedSurface.Clear();
+
+    RegisterRoot(_ground);
+    RegisterExistingBranches(_ground);
+
+    foreach (Node child in _objects.GetChildren())
     {
-        _surface.Clear();
-        _roots.Clear();
-        _inheritedFade.Clear();
-        _addedSurface.Clear();
+        if (child == _player || child is Enemy || child is Projectile ||
+            child.IsQueuedForDeletion())
+            continue;
 
-        RegisterRoot(_ground);
-        RegisterExistingBranches(_ground);
-
-        foreach (Node child in _objects.GetChildren())
-        {
-            if (child == _player || child is Projectile ||
-                child.IsQueuedForDeletion()) continue;
-            RegisterRoot(child);
-            RegisterExistingBranches(child);
-        }
-
-        Node systems = _world.GetNode("Systems");
-        foreach (string name in new[]
-        {
-            "ChunkController", "WorldNavigation", "EnemyPopulation",
-            "Atmosphere", "GroundFog", "VegetationInteraction", "Surfaces"
-        })
-        {
-            Node node = systems.GetNodeOrNull<Node>(name);
-            if (node == null) continue;
-            RegisterRoot(node);
-            RegisterExistingBranches(node);
-        }
-
-        Node fading = _config.GetNodeOrNull<Node>("PlayerObstructionFade");
-        if (fading != null) RegisterRoot(fading);
+        RegisterRoot(child);
+        RegisterExistingBranches(child);
     }
+
+    Node systems = _world.GetNode("Systems");
+    foreach (string name in new[]
+    {
+        "ChunkController", "EnemyPopulation", "Atmosphere",
+        "GroundFog", "VegetationInteraction", "Surfaces"
+    })
+    {
+        Node node = systems.GetNodeOrNull<Node>(name);
+        if (node == null) continue;
+        RegisterRoot(node);
+        RegisterExistingBranches(node);
+    }
+
+    Node fading = _config.GetNodeOrNull<Node>("PlayerObstructionFade");
+    if (fading != null) RegisterRoot(fading);
+}
     #endregion
 
     #region Switching And Landing
-    // =========================================================
-    // Align entry and pause existing surface simulation once.
-    private void EnterCave(CaveHole hole)
-    {
-        if (!Cave.Streaming.EntryReady(hole)) return;
+ // =========================================================
+// Enter ready cave ground and tell existing pursuers which entrance was used.
+private void EnterCave(CaveHole hole)
+{
+    if (!Cave.Streaming.EntryReady(hole)) return;
 
-        Vector2 local = hole.Coordinates(Cave.WorldToTile(_player.GlobalPosition));
-        Vector2 entry = Cave.TileToWorld(hole.TileAt(Mathf.Clamp(local.X, 0f, 0.5f)));
-        if (!Cave.Streaming.IsAvailable(entry)) return;
+    Vector2 local = hole.Coordinates(Cave.WorldToTile(_player.GlobalPosition));
+    Vector2 entry = Cave.TileToWorld(
+        hole.TileAt(Mathf.Clamp(local.X, 0f, 0.5f)));
+    if (!Cave.Streaming.IsAvailable(entry)) return;
 
-        CaptureSurface();
+    CaptureSurface();
 
-        // Restore presentation before any branch takes a fresh snapshot.
-        foreach (WorldLayerMember member in _surface)
-            member.SetOpacity(1f);
-        foreach (WorldLayerMember member in _surface)
-            member.SetActive(false);
+    foreach (WorldLayerMember member in _surface)
+        member.SetOpacity(1f);
+    foreach (WorldLayerMember member in _surface)
+        member.SetActive(false);
 
-        _player.GlobalPosition = entry;
-        _player.Velocity = Vector2.Zero;
-        _lastEntry = hole;
-        _entryDeparted = false;
-        _pendingExit = null;
-        _exitReady = false;
-        _surfaceLoaded = false;
-        _appliedOpacity = float.NaN;
+    _player.GlobalPosition = entry;
+    _player.Velocity = Vector2.Zero;
+    _lastEntry = hole;
+    _entryDeparted = false;
+    _pendingExit = null;
+    _exitReady = false;
+    _surfaceLoaded = false;
+    _appliedOpacity = float.NaN;
 
-        _underground.SetActive(true);
-        _underground.SetOpacity(1f);
-        Cave.Streaming.SetActive(true);
-        Current = WorldLayer.Cave;
-        Epoch++;
-        StopMining();
-        GD.Print($"[Layers] Entered through hole {hole.Id}.");
-    }
+    _underground.SetActive(true);
+    _underground.SetOpacity(1f);
+    Cave.Streaming.SetActive(true);
+    Current = WorldLayer.Cave;
+    Epoch++;
+
+    CaveEnemyPursuit.Find(this)?.PlayerCrossed(
+        hole, Current, _player);
+
+    StopMining();
+    GD.Print($"[Layers] Entered through hole {hole.Id}.");
+}
 
     // =========================================================
     // Preserve the existing death and respawn integration.
@@ -409,36 +419,42 @@ public partial class WorldLayerController : Node
             : _player.GlobalPosition);
     }
 
-    // =========================================================
-    // Restore existing and newly streamed surface branches.
-    private void RestoreSurface(Vector2 landing)
+// =========================================================
+// Restore the surface and preserve a route for enemies following out.
+private void RestoreSurface(Vector2 landing)
+{
+    CaveHole crossed = Cave.NearestSurfaceHole(landing);
+
+    DrainAddedSurface();
+    Cave.Streaming.SetActive(false);
+    _underground.SetActive(false);
+    _underground.SetOpacity(0f);
+
+    _player.GlobalPosition = landing;
+    _player.Velocity = Vector2.Zero;
+
+    foreach (WorldLayerMember member in _surface)
     {
-        DrainAddedSurface();
-        Cave.Streaming.SetActive(false);
-        _underground.SetActive(false);
-        _underground.SetOpacity(0f);
-
-        _player.GlobalPosition = landing;
-        _player.Velocity = Vector2.Zero;
-
-        foreach (WorldLayerMember member in _surface)
-        {
-            if (!GodotObject.IsInstanceValid(member)) continue;
-            member.SetActive(true);
-            if (!_inheritedFade.Contains(member))
-                member.SetOpacity(_surfaceOpacity);
-        }
-
-        Current = WorldLayer.Surface;
-        Epoch++;
-        _pendingExit = null;
-        _exitReady = false;
-        _surfaceLoaded = false;
-        _appliedOpacity = float.NaN;
-        _camera.Position = _cameraPosition;
-        _camera.ResetSmoothing();
-        StopMining();
+        if (!GodotObject.IsInstanceValid(member)) continue;
+        member.SetActive(true);
+        if (!_inheritedFade.Contains(member))
+            member.SetOpacity(_surfaceOpacity);
     }
+
+    Current = WorldLayer.Surface;
+    Epoch++;
+    _pendingExit = null;
+    _exitReady = false;
+    _surfaceLoaded = false;
+    _appliedOpacity = float.NaN;
+    _camera.Position = _cameraPosition;
+    _camera.ResetSmoothing();
+
+    CaveEnemyPursuit.Find(this)?.PlayerCrossed(
+        crossed, Current, _player);
+
+    StopMining();
+}
 
     // =========================================================
     // Check ready terrain and obstacle footprints without disabled physics queries.

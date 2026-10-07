@@ -11,15 +11,8 @@ public partial class EnemySequence : Node
     public bool IsRunning { get; private set; }
     public bool IsConfigured => Actor.Definition.Sequence != null;
 
-    public WorldNavigation Navigation
-    {
-        get
-        {
-            _navigation ??= GetTree().GetFirstNodeInGroup(
-                "world_navigation") as WorldNavigation;
-            return _navigation;
-        }
-    }
+  // Navigation follows this actor when it crosses between layers.
+public WorldNavigation Navigation => WorldNavigation.For(Actor);
     #endregion
 
     #region Private State

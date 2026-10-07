@@ -143,7 +143,7 @@ public override void _ExitTree()
     }
 
 // =========================================================
-// Stage awareness, movement decisions, attack execution, then physical movement.
+// Advance awareness, layer-aware decisions, combat and physical movement.
 public override void _PhysicsProcess(double delta)
 {
     if (!Initialized || !IsActivated || SpawnPending ||
@@ -154,21 +154,26 @@ public override void _PhysicsProcess(double delta)
         return;
     }
 
-    _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
+    _navigation = WorldNavigation.For(this);
     if (_navigation == null) return;
+
+    // Sequences cannot keep attacking or dodging toward another layer.
+    if (HasTarget && !WorldLayerMember.Same(this, Target))
+    {
+        _sequence.Cancel();
+        HasSight = false;
+    }
 
     _targetTimer -= delta;
     _decisionTimer -= delta;
     _wanderTimer -= delta;
 
-    // Stage 1: periodic awareness and target selection.
     if (_targetTimer <= 0.0)
     {
         _targetTimer = Definition.TargetInterval;
         SelectTarget();
     }
 
-    // Stage 2: refresh sight; ordinary movement yields to an active sequence.
     if (_decisionTimer <= 0.0)
     {
         _decisionTimer = Definition.DecisionInterval;
@@ -178,18 +183,16 @@ public override void _PhysicsProcess(double delta)
             DecideMovement();
     }
 
-    // Stage 3: advance weapon timing, then the current sequence action.
     _combat.Tick(delta);
     bool wasRunning = _sequence.IsRunning;
     _sequence.Tick(delta);
     if (wasRunning && !_sequence.IsRunning) _decisionTimer = 0.0;
 
-    // Stage 4: execute the goal chosen by the current movement owner.
     _motor.Tick(delta);
 }
 
 // =========================================================
-// Replace a dead robot with a lootable wreck and notify population ownership.
+// Create a robot wreck on the layer where the robot actually died.
 private void OnDeath()
 {
     if (IsQueuedForDeletion()) return;
@@ -201,13 +204,15 @@ private void OnDeath()
     CollisionLayer = 0;
     CollisionMask = 0;
 
+    WorldLayer layer = WorldLayerMember.For(this);
     Vector2 deathPosition = GlobalPosition;
     ulong identity = RandomSeed != 0 ? RandomSeed : GetInstanceId();
-    string wreckId = $"dead_robot:{Definition.Id}:{identity}";
+    string wreckId = $"{layer}:dead_robot:{Definition.Id}:{identity}";
 
     try
     {
-        LootWorld.GetOrCreate(this).RecordRobotDeath(wreckId, deathPosition);
+        LootWorld.GetOrCreate(this).RecordRobotDeath(
+            wreckId, deathPosition, layer);
     }
     catch (Exception error)
     {
@@ -294,7 +299,7 @@ private bool CanSee(Vector2 point, Player player = null)
 
     #region Decisions
 // =========================================================
-// Route movement decisions through shared melee or ranged behaviour.
+// Pursue through the remembered entrance before resuming ordinary combat.
 private void DecideMovement()
 {
     HasSight = HasTarget && CanSee(Target.GlobalPosition);
@@ -307,7 +312,11 @@ private void DecideMovement()
 
     if (!WorldLayerMember.Same(this, Target))
     {
-        _motor.Stop();
+        CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+        if (pursuit != null && pursuit.TryGetGoal(this, out Vector2 mouth))
+            _motor.SetGoal(mouth, Definition.MoveSpeed, 6f);
+        else
+            _motor.Stop();
         return;
     }
 
@@ -316,8 +325,7 @@ private void DecideMovement()
 
     if (combat is MeleeCombatSettings)
     {
-        _motor.SetGoal(
-            point, Definition.MoveSpeed, combat.StopDistance);
+        _motor.SetGoal(point, Definition.MoveSpeed, combat.StopDistance);
         return;
     }
 
@@ -441,6 +449,31 @@ private float GetRangedDistance(RangedCombatSettings ranged)
 
     _chosenRangedDistance = distance;
     return distance;
+}
+
+// =========================================================
+// Release an old movement sequence before pursuing through an entrance.
+public void ResetPursuitMovement()
+{
+    _sequence?.Cancel();
+    _motor?.Stop();
+    HasSight = false;
+    _retreating = false;
+    _decisionTimer = 0.0;
+}
+
+// =========================================================
+// Move ownership at the mouth without recreating or resetting the enemy.
+public void CrossWorldLayer(WorldLayer layer, Vector2 position)
+{
+    ResetPursuitMovement();
+    WorldLayerMember.Attach(this, WorldLayerMember.For(this)).SetLayer(layer);
+
+    GlobalPosition = position;
+    Velocity = Vector2.Zero;
+    Home = position;
+    _navigation = WorldNavigation.For(this);
+    _targetTimer = 0.0;
 }
     #endregion
 }

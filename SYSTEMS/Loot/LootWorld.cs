@@ -6,21 +6,22 @@ using System.Collections.Generic;
 
 public partial class LootWorld : Node
 {
-    #region State
-    private sealed class DeathWreck
-    {
-        public string Id;
-        public Vector2 Position;
-        public Node2D Actor;
-    }
+#region State
+private sealed class DeathWreck
+{
+    public string Id;
+    public Vector2 Position;
+    public WorldLayer Layer;
+    public Node2D Actor;
+}
 
-    private readonly Dictionary<string, InventoryStorage> _contents = new();
-    private readonly Dictionary<string, DeathWreck> _wrecks = new();
-    private ChunkController _chunks;
-    private Node2D _objects;
-    private PackedScene _wreckScene;
-    private double _timer;
-    #endregion
+private readonly Dictionary<string, InventoryStorage> _contents = new();
+private readonly Dictionary<string, DeathWreck> _wrecks = new();
+private ChunkController _chunks;
+private Node2D _objects;
+private PackedScene _wreckScene;
+private double _timer;
+#endregion
 
     #region Lifecycle
     // =========================================================
@@ -115,24 +116,27 @@ public partial class LootWorld : Node
 
     #region Robot Deaths
 // =========================================================
-// Record one death and report whether its wreck creation is requested.
-public void RecordRobotDeath(string id, Vector2 position)
+// Retain the death's location and layer independently from its visible wreck.
+public void RecordRobotDeath(
+    string id, Vector2 position, WorldLayer layer = WorldLayer.Surface)
 {
-    GD.Print($"[Wreck] Death received: {id} at {position}");
-
     if (_wrecks.ContainsKey(id))
     {
         GD.PushWarning($"[Wreck] Duplicate death identity: {id}");
         return;
     }
 
-    DeathWreck wreck = new() { Id = id, Position = position };
+    DeathWreck wreck = new()
+    {
+        Id = id,
+        Position = position,
+        Layer = layer
+    };
     _wrecks.Add(id, wreck);
 
     Callable.From(() =>
     {
         if (!IsInsideTree() || IsQueuedForDeletion()) return;
-
         try
         {
             RestoreWreck(wreck);
@@ -145,62 +149,66 @@ public void RecordRobotDeath(string id, Vector2 position)
 }
 
 // =========================================================
-// Create a wreck and report its scene, position and interaction registration.
+// Create the wreck beneath the correct layer's object root.
 private void RestoreWreck(DeathWreck record)
 {
-    if (GodotObject.IsInstanceValid(record.Actor)) return;
-
-    if (!_chunks.IsNavigationPointAvailable(record.Position))
-    {
-        GD.Print($"[Wreck] Waiting for available ground at {record.Position}");
+    if (GodotObject.IsInstanceValid(record.Actor) || !WreckAvailable(record))
         return;
-    }
+
+    WorldLayerController layers = WorldLayerController.Find(this);
+    Node2D root = record.Layer == WorldLayer.Cave
+        ? layers.Cave.Objects : _objects;
 
     Node2D wreck = _wreckScene.Instantiate<Node2D>();
     LootContainer loot = wreck.GetNode<LootContainer>("Systems/Loot");
     loot.PersistentId = record.Id;
-    wreck.Position = _objects.ToLocal(record.Position);
+    wreck.Position = root.ToLocal(record.Position);
 
     record.Actor = wreck;
-    _objects.AddChild(wreck);
+    root.AddChild(wreck);
+}
 
-    GD.Print(
-        $"[Wreck] Created: {wreck.GetPath()}" +
-        $" | Position: {wreck.GlobalPosition}" +
-        $" | Storage initialized: {loot.Initialized}" +
-        $" | Interaction group: {loot.IsInGroup("world_storage")}" +
-        $" | Range: {loot.Definition.InteractionRange}");
+// =========================================================
+// Retain wreck contents while restoring at most one active-layer wreck per update.
+public override void _Process(double delta)
+{
+    if (!_chunks.WorldReady) return;
+    _timer -= delta;
+    if (_timer > 0.0) return;
+    _timer = 0.25;
+
+    foreach (DeathWreck record in _wrecks.Values)
+    {
+        if (!GodotObject.IsInstanceValid(record.Actor))
+            record.Actor = null;
+
+        if (!WreckAvailable(record) && record.Actor != null)
+        {
+            record.Actor.QueueFree();
+            record.Actor = null;
+        }
+    }
+
+    foreach (DeathWreck record in _wrecks.Values)
+    {
+        if (record.Actor != null || !WreckAvailable(record)) continue;
+        RestoreWreck(record);
+        break;
+    }
 }
 
     // =========================================================
-    // Retire unloaded wreck artwork and restore at most one wreck per update.
-    public override void _Process(double delta)
-    {
-        if (!_chunks.WorldReady) return;
-        _timer -= delta;
-        if (_timer > 0) return;
-        _timer = 0.25;
+// Restore artwork only on its active layer and ready terrain.
+private bool WreckAvailable(DeathWreck record)
+{
+    WorldLayerController layers = WorldLayerController.Find(this);
+    WorldLayer current = layers?.Current ?? WorldLayer.Surface;
 
-        foreach (DeathWreck record in _wrecks.Values)
-        {
-            if (!GodotObject.IsInstanceValid(record.Actor))
-                record.Actor = null;
+    if (record.Layer != current) return false;
 
-            bool available = _chunks.IsNavigationPointAvailable(record.Position);
-            if (!available && record.Actor != null)
-            {
-                record.Actor.QueueFree();
-                record.Actor = null;
-            }
-        }
-
-        foreach (DeathWreck record in _wrecks.Values)
-        {
-            if (record.Actor != null ||
-                !_chunks.IsNavigationPointAvailable(record.Position)) continue;
-            RestoreWreck(record);
-            break;
-        }
-    }
+    return record.Layer == WorldLayer.Cave
+        ? layers?.Cave.Streaming.IsAvailable(record.Position, 0f) == true
+        : _chunks.IsNavigationPointAvailable(record.Position);
+}
     #endregion
 }

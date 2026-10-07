@@ -30,6 +30,10 @@ public partial class CaveChunkController : Node
     private bool _failed;
     #endregion
 
+    #region Navigation Updates
+public event Action<Vector2I> ChunkAvailabilityChanged;
+#endregion
+
     #region Lifecycle
     // =========================================================
     // Connect the cave before enabling any streaming work.
@@ -174,37 +178,38 @@ private bool PointAvailable(Vector2 point)
     #endregion
 
     #region Scheduling
-    // =========================================================
-    // Resume small construction steps; uploads remain bounded by chunk size.
-    private void RunBuildBudget()
+// =========================================================
+// Build ready cave chunks and notify the cave navigation cache.
+private void RunBuildBudget()
+{
+    long started = Stopwatch.GetTimestamp();
+
+    while (ElapsedMs(started) < _world.Settings.BuildBudgetMs)
     {
-        long started = Stopwatch.GetTimestamp();
-
-        while (ElapsedMs(started) < _world.Settings.BuildBudgetMs)
+        if (_building == null)
         {
-            if (_building == null)
+            Vector2I? coordinate = NextCoordinate();
+            if (coordinate == null) break;
+
+            _building = new CaveChunk
             {
-                Vector2I? coordinate = NextCoordinate();
-                if (coordinate == null) break;
-
-                _building = new CaveChunk
-                {
-                    Name = $"CaveChunk_{coordinate.Value.X}_{coordinate.Value.Y}"
-                };
-                _world.Root.AddChild(_building);
-                _building.Configure(_world, coordinate.Value);
-                _chunks.Add(coordinate.Value, _building);
-                _work = _building.BuildSteps().GetEnumerator();
-            }
-
-            if (_work.MoveNext()) continue;
-
-            _work.Dispose();
-            _work = null;
-            _building.Finish(_active);
-            _building = null;
+                Name = $"CaveChunk_{coordinate.Value.X}_{coordinate.Value.Y}"
+            };
+            _world.Root.AddChild(_building);
+            _building.Configure(_world, coordinate.Value);
+            _chunks.Add(coordinate.Value, _building);
+            _work = _building.BuildSteps().GetEnumerator();
         }
+
+        if (_work.MoveNext()) continue;
+
+        _work.Dispose();
+        _work = null;
+        _building.Finish(_active);
+        ChunkAvailabilityChanged?.Invoke(_building.Coordinate);
+        _building = null;
     }
+}
 
     // =========================================================
     // Build nearest missing chunks first instead of following dictionary order.
@@ -231,36 +236,39 @@ private bool PointAvailable(Vector2 point)
         return best;
     }
 
-    // =========================================================
-    // Remove a limited number of old chunks; regeneration needs only the seed.
-    private void RetireDistant()
+// =========================================================
+// Retire cave chunks gradually while protecting active pursuit routes.
+private void RetireDistant()
+{
+    int radius = _world.Settings.RetainRadiusChunks;
+    int limit = _world.Settings.RetireChunksPerFrame;
+    List<Vector2I> remove = new();
+    CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+
+    foreach (var pair in _chunks)
     {
-        int radius = _world.Settings.RetainRadiusChunks;
-        int limit = _world.Settings.RetireChunksPerFrame;
-        List<Vector2I> remove = new();
+        if (pair.Value == _building) continue;
 
-        foreach (var pair in _chunks)
-        {
-            if (pair.Value == _building) continue;
+        Vector2I difference = pair.Key - _focus;
+        if ((Mathf.Abs(difference.X) <= radius &&
+            Mathf.Abs(difference.Y) <= radius) ||
+            pursuit?.RetainCave(pair.Key) == true)
+            continue;
 
-            Vector2I difference = pair.Key - _focus;
-            if (Mathf.Abs(difference.X) <= radius &&
-                Mathf.Abs(difference.Y) <= radius)
-                continue;
-
-            remove.Add(pair.Key);
-            if (remove.Count >= limit) break;
-        }
-
-        foreach (Vector2I coordinate in remove)
-        {
-            CaveChunk chunk = _chunks[coordinate];
-            chunk.SetActive(false);
-            chunk.Visible = false;
-            chunk.QueueFree();
-            _chunks.Remove(coordinate);
-        }
+        remove.Add(pair.Key);
+        if (remove.Count >= limit) break;
     }
+
+    foreach (Vector2I coordinate in remove)
+    {
+        CaveChunk chunk = _chunks[coordinate];
+        chunk.SetActive(false);
+        chunk.Visible = false;
+        chunk.QueueFree();
+        _chunks.Remove(coordinate);
+        ChunkAvailabilityChanged?.Invoke(coordinate);
+    }
+}
 
     // =========================================================
     // Measure monotonic elapsed time without allocating stopwatch objects.
