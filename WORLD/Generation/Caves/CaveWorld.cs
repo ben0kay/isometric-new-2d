@@ -35,24 +35,20 @@ public partial class CaveWorld : Node2D
     }
 
     // =========================================================
-    // Create the shared network and both entrance markers.
+    // Create one shared cave network from preplanned entrance records.
     public void Build(
         Vector2 origin, Vector2 tileSize, float rimHeight,
         uint worldSeed, CaveGenerationSettings settings,
-        CaveHole secondHole = null)
+        IReadOnlyList<CaveHole> holes)
     {
         Settings = (CaveGenerationSettings)settings.Duplicate();
         Settings.Validate();
         TileSize = tileSize;
         RimHeight = rimHeight;
 
-        _holes.Add(new CaveHole(
-            "A", Vector2.Zero, Vector2.Right,
-            origin, rimHeight, Settings.EntranceTunnelLengthTiles,
-            Vector2I.Zero));
-
-        if (secondHole != null)
-            _holes.Add(secondHole);
+        _holes.Clear();
+        foreach (CaveHole hole in holes)
+            _holes.Add(hole);
 
         Generator = new CaveGenerator(
             Settings, worldSeed, _holes, rimHeight - Settings.DepthPixels);
@@ -64,7 +60,11 @@ public partial class CaveWorld : Node2D
         Objects = new Node2D { Name = "Objects", YSortEnabled = true };
         Root.AddChild(Objects);
 
-        Elevation = new CaveTerrainElevation { Name = "Elevation", World = this };
+        Elevation = new CaveTerrainElevation
+        {
+            Name = "Elevation",
+            World = this
+        };
         AddChild(Elevation);
 
         GroundMaterial = new ShaderMaterial
@@ -73,7 +73,8 @@ public partial class CaveWorld : Node2D
                 "res://WORLD/Generation/Caves/Rendering/CaveGround.gdshader")
         };
 
-        using Image image = Image.CreateEmpty(1, 1, false, Image.Format.Rgba8);
+        using Image image = Image.CreateEmpty(
+            1, 1, false, Image.Format.Rgba8);
         image.Fill(Colors.White);
         WhiteTexture = ImageTexture.CreateFromImage(image);
 
@@ -167,6 +168,19 @@ public partial class CaveWorld : Node2D
                 return hole;
         }
         return null;
+    }
+
+        // =========================================================
+    // Read only the surface biome above a logical cave location.
+    public BiomeDefinition GetSurfaceBiome(Vector2 caveTile)
+    {
+        WorldGenerator surface = GetTree().GetFirstNodeInGroup(
+            "world_generator") as WorldGenerator;
+        Node2D ground = surface.GetNode<Node2D>("../../GroundChunks");
+
+        Vector2 surfaceTile = IsoGrid.WorldToTile(
+            ground.ToLocal(TileToWorld(caveTile)), TileSize);
+        return surface.GetBiome(surfaceTile);
     }
     #endregion
 

@@ -14,9 +14,18 @@ public partial class GlobalConfig : Node
     [ExportGroup("BASINS")]
     [Export] public bool GenerateBiomeBasins { get; set; } = true;
 
-    // One potential basin location per square of this width in tile units.
     [Export(PropertyHint.Range, "16,256,8")]
     public float BasinCandidateSpacingTiles { get; set; } = 64f;
+    #endregion
+
+    #region Caves
+    [ExportGroup("CAVES")]
+    [Export] public bool GenerateCaves { get; set; } = true;
+
+    // Minimum logical tile distance between surface entrance mouths.
+    // Large tunnel profiles may require a greater safety distance.
+    [Export(PropertyHint.Range, "64,1024,8")]
+    public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;
     #endregion
 
     #region Visibility

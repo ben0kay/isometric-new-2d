@@ -177,18 +177,13 @@ public sealed class CaveGenerator
     }
 
     // =========================================================
-    // Generate chamber variation independently of chunk build order.
+    // Keep connecting routes fixed while varying chamber dimensions by seed.
     private Room GetRoom(int x, int y)
     {
         float spacing = Settings.CellSpacingTiles;
         Vector2 centre = new(HubX + x * spacing, y * spacing);
-
-        if (x != 0 || y != 0)
-            centre += new Vector2(
-                Random(x, y, 1) - 0.5f,
-                Random(x, y, 2) - 0.5f) * spacing * 0.375f;
-
         Vector2 range = Settings.ChamberRadiusRange;
+
         return new Room(centre, new Vector2(
             Mathf.Lerp(range.X, range.Y, Random(x, y, 3)),
             Mathf.Lerp(range.X, range.Y, Random(x, y, 4))));
