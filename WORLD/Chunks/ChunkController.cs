@@ -171,33 +171,66 @@ public partial class ChunkController : Node
 	#endregion
 
 	#region Coverage And Priority
-	// =========================================================
-	// Derive visible bounds, register the outer preparation ring, and keep nearby records warm.
-	private void RefreshCoverage()
-	{
-		Transform2D inverse = GetViewport().GetCanvasTransform().AffineInverse();
-		Vector2 size = GetViewport().GetVisibleRect().Size;
-		Vector2 min = new(float.MaxValue, float.MaxValue), max = new(float.MinValue, float.MinValue);
-		for (int i = 0; i < 4; i++)
-		{
-			Vector2 corner = new((i == 1 || i == 2) ? size.X : 0, i >= 2 ? size.Y : 0);
-			Vector2 tile = IsoGrid.WorldToTile(_groundRoot.ToLocal(inverse * corner), TileSize);
-			min = new(Mathf.Min(min.X, tile.X), Mathf.Min(min.Y, tile.Y));
-			max = new(Mathf.Max(max.X, tile.X), Mathf.Max(max.Y, tile.Y));
-		}
-		_viewMin = new(Mathf.FloorToInt((min.X + 0.5f) / ChunkSize), Mathf.FloorToInt((min.Y + 0.5f) / ChunkSize));
-		_viewMax = new(Mathf.FloorToInt((max.X + 0.5f) / ChunkSize), Mathf.FloorToInt((max.Y + 0.5f) / ChunkSize));
-		double now = Time.GetTicksMsec() / 1000.0;
-		for (int y = Mathf.Max(_worldMin, _viewMin.Y - PreparationMargin); y <= Mathf.Min(_worldMax, _viewMax.Y + PreparationMargin); y++)
-		for (int x = Mathf.Max(_worldMin, _viewMin.X - PreparationMargin); x <= Mathf.Min(_worldMax, _viewMax.X + PreparationMargin); x++)
-		{
-			Vector2I coordinate = new(x, y);
-			if (!_chunks.ContainsKey(coordinate))
-				_chunks.Add(coordinate, new ChunkRecord { Coordinate = coordinate, LastRetained = now });
-		}
-		foreach (ChunkRecord chunk in _chunks.Values)
-			if (WithinMargin(chunk.Coordinate, RetentionMargin)) chunk.LastRetained = now;
-	}
+// =========================================================
+// Read normal camera coverage or project the same viewport around a destination.
+private void RefreshCoverage(Vector2? destination = null)
+{
+    Transform2D inverse = GetViewport().GetCanvasTransform().AffineInverse();
+    Vector2 size = GetViewport().GetVisibleRect().Size;
+    Vector2 offset = Vector2.Zero;
+
+    if (destination.HasValue)
+    {
+        TerrainElevation elevation =
+            GetNode<TerrainElevation>("../TerrainElevation");
+        Vector2 visibleDestination = destination.Value +
+            Vector2.Up * elevation.SampleWorldHeight(destination.Value);
+        offset = visibleDestination - inverse * (size * 0.5f);
+    }
+
+    Vector2 min = new(float.MaxValue, float.MaxValue);
+    Vector2 max = new(float.MinValue, float.MinValue);
+
+    for (int i = 0; i < 4; i++)
+    {
+        Vector2 corner = new(
+            (i == 1 || i == 2) ? size.X : 0,
+            i >= 2 ? size.Y : 0);
+
+        Vector2 tile = IsoGrid.WorldToTile(
+            _groundRoot.ToLocal(inverse * corner + offset), TileSize);
+
+        min = new(Mathf.Min(min.X, tile.X), Mathf.Min(min.Y, tile.Y));
+        max = new(Mathf.Max(max.X, tile.X), Mathf.Max(max.Y, tile.Y));
+    }
+
+    _viewMin = new(
+        Mathf.FloorToInt((min.X + 0.5f) / ChunkSize),
+        Mathf.FloorToInt((min.Y + 0.5f) / ChunkSize));
+    _viewMax = new(
+        Mathf.FloorToInt((max.X + 0.5f) / ChunkSize),
+        Mathf.FloorToInt((max.Y + 0.5f) / ChunkSize));
+
+    double now = Time.GetTicksMsec() / 1000.0;
+
+    for (int y = Mathf.Max(_worldMin, _viewMin.Y - PreparationMargin);
+        y <= Mathf.Min(_worldMax, _viewMax.Y + PreparationMargin); y++)
+    for (int x = Mathf.Max(_worldMin, _viewMin.X - PreparationMargin);
+        x <= Mathf.Min(_worldMax, _viewMax.X + PreparationMargin); x++)
+    {
+        Vector2I coordinate = new(x, y);
+        if (!_chunks.ContainsKey(coordinate))
+            _chunks.Add(coordinate, new ChunkRecord
+            {
+                Coordinate = coordinate,
+                LastRetained = now
+            });
+    }
+
+    foreach (ChunkRecord chunk in _chunks.Values)
+        if (WithinMargin(chunk.Coordinate, RetentionMargin))
+            chunk.LastRetained = now;
+}
 
 	// =========================================================
 	// Test coverage in chunk coordinates; the map boundary is enforced when records are created.
@@ -479,6 +512,62 @@ public bool IsNavigationPointAvailable(
 			boundary.AddChild(new CollisionShape2D { Name = $"Edge_{i}",
 				Shape = new SegmentShape2D { A = corners[i], B = corners[(i + 1) % 4] } });
 	}
+
+	// =========================================================
+// Test finite-world bounds without requiring the destination to be loaded.
+public bool IsDestinationWithinBounds(Vector2 point, float clearance = 120f)
+{
+    if (_groundRoot == null || !WorldReady) return false;
+
+    Vector2 tile = IsoGrid.WorldToTile(_groundRoot.ToLocal(point), TileSize);
+    float low = _worldMin * ChunkSize - 0.5f;
+    float high = (_worldMax + 1) * ChunkSize - 0.5f;
+
+    float extent = clearance * Mathf.Sqrt(
+        1f / (TileSize.X * TileSize.X) +
+        1f / (TileSize.Y * TileSize.Y));
+
+    return tile.X - extent >= low && tile.Y - extent >= low &&
+        tile.X + extent < high && tile.Y + extent < high;
+}
+
+// =========================================================
+// Advance the normal surface builder around an exit while its automatic process is paused.
+public bool PrepareDestination(Vector2 point)
+{
+    if (!IsDestinationWithinBounds(point) ||
+        GetMeta("destination_preload_failed", false).AsBool())
+        return false;
+
+    try
+    {
+        RefreshCoverage(point);
+        RunBuildBudget(BuildBudgetMs);
+
+        // Finish an already-started retirement so it cannot strand a required record.
+        if (_retiring != null)
+            RunRetirementBudget();
+
+        // Normal camera coverage must refresh immediately when surface play resumes.
+        _coverageTimer = 0;
+
+        for (int y = Mathf.Max(_worldMin, _viewMin.Y - ActivationMargin);
+            y <= Mathf.Min(_worldMax, _viewMax.Y + ActivationMargin); y++)
+        for (int x = Mathf.Max(_worldMin, _viewMin.X - ActivationMargin);
+            x <= Mathf.Min(_worldMax, _viewMax.X + ActivationMargin); x++)
+            if (!_chunks.TryGetValue(new Vector2I(x, y), out ChunkRecord chunk) ||
+                !chunk.Ready || chunk.Retiring)
+                return false;
+
+        return true;
+    }
+    catch (Exception error)
+    {
+        SetMeta("destination_preload_failed", true);
+        GD.PushError($"Surface destination preload failed: {error}");
+        return false;
+    }
+}
 	#endregion
 
 	#region Debug

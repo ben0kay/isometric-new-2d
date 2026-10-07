@@ -6,17 +6,19 @@ using System.Collections.Generic;
 public static class WorldPlacement
 {
     #region Basin Reservations
-    // =========================================================
-    // Keep generated objects out of permanent basins, including drained ones.
-    public static bool IsBasinReserved(
-        Node context, Vector2 point,
-        Vector2 footprint, Vector2 padding)
-    {
-        WaterBasinWorld basins = WaterBasinWorld.Find(context);
+// =========================================================
+// Keep generated objects out of permanent basins and registered cave openings.
+public static bool IsBasinReserved(
+    Node context, Vector2 point,
+    Vector2 footprint, Vector2 padding)
+{
+    if (CaveWorld.IsHoleReserved(context, point, footprint, padding))
+        return true;
 
-        return basins != null &&
-            basins.OverlapsWorldFootprint(point, footprint, padding);
-    }
+    WaterBasinWorld basins = WaterBasinWorld.Find(context);
+    return basins != null &&
+        basins.OverlapsWorldFootprint(point, footprint, padding);
+}
     #endregion
 
     #region Obstacles

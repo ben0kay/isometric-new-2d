@@ -1,32 +1,35 @@
-// Draws a readable test entrance at the surface's actual elevation.
-// Traversal is coordinated centrally by WorldLayerController.
+// Draws one paired surface hole and its descending direction.
+// The layer controller handles traversal and destination readiness.
 using Godot;
 
 public partial class CaveEntrance : Node2D
 {
     #region State
     public CaveWorld World { get; set; }
+    public CaveHole Hole { get; set; }
     #endregion
 
     #region Drawing
     // =========================================================
-    // Mark the mouth and indicate the descending tunnel direction.
+    // Mark the opening at its own surface elevation.
     public override void _Draw()
     {
-        if (World == null) return;
+        if (World == null || Hole == null) return;
 
-        Vector2 centre = Vector2.Up * World.RimHeight;
+        Color colour = new("#8be4cf");
+        Vector2 centre = Vector2.Up * Hole.RimHeight;
         DrawCircle(centre, 40f, new Color("#080d12"));
-        DrawArc(centre, 42f, 0f, Mathf.Tau, 48,
-            new Color("#8be4cf"), 3f, true);
+        DrawArc(centre, 42f, 0f, Mathf.Tau, 48, colour, 3f, true);
 
         Vector2 direction = IsoGrid.TileToWorld(
-            Vector2.Right, World.TileSize).Normalized();
+            Hole.Direction, World.TileSize).Normalized();
 
-        DrawLine(centre, centre + direction * 90f,
-            new Color("#8be4cf"), 4f, true);
-        DrawCircle(centre + direction * 90f, 6f,
-            new Color("#8be4cf"));
+        DrawLine(centre, centre + direction * 90f, colour, 4f, true);
+        DrawCircle(centre + direction * 90f, 6f, colour);
+
+        DrawString(
+            ThemeDB.FallbackFont, centre + new Vector2(-32, -52),
+            $"HOLE {Hole.Id}", HorizontalAlignment.Left, -1f, 18, colour);
     }
     #endregion
 }

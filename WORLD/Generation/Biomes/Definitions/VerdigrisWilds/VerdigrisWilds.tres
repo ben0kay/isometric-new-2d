@@ -1,9 +1,8 @@
-[gd_resource type="Resource" script_class="VerdigrisWildsBiome" format=3 uid="uid://c4igqtsq2v45v"]
+[gd_resource type="Resource" format=3 uid="uid://c4igqtsq2v45v"]
 
 [ext_resource type="Script" uid="uid://b2xoxuy2qckl5" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWildsBiome.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="4_placement"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisGround.tres" id="5_ground"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="6_tree"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="7_frond"]
@@ -28,12 +27,6 @@ script = ExtResource("3_entry")
 Definition = ExtResource("10_medium")
 Weight = 35.0
 
-[sub_resource type="Resource" id="GrassPlacement"]
-script = ExtResource("4_placement")
-Distribution = 1
-ClumpsPerChunk = 6
-ClumpRadiusTiles = 2.5
-
 [sub_resource type="Resource" id="FrondEntry"]
 script = ExtResource("3_entry")
 Definition = ExtResource("7_frond")
@@ -44,33 +37,19 @@ script = ExtResource("3_entry")
 Definition = ExtResource("8_shrub")
 Weight = 40.0
 
-[sub_resource type="Resource" id="PlantsPlacement"]
-script = ExtResource("4_placement")
-Distribution = 1
-ClumpsPerChunk = 5
-ClumpRadiusTiles = 2.5
-
 [sub_resource type="Resource" id="TreeEntry"]
 script = ExtResource("3_entry")
 Definition = ExtResource("6_tree")
-
-[sub_resource type="Resource" id="TreesPlacement"]
-script = ExtResource("4_placement")
-Distribution = 1
-ClumpRadiusTiles = 4.0
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
 PlantPatches = 8
 PlantsPerPatch = 6
 Plants = Array[ExtResource("3_entry")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
-PlantsPlacement = SubResource("PlantsPlacement")
 TreesPerChunk = 18
 Trees = Array[ExtResource("3_entry")]([SubResource("TreeEntry")])
-TreesPlacement = SubResource("TreesPlacement")
 GrassPatches = 10
 Grass = Array[ExtResource("3_entry")]([SubResource("ShortEntry"), SubResource("MediumEntry")])
-GrassPlacement = SubResource("GrassPlacement")
 
 [resource]
 script = ExtResource("1_biome")

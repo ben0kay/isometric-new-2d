@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="RockyMountainsBiome" format=3 uid="uid://c1dm1wu5o1bes"]
+[gd_resource type="Resource" format=3 uid="uid://c1dm1wu5o1bes"]
 
 [ext_resource type="Script" uid="uid://bqus3341758ox" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/RockyMountainsBiome.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]

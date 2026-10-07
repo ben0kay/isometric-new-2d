@@ -1,6 +1,7 @@
-// Owns the cave layer, shared drawing resources and procedural streamer.
-// Entrance-relative cave coordinates remain separate from surface terrain.
+// Owns one shared cave network and its paired surface holes.
+// All entrances use the same cave root, generator and chunk streamer.
 using Godot;
+using System.Collections.Generic;
 
 public partial class CaveWorld : Node2D
 {
@@ -12,7 +13,6 @@ public partial class CaveWorld : Node2D
     public Node2D Root { get; private set; }
     public Node2D Objects { get; private set; }
     public CaveTerrainElevation Elevation { get; private set; }
-    public CaveEntrance Entrance { get; private set; }
     public Vector2 TileSize { get; private set; }
     public float RimHeight { get; private set; }
 
@@ -20,37 +20,51 @@ public partial class CaveWorld : Node2D
     public float TunnelLengthTiles => Settings.EntranceTunnelLengthTiles;
     public ShaderMaterial GroundMaterial { get; private set; }
     public ImageTexture WhiteTexture { get; private set; }
+
+    private readonly List<CaveHole> _holes = new();
+    public IReadOnlyList<CaveHole> Holes => _holes;
+    public CaveEntrance Entrance => _holes.Count > 0 ? _holes[0].Marker : null;
     #endregion
 
     #region Construction
     // =========================================================
-    // Create the cave service without generating the entire network at once.
+    // Register the optional cave service for shared placement checks.
+    public override void _EnterTree()
+    {
+        AddToGroup("cave_world");
+    }
+
+    // =========================================================
+    // Create the shared network and both entrance markers.
     public void Build(
         Vector2 origin, Vector2 tileSize, float rimHeight,
-        uint worldSeed, CaveGenerationSettings settings)
+        uint worldSeed, CaveGenerationSettings settings,
+        CaveHole secondHole = null)
     {
         Settings = (CaveGenerationSettings)settings.Duplicate();
         Settings.Validate();
-        Generator = new CaveGenerator(Settings, worldSeed);
         TileSize = tileSize;
         RimHeight = rimHeight;
+
+        _holes.Add(new CaveHole(
+            "A", Vector2.Zero, Vector2.Right,
+            origin, rimHeight, Settings.EntranceTunnelLengthTiles,
+            Vector2I.Zero));
+
+        if (secondHole != null)
+            _holes.Add(secondHole);
+
+        Generator = new CaveGenerator(
+            Settings, worldSeed, _holes, rimHeight - Settings.DepthPixels);
 
         Root = new Node2D { Name = "CaveLayer" };
         AddChild(Root);
         Root.GlobalPosition = origin;
 
-        Objects = new Node2D
-        {
-            Name = "Objects",
-            YSortEnabled = true
-        };
+        Objects = new Node2D { Name = "Objects", YSortEnabled = true };
         Root.AddChild(Objects);
 
-        Elevation = new CaveTerrainElevation
-        {
-            Name = "Elevation",
-            World = this
-        };
+        Elevation = new CaveTerrainElevation { Name = "Elevation", World = this };
         AddChild(Elevation);
 
         GroundMaterial = new ShaderMaterial
@@ -71,18 +85,27 @@ public partial class CaveWorld : Node2D
             Color = new Color("#080d12"),
             Polygon = new[]
             {
-                new Vector2(-20000, -20000), new Vector2(20000, -20000),
-                new Vector2(20000, 20000), new Vector2(-20000, 20000)
+                new Vector2(-1000000, -1000000),
+                new Vector2(1000000, -1000000),
+                new Vector2(1000000, 1000000),
+                new Vector2(-1000000, 1000000)
             }
         });
 
-        PackedScene entranceScene = GD.Load<PackedScene>(
+        PackedScene scene = GD.Load<PackedScene>(
             "res://WORLD/Generation/Caves/CaveEntrance.tscn");
-        Entrance = entranceScene.Instantiate<CaveEntrance>();
-        Entrance.World = this;
-        AddChild(Entrance);
-        Entrance.GlobalPosition = origin;
-        Entrance.QueueRedraw();
+
+        foreach (CaveHole hole in _holes)
+        {
+            CaveEntrance marker = scene.Instantiate<CaveEntrance>();
+            marker.Name = $"Hole_{hole.Id}";
+            marker.World = this;
+            marker.Hole = hole;
+            hole.Marker = marker;
+            AddChild(marker);
+            marker.GlobalPosition = hole.SurfacePosition;
+            marker.QueueRedraw();
+        }
 
         Streaming = new CaveChunkController { Name = "CaveStreaming" };
         AddChild(Streaming);
@@ -92,19 +115,77 @@ public partial class CaveWorld : Node2D
 
     #region Coordinates
     // =========================================================
-    // Convert logical world positions into entrance-relative cave tiles.
+    // Convert logical world positions into the shared network coordinates.
     public Vector2 WorldToTile(Vector2 point)
     {
         return IsoGrid.WorldToTile(Root.ToLocal(point), TileSize);
     }
 
     // =========================================================
-    // Project mesh vertices using the generator's shared height function.
+    // Convert shared cave coordinates back into logical world positions.
+    public Vector2 TileToWorld(Vector2 tile)
+    {
+        return Root.ToGlobal(IsoGrid.TileToWorld(tile, TileSize));
+    }
+
+    // =========================================================
+    // Project mesh vertices using the same entrance-aware height field.
     public Vector2 VisiblePoint(Vector2 tile)
     {
-        Vector2 logical = IsoGrid.TileToWorld(tile, TileSize);
-        return logical + Vector2.Up *
-            Generator.VertexHeight(tile.X, RimHeight);
+        return IsoGrid.TileToWorld(tile, TileSize) +
+            Vector2.Up * Generator.VertexHeight(tile);
+    }
+
+    // =========================================================
+    // Find the closest surface hole for underground preloading while above ground.
+    public CaveHole NearestSurfaceHole(Vector2 point)
+    {
+        CaveHole best = null;
+        float distance = float.MaxValue;
+
+        foreach (CaveHole hole in _holes)
+        {
+            float candidate = point.DistanceSquaredTo(hole.SurfacePosition);
+            if (candidate >= distance) continue;
+            distance = candidate;
+            best = hole;
+        }
+
+        return best;
+    }
+
+    // =========================================================
+    // Identify an entrance ramp without using the player's screen direction.
+    public CaveHole TransitionAt(Vector2 tile)
+    {
+        foreach (CaveHole hole in _holes)
+        {
+            Vector2 local = hole.Coordinates(tile);
+            if (local.X >= -1.5f &&
+                local.X <= hole.TunnelLength + 6f &&
+                Mathf.Abs(local.Y) < 2.5f)
+                return hole;
+        }
+        return null;
+    }
+    #endregion
+
+    #region Surface Reservations
+    // =========================================================
+    // Reserve surface mouths and their landing space before new props spawn.
+    public static bool IsHoleReserved(
+        Node context, Vector2 point, Vector2 footprint, Vector2 padding)
+    {
+        CaveWorld world = context.GetTree().GetFirstNodeInGroup(
+            "cave_world") as CaveWorld;
+        if (world == null) return false;
+
+        float radius = 100f + footprint.Length() * 0.5f + padding.Length();
+        foreach (CaveHole hole in world.Holes)
+            if (point.DistanceSquaredTo(hole.SurfacePosition) < radius * radius)
+                return true;
+
+        return false;
     }
     #endregion
 }

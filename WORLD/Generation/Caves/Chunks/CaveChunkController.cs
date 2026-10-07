@@ -45,29 +45,39 @@ public partial class CaveChunkController : Node
         _player = player;
     }
 
-    // =========================================================
-    // Build nearby chunks and retire distant geometry gradually.
-    public override void _Process(double delta)
+// =========================================================
+// Stream around the cave player or preload the nearest surface hole.
+public override void _Process(double delta)
+{
+    if (_world == null || _failed) return;
+
+    try
     {
-        if (_world == null || _failed) return;
+        Vector2 tile = Vector2.Zero;
 
-        try
+        if (GodotObject.IsInstanceValid(_player))
         {
-            Vector2 tile = _active && GodotObject.IsInstanceValid(_player)
-                ? _world.WorldToTile(_player.GlobalPosition) : Vector2.Zero;
-            _focus = CoordinateAt(tile);
+            if (_active)
+                tile = _world.WorldToTile(_player.GlobalPosition);
+            else
+            {
+                CaveHole hole = _world.NearestSurfaceHole(_player.GlobalPosition);
+                if (hole != null) tile = hole.MouthTile;
+            }
+        }
 
-            RunBuildBudget();
-            RetireDistant();
-        }
-        catch (Exception error)
-        {
-            _failed = true;
-            _work?.Dispose();
-            _work = null;
-            GD.PushError($"[Caves] Streaming failed: {error}");
-        }
+        _focus = CoordinateAt(tile);
+        RunBuildBudget();
+        RetireDistant();
     }
+    catch (Exception error)
+    {
+        _failed = true;
+        _work?.Dispose();
+        _work = null;
+        GD.PushError($"[Caves] Streaming failed: {error}");
+    }
+}
 
     // =========================================================
     // Dispose unfinished CPU work when the cave feature is removed.
@@ -88,18 +98,23 @@ public partial class CaveChunkController : Node
             chunk.SetActive(active);
     }
 
-    // =========================================================
-    // Require a complete entrance buffer before switching the player's layer.
-    public bool EntryReady()
-    {
-        if (_failed) return false;
-        for (int x = -1; x <= 1; x++)
-        for (int y = -1; y <= 1; y++)
-            if (!_chunks.TryGetValue(new Vector2I(x, y), out CaveChunk chunk) ||
-                !chunk.Ready)
-                return false;
-        return true;
-    }
+// =========================================================
+// Require the buffer around the requested mouth rather than always around hole A.
+public bool EntryReady(CaveHole hole = null)
+{
+    if (_failed) return false;
+
+    Vector2 tile = hole?.MouthTile ?? Vector2.Zero;
+    Vector2I centre = CoordinateAt(tile);
+
+    for (int x = centre.X - 1; x <= centre.X + 1; x++)
+    for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
+        if (!_chunks.TryGetValue(new Vector2I(x, y), out CaveChunk chunk) ||
+            !chunk.Ready)
+            return false;
+
+    return true;
+}
 
     // =========================================================
     // Test the player's footprint against ready floor, including chunk edges.
@@ -116,24 +131,27 @@ public partial class CaveChunkController : Node
         return true;
     }
 
-    // =========================================================
-    // Keep the small mouth apron traversable so returning can cross the boundary.
-    private bool PointAvailable(Vector2 point)
+// =========================================================
+// Permit the small outward apron at either mouth, then require ready cave floor.
+private bool PointAvailable(Vector2 point)
+{
+    Vector2 tile = _world.WorldToTile(point);
+
+    foreach (CaveHole hole in _world.Holes)
     {
-        Vector2 tile = _world.WorldToTile(point);
-
-        if (tile.X >= -1.5f && tile.X < 0f &&
-            Mathf.Abs(tile.Y) < 1.4f)
+        Vector2 local = hole.Coordinates(tile);
+        if (local.X >= -1.5f && local.X < 0f &&
+            Mathf.Abs(local.Y) < 1.4f)
             return true;
-
-        Vector2I cell = new(
-            Mathf.FloorToInt(tile.X + 0.5f),
-            Mathf.FloorToInt(tile.Y + 0.5f));
-
-        Vector2I coordinate = CoordinateForCell(cell);
-        return _chunks.TryGetValue(coordinate, out CaveChunk chunk) &&
-            chunk.HasFloor(cell);
     }
+
+    Vector2I cell = new(
+        Mathf.FloorToInt(tile.X + 0.5f),
+        Mathf.FloorToInt(tile.Y + 0.5f));
+
+    return _chunks.TryGetValue(CoordinateForCell(cell), out CaveChunk chunk) &&
+        chunk.HasFloor(cell);
+}
 
     // =========================================================
     // Map continuous tile coordinates to the same tile-centred chunk convention.

@@ -29,83 +29,90 @@ public partial class CaveChunk : Node2D
         _member = WorldLayerMember.Attach(this, WorldLayer.Cave);
     }
 
-    // =========================================================
-    // Resume tile work separately from the final mesh upload.
-    public IEnumerable<int> BuildSteps()
+// =========================================================
+// Build floor and exposed walls while leaving every registered mouth open.
+public IEnumerable<int> BuildSteps()
+{
+    List<Vector3> floorVertices = new();
+    List<Vector2> floorUV = new();
+    List<Vector3> wallVertices = new();
+    List<Color> wallColours = new();
+
+    _body = new StaticBody2D
     {
-        List<Vector3> floorVertices = new();
-        List<Vector2> floorUV = new();
-        List<Vector3> wallVertices = new();
-        List<Color> wallColours = new();
+        Name = "Walls",
+        CollisionLayer = 0,
+        CollisionMask = 0
+    };
+    AddChild(_body);
 
-        _body = new StaticBody2D
+    for (int y = 0; y < _size; y++)
+    for (int x = 0; x < _size; x++)
+    {
+        Vector2I tile = Coordinate * _size + new Vector2I(x, y);
+        bool floor = _world.Generator.IsFloor(tile);
+        _floor[x + y * _size] = floor;
+
+        if (floor)
         {
-            Name = "Walls",
-            CollisionLayer = 0,
-            CollisionMask = 0
-        };
-        AddChild(_body);
+            Vector2 centre = new(tile.X, tile.Y);
+            Vector2 a = centre + new Vector2(-0.5f, -0.5f);
+            Vector2 b = centre + new Vector2(0.5f, -0.5f);
+            Vector2 c = centre + new Vector2(0.5f, 0.5f);
+            Vector2 d = centre + new Vector2(-0.5f, 0.5f);
 
-        for (int y = 0; y < _size; y++)
-        for (int x = 0; x < _size; x++)
-        {
-            Vector2I tile = Coordinate * _size + new Vector2I(x, y);
-            bool floor = _world.Generator.IsFloor(tile);
-            _floor[x + y * _size] = floor;
+            AddFloor(a, b, c, d, floorVertices, floorUV);
 
-            if (floor)
-            {
-                Vector2 centre = new(tile.X, tile.Y);
-                Vector2 a = centre + new Vector2(-0.5f, -0.5f);
-                Vector2 b = centre + new Vector2(0.5f, -0.5f);
-                Vector2 c = centre + new Vector2(0.5f, 0.5f);
-                Vector2 d = centre + new Vector2(-0.5f, 0.5f);
+            Vector2I neighbour = tile + Vector2I.Left;
+            if (!_world.Generator.IsFloor(neighbour) &&
+                !_world.Generator.IsMouthEdge(tile, neighbour))
+                AddWall(a, d, wallVertices, wallColours);
 
-                AddFloor(a, b, c, d, floorVertices, floorUV);
+            neighbour = tile + Vector2I.Right;
+            if (!_world.Generator.IsFloor(neighbour) &&
+                !_world.Generator.IsMouthEdge(tile, neighbour))
+                AddWall(b, c, wallVertices, wallColours);
 
-                if (!_world.Generator.IsFloor(tile + Vector2I.Left) &&
-                    tile.X != 0)
-                    AddWall(a, d, wallVertices, wallColours);
+            neighbour = tile + Vector2I.Up;
+            if (!_world.Generator.IsFloor(neighbour) &&
+                !_world.Generator.IsMouthEdge(tile, neighbour))
+                AddWall(a, b, wallVertices, wallColours);
 
-                if (!_world.Generator.IsFloor(tile + Vector2I.Right))
-                    AddWall(b, c, wallVertices, wallColours);
-
-                if (!_world.Generator.IsFloor(tile + Vector2I.Up))
-                    AddWall(a, b, wallVertices, wallColours);
-
-                if (!_world.Generator.IsFloor(tile + Vector2I.Down))
-                    AddWall(d, c, wallVertices, wallColours);
-            }
-
-            yield return 0;
+            neighbour = tile + Vector2I.Down;
+            if (!_world.Generator.IsFloor(neighbour) &&
+                !_world.Generator.IsMouthEdge(tile, neighbour))
+                AddWall(d, c, wallVertices, wallColours);
         }
 
-        if (floorVertices.Count > 0)
-        {
-            AddChild(new MeshInstance2D
-            {
-                Name = "FloorDrawing",
-                ZIndex = -3,
-                ZAsRelative = false,
-                Mesh = MakeMesh(floorVertices, floorUV, null),
-                Texture = _world.WhiteTexture,
-                Material = _world.GroundMaterial
-            });
-        }
-        yield return 0;
-
-        if (wallVertices.Count > 0)
-        {
-            AddChild(new MeshInstance2D
-            {
-                Name = "WallDrawing",
-                ZIndex = -1,
-                ZAsRelative = false,
-                Mesh = MakeMesh(wallVertices, null, wallColours)
-            });
-        }
         yield return 0;
     }
+
+    if (floorVertices.Count > 0)
+    {
+        AddChild(new MeshInstance2D
+        {
+            Name = "FloorDrawing",
+            ZIndex = -3,
+            ZAsRelative = false,
+            Mesh = MakeMesh(floorVertices, floorUV, null),
+            Texture = _world.WhiteTexture,
+            Material = _world.GroundMaterial
+        });
+    }
+    yield return 0;
+
+    if (wallVertices.Count > 0)
+    {
+        AddChild(new MeshInstance2D
+        {
+            Name = "WallDrawing",
+            ZIndex = -1,
+            ZAsRelative = false,
+            Mesh = MakeMesh(wallVertices, null, wallColours)
+        });
+    }
+    yield return 0;
+}
 
     // =========================================================
     // Publish complete geometry and apply the current layer's activation state.
