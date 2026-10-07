@@ -1,5 +1,5 @@
-// Defines shared enemy identity, movement, awareness, defense, and visuals.
-// One combat resource supplies either melee or ranged settings.
+// Defines enemy identity, movement, defense, presentation and combat resources.
+// Awareness and combat ranges are configured together inside Combat.
 using Godot;
 using System;
 
@@ -23,25 +23,23 @@ public partial class EnemyDefinition : Resource
     [ExportGroup("Movement")]
     [ExportSubgroup("Chasing")]
     [Export] public float MoveSpeed { get; set; } = 170f;
-    [Export] public float HomeLeash { get; set; } = 1400f;
 
     [ExportSubgroup("Wandering")]
     [Export] public bool WanderingEnabled { get; set; } = true;
     [Export] public float WanderSpeed { get; set; } = 45f;
     [Export] public float WanderRadius { get; set; } = 240f;
+    [Export] public float HomeLeash { get; set; } = 1400f;
     [Export] public Vector2 WanderWait { get; set; } = new(2f, 5f);
-    #endregion
-
-    #region Awareness
-    [ExportGroup("Awareness")]
-    [Export] public float DetectionRange { get; set; } = 650f;
-    [Export] public float ForgetRange { get; set; } = 1000f;
     #endregion
 
     #region Combat
     [ExportGroup("Combat")]
     [Export] public EnemyCombatSettings Combat { get; set; }
     [Export] public EnemySequenceDefinition Sequence { get; set; }
+
+    // Existing consumers read the single source of range settings.
+    public float DetectionRange => Combat?.DetectionRange ?? 0f;
+    public float ForgetRange => Combat?.ForgetRange ?? 0f;
     #endregion
 
     #region Updates
@@ -63,29 +61,31 @@ public partial class EnemyDefinition : Resource
     #endregion
 
     #region Validation
-// =========================================================
-// Validate shared settings, combat configuration, and an optional action sequence.
-public void Validate()
-{
-    if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
-        DetectionRange <= 0f || ForgetRange < DetectionRange ||
-        TargetInterval < 0.1 || DecisionInterval < 0.1 ||
-        PathInterval < 0.1 || VisualScale <= 0f ||
-        WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
-        WanderRadius <= 0f || HomeLeash < WanderRadius)
-        throw new InvalidOperationException($"Enemy '{Id}' has invalid settings.");
+    // =========================================================
+    // Validate definition settings, combat configuration and optional sequences.
+    public void Validate()
+    {
+        if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
+            TargetInterval < 0.1 || DecisionInterval < 0.1 ||
+            PathInterval < 0.1 || VisualScale <= 0f ||
+            WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
+            WanderRadius <= 0f || HomeLeash < WanderRadius)
+            throw new InvalidOperationException(
+                $"Enemy '{Id}' has invalid settings.");
 
-    if (Combat is not MeleeCombatSettings && Combat is not RangedCombatSettings)
-        throw new InvalidOperationException(
-            $"Enemy '{Id}' requires MeleeCombatSettings or RangedCombatSettings.");
+        if (Combat is not MeleeCombatSettings &&
+            Combat is not RangedCombatSettings)
+            throw new InvalidOperationException(
+                $"Enemy '{Id}' requires MeleeCombatSettings " +
+                "or RangedCombatSettings.");
 
-    Combat.Validate(Id);
-    Sequence?.Validate();
+        Combat.Validate(Id);
+        Sequence?.Validate();
 
-    // This first pass's Fire action uses the existing ranged weapon.
-    if (Sequence != null && Combat is not RangedCombatSettings)
-        throw new InvalidOperationException(
-            $"Enemy '{Id}': this sequence pass requires ranged combat settings.");
-}
+        // Existing Fire sequence actions require a ranged weapon.
+        if (Sequence != null && Combat is not RangedCombatSettings)
+            throw new InvalidOperationException(
+                $"Enemy '{Id}': this sequence pass requires ranged combat settings.");
+    }
     #endregion
 }

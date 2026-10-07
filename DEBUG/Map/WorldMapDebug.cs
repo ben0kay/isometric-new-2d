@@ -195,9 +195,12 @@ public override void _Input(InputEvent input)
 }
 
 // =========================================================
-// Reuse biome pixels while refreshing nearby POIs independently.
+// Open from gameplay and reuse cached biome pixels.
 private void OpenMap()
 {
+    if (!_modes.GameplayAllowed)
+        return;
+
     float radius = _config.DebugMapRadiusTiles;
 
     if (!float.IsFinite(radius) || radius < 16f)
@@ -225,13 +228,12 @@ private void OpenMap()
         return;
     }
 
-    // Closing releases POI protection; reopening reacquires it locally.
-    // Completed entrance decisions remain reusable in the generation cache.
+    // Reacquire nearby POI protection when reopening.
     _pois?.Dispose();
     _pois = new WorldMapPoiPreview(
         this, _ground, _chunks, _config, playerTile);
 
-    // Preserve zoom and pan unless the player has moved outside the view.
+    // Preserve zoom and pan unless the player is outside the view.
     Rect2 map = MapRect();
     if (!map.HasPoint(MapPoint(playerTile, map)))
     {
