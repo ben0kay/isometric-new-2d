@@ -109,22 +109,24 @@ public partial class TerrainElevation : Node
     #endregion
 
     #region Slope Lighting
-    // =========================================================
-    // Convert tile-axis height differences into ground-plane slope components.
-    private Vector2 GetGroundGradient(Vector2 tile)
-    {
-        float alongX =
-            GetHeight(tile + new Vector2(0.5f, 0f)) -
-            GetHeight(tile - new Vector2(0.5f, 0f));
+// =========================================================
+// Convert tile-axis height differences into the actual ground-plane gradient.
+private Vector2 GetGroundGradient(Vector2 tile)
+{
+    float alongX =
+        GetHeight(tile + new Vector2(0.5f, 0f)) -
+        GetHeight(tile - new Vector2(0.5f, 0f));
 
-        float alongY =
-            GetHeight(tile + new Vector2(0f, 0.5f)) -
-            GetHeight(tile - new Vector2(0f, 0.5f));
+    float alongY =
+        GetHeight(tile + new Vector2(0f, 0.5f)) -
+        GetHeight(tile - new Vector2(0f, 0.5f));
 
-        return new Vector2(
-            (alongX + alongY) / Mathf.Max(1f, _chunks.TileSize.X),
-            (alongY - alongX) / Mathf.Max(1f, _chunks.TileSize.Y));
-    }
+    // IsoGrid projects X from tile.X - tile.Y,
+    // and Y from tile.X + tile.Y.
+    return new Vector2(
+        (alongX - alongY) / Mathf.Max(1f, _chunks.TileSize.X),
+        (alongX + alongY) / Mathf.Max(1f, _chunks.TileSize.Y));
+}
 
     // =========================================================
     // Light slopes by orientation while keeping flat ground brightness consistent.
