@@ -14,5 +14,6 @@ public partial class GrassDefinition : WorldObjectDefinition
     [ExportGroup("Placement")]
     [Export] public Vector2 Spacing { get; set; } = new(25, 14);
     [Export] public float GroundClearance { get; set; } = 28f;
+    [Export] public Vector2 PlacementFootprint { get; set; } = new(28f, 14f);
     #endregion
 }

@@ -70,6 +70,10 @@ public partial class Grass : Node2D
                 throw new System.InvalidOperationException(
                     "Grass requires a GrassDefinition.");
 
+            VegetationPlacement.Attach(
+            this, Definition.PlacementFootprint *
+                Mathf.Max(0.1f, SizeMultiplier), true);
+
             await VegetationAtlas.EnsureReady(this);
             if (!IsInsideTree() || IsQueuedForDeletion()) return;
 

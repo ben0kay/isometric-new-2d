@@ -48,17 +48,18 @@ public partial class PlacementWorld : Node
         return service;
     }
 
-    // =========================================================
-    // Configure one reusable query for solids, actors, and gap collision.
-    public override void _Ready()
-    {
-        _query.Shape = _shape;
-        _query.CollisionMask = 1u | 2u | 4u | 8u;
-        _query.CollideWithBodies = true;
-        _query.CollideWithAreas = false;
-        SetProcess(false);
-        SetPhysicsProcess(false);
-    }
+// =========================================================
+// Query solids, actors, gaps, and plant footprints; grass does not block placement.
+public override void _Ready()
+{
+    _query.Shape = _shape;
+    _query.CollisionMask = 1u | 2u | 4u | 8u |
+        VegetationPlacement.PlantLayer;
+    _query.CollideWithBodies = true;
+    _query.CollideWithAreas = true;
+    SetProcess(false);
+    SetPhysicsProcess(false);
+}
 
     // =========================================================
     // Release native query resources when the world closes.
@@ -197,43 +198,44 @@ public partial class PlacementWorld : Node
     #endregion
 
     #region Placement
-    // =========================================================
-    // Revalidate, prepare the object, and consume one verified inventory item.
-    public bool TryPlace(
-        Player player, ItemDefinition item, InventoryAddress address,
-        Vector2I anchor, float reach)
+// =========================================================
+// Revalidate, consume one item, place the object, and clear its overlapping grass.
+public bool TryPlace(
+    Player player, ItemDefinition item, InventoryAddress address,
+    Vector2I anchor, float reach)
+{
+    PlaceableDefinition definition = item?.Placeable;
+    if (definition == null ||
+        !CanPlace(player, definition, anchor, reach, out _))
+        return false;
+
+    Node instance = definition.WorldScene.Instantiate();
+    if (instance is not PlacedObject placed ||
+        placed.GetNodeOrNull<Health>("Systems/Health") == null)
     {
-        PlaceableDefinition definition = item?.Placeable;
-        if (definition == null ||
-            !CanPlace(player, definition, anchor, reach, out _))
-            return false;
-
-        Node instance = definition.WorldScene.Instantiate();
-        if (instance is not PlacedObject placed ||
-            placed.GetNodeOrNull<Health>("Systems/Health") == null)
-        {
-            instance.Free();
-            GD.PushError("Placeable world scene requires PlacedObject and Systems/Health.");
-            return false;
-        }
-
-        // Configure before entering the tree so navigation sees its full footprint.
-        placed.Configure(this, definition, anchor);
-        placed.Position = _objects.ToLocal(Grid.Centre(anchor, definition.Cells));
-
-        PlayerInventory inventory =
-            player.GetNode<PlayerInventory>("Systems/Inventory");
-
-        if (!inventory.TryTakeOne(address, item))
-        {
-            placed.Free();
-            return false;
-        }
-
-        _objects.AddChild(placed);
-        Register(placed, anchor, definition.Cells);
-        return true;
+        instance.Free();
+        GD.PushError(
+            "Placeable world scene requires PlacedObject and Systems/Health.");
+        return false;
     }
+
+    placed.Configure(this, definition, anchor);
+    placed.Position = _objects.ToLocal(Grid.Centre(anchor, definition.Cells));
+
+    PlayerInventory inventory =
+        player.GetNode<PlayerInventory>("Systems/Inventory");
+
+    if (!inventory.TryTakeOne(address, item))
+    {
+        placed.Free();
+        return false;
+    }
+
+    _objects.AddChild(placed);
+    Register(placed, anchor, definition.Cells);
+    ClearGrass(anchor, definition.Cells);
+    return true;
+}
 
     // =========================================================
     // Reserve every occupied cell without splitting larger footprints.
@@ -257,5 +259,45 @@ public partial class PlacementWorld : Node
                 _occupied.Remove(cell);
         }
     }
+
+    // =========================================================
+// Remove overlapping grass only after the building transaction succeeds.
+private void ClearGrass(Vector2I anchor, Vector2I cells)
+{
+    Vector2 centre = Grid.Centre(anchor, cells);
+    Vector2[] corners = Grid.Corners(anchor, cells);
+
+    for (int i = 0; i < corners.Length; i++)
+        corners[i] -= centre;
+
+    _shape.Points = corners;
+    _query.Transform = new Transform2D(0f, centre);
+
+    uint previousMask = _query.CollisionMask;
+    _query.CollisionMask = VegetationPlacement.GrassLayer;
+
+    try
+    {
+        var hits = _objects.GetWorld2D().DirectSpaceState
+            .IntersectShape(_query, 4096);
+
+        foreach (var hit in hits)
+        {
+            if (hit["collider"].AsGodotObject()
+                is not VegetationPlacement vegetation ||
+                !vegetation.IsGrass ||
+                !GodotObject.IsInstanceValid(vegetation.Host) ||
+                vegetation.Host.IsQueuedForDeletion())
+                continue;
+
+            vegetation.Host.Hide();
+            vegetation.Host.QueueFree();
+        }
+    }
+    finally
+    {
+        _query.CollisionMask = previousMask;
+    }
+}
     #endregion
 }

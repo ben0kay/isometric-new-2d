@@ -17,5 +17,6 @@ public partial class PlantDefinition : WorldObjectDefinition
     [ExportGroup("Placement")]
     [Export] public Vector2 Spacing { get; set; } = new(88, 48);
     [Export] public float GroundClearance { get; set; } = 48f;
+    [Export] public Vector2 PlacementFootprint { get; set; } = new(64f, 32f);
     #endregion
 }

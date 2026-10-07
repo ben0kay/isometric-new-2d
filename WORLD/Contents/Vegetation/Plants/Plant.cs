@@ -23,6 +23,10 @@ public partial class Plant : Node2D
                 throw new System.InvalidOperationException(
                     "Plant requires a PlantDefinition.");
 
+            VegetationPlacement.Attach(
+            this, Definition.PlacementFootprint *
+                Mathf.Max(0.1f, SizeMultiplier), false);
+
             ResourceHarvest.Attach(this, Definition, "plant_fiber", true);
             await VegetationAtlas.EnsureReady(this);
             if (!IsInsideTree() || IsQueuedForDeletion()) return;
