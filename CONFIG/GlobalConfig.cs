@@ -45,14 +45,23 @@ public partial class GlobalConfig : Node
     public float ObstructionFadeSeconds { get; set; } = 0.2f;
     #endregion
 
-        #region Debug Map
-    [ExportGroup("DEBUG MAP")]
-    [Export(PropertyHint.Range, "16,2048,16")]
-    public float DebugMapRadiusTiles { get; set; } = 128f;
+#region Debug Map
+[ExportGroup("DEBUG MAP")]
 
-    [Export(PropertyHint.Range, "128,4096,128")]
-    public float DebugBiomeSearchRadiusTiles { get; set; } = 1024f;
-    #endregion
+[ExportSubgroup("Biome Preview")]
+[Export(PropertyHint.Range, "16,8192,16")]
+public float DebugMapRadiusTiles { get; set; } = 1024f;
+
+[Export(PropertyHint.Range, "128,4096,128")]
+public float DebugBiomeSearchRadiusTiles { get; set; } = 1024f;
+
+[ExportSubgroup("Points Of Interest")]
+[Export(PropertyHint.Range, "16,1024,16")]
+public float DebugMapPoiRadiusTiles { get; set; } = 128f;
+
+[Export(PropertyHint.Range, "0.1,2,0.1")]
+public double DebugMapPoiBudgetMs { get; set; } = 0.5;
+#endregion
 
     #region Cave Discovery
     [ExportGroup("CAVE DISCOVERY")]

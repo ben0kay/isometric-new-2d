@@ -14,3 +14,5 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_map")
+Resolution = 512
+BuildBudgetMs = 2.0

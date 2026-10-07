@@ -33,6 +33,7 @@ public partial class WorldMapDebug : Control
     private int _resolution, _pixel;
 
     private bool _open, _building, _dragging;
+    private WorldMapPoiPreview _pois;
     #endregion
 
     #region Lifecycle
@@ -48,14 +49,16 @@ public partial class WorldMapDebug : Control
         SetProcessInput(Enabled);
     }
 
-    // =========================================================
-    // Release input ownership and cached preview resources.
-    public override void _ExitTree()
-    {
-        if (GodotObject.IsInstanceValid(_modes)) _modes.Release(this);
-        _image?.Dispose();
-        _texture?.Dispose();
-    }
+// =========================================================
+// Release map input, metadata protection and preview resources.
+public override void _ExitTree()
+{
+    if (GodotObject.IsInstanceValid(_modes)) _modes.Release(this);
+    _pois?.Dispose();
+    _pois = null;
+    _image?.Dispose();
+    _texture?.Dispose();
+}
 
     // =========================================================
     // Resolve only the services needed for biome identity and player position.
@@ -194,15 +197,18 @@ public partial class WorldMapDebug : Control
         }
     }
 
-    // =========================================================
-    // Restore gameplay input while allowing a pending preview build to finish.
-    private void CloseMap()
-    {
-        _open = _dragging = false;
-        Visible = false;
-        _modes.Release(this);
-        SetProcess(_building);
-    }
+// =========================================================
+// Restore gameplay and release map-owned POI preparation.
+private void CloseMap()
+{
+    _open = _dragging = false;
+    Visible = false;
+    _modes.Release(this);
+
+    _pois?.Dispose();
+    _pois = null;
+    SetProcess(_building);
+}
 
     // =========================================================
     // Preserve the coordinate beneath the cursor while zooming.
@@ -235,96 +241,104 @@ public partial class WorldMapDebug : Control
     #endregion
 
     #region Building
-    // =========================================================
-    // Prepare a biome-only snapshot around the player's current location.
-    private void StartBuild()
+// =========================================================
+// Build a large biome snapshot and a separate nearby POI preview.
+private void StartBuild()
+{
+    float radius = _config.DebugMapRadiusTiles;
+    if (!float.IsFinite(radius) || radius < 16f)
+        throw new InvalidOperationException(
+            "DebugMapRadiusTiles must be finite and at least 16.");
+
+    _snapshotTile = PlayerTile();
+    _snapshotPlane = Project(_snapshotTile);
+    _tileRadius = radius;
+    _snapshotRadius = radius * 2f;
+    _viewCentre = _snapshotPlane;
+    _viewRadius = _snapshotRadius;
+
+    _resolution = Mathf.Clamp(Resolution, 64, 512);
+    _pixel = 0;
+    _ids = new string[_resolution * _resolution];
+
+    _image?.Dispose();
+    _texture?.Dispose();
+    _texture = null;
+    _image = Image.CreateEmpty(
+        _resolution, _resolution, false, Image.Format.Rgba8);
+
+    _pois?.Dispose();
+    _pois = new WorldMapPoiPreview(
+        this, _ground, _chunks, _config, _snapshotTile);
+
+    _building = true;
+    SetProcess(true);
+    QueueRedraw();
+}
+
+// =========================================================
+// Budget biome sampling and nearby POI preparation separately.
+public override void _Process(double delta)
+{
+    if (_building)
     {
-        float radius = _config.DebugMapRadiusTiles;
-        if (!float.IsFinite(radius) || radius < 16f)
-            throw new InvalidOperationException(
-                "DebugMapRadiusTiles must be finite and at least 16.");
+        long started = Stopwatch.GetTimestamp();
+        double budget = Math.Clamp(BuildBudgetMs, 0.2, 5.0);
+        int total = _resolution * _resolution;
 
-        _snapshotTile = PlayerTile();
-        _snapshotPlane = Project(_snapshotTile);
-        _tileRadius = radius;
-        _snapshotRadius = radius * 2f;
-        _viewCentre = _snapshotPlane;
-        _viewRadius = _snapshotRadius;
-
-        _resolution = Mathf.Clamp(Resolution, 64, 512);
-        _pixel = 0;
-        _ids = new string[_resolution * _resolution];
-
-        _image?.Dispose();
-        _texture?.Dispose();
-        _texture = null;
-        _image = Image.CreateEmpty(
-            _resolution, _resolution, false, Image.Format.Rgba8);
-
-        _building = true;
-        SetProcess(true);
-        QueueRedraw();
-    }
-
-    // =========================================================
-    // Sample biome identity only, with no terrain, basin or cave generation.
-    public override void _Process(double delta)
-    {
-        if (_building)
+        while (_pixel < total)
         {
-            long started = Stopwatch.GetTimestamp();
-            double budget = Math.Clamp(BuildBudgetMs, 0.2, 5.0);
-            int total = _resolution * _resolution;
+            int x = _pixel % _resolution;
+            int y = _pixel / _resolution;
 
-            while (_pixel < total)
+            Vector2 plane = _snapshotPlane + new Vector2(
+                ((x + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius,
+                ((y + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius);
+            Vector2 tile = Unproject(plane);
+            Vector2 difference = (tile - _snapshotTile).Abs();
+
+            Color colour = new("#10161b");
+
+            if (difference.X <= _tileRadius &&
+                difference.Y <= _tileRadius)
             {
-                int x = _pixel % _resolution;
-                int y = _pixel / _resolution;
+                string id = _generator.GetBiome(tile).Id;
+                _ids[_pixel] = id;
+                colour = BiomeColour(id);
 
-                Vector2 plane = _snapshotPlane + new Vector2(
-                    ((x + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius,
-                    ((y + 0.5f) / _resolution * 2f - 1f) * _snapshotRadius);
-                Vector2 tile = Unproject(plane);
-                Vector2 difference = (tile - _snapshotTile).Abs();
+                bool boundary =
+                    (x > 0 && _ids[_pixel - 1] != id) ||
+                    (y > 0 && _ids[_pixel - _resolution] != id);
 
-                Color colour = new("#10161b");
-
-                if (difference.X <= _tileRadius &&
-                    difference.Y <= _tileRadius)
-                {
-                    string id = _generator.GetBiome(tile).Id;
-                    _ids[_pixel] = id;
-                    colour = BiomeColour(id);
-
-                    bool boundary =
-                        (x > 0 && _ids[_pixel - 1] != id) ||
-                        (y > 0 && _ids[_pixel - _resolution] != id);
-
-                    if (boundary) colour = new Color("#080e13");
-                }
-
-                _image.SetPixel(x, y, colour);
-                _pixel++;
-
-                if ((_pixel & 15) == 0 &&
-                    (Stopwatch.GetTimestamp() - started) * 1000.0 /
-                    Stopwatch.Frequency >= budget)
-                    break;
+                if (boundary) colour = new Color("#080e13");
             }
 
-            if (_pixel == total)
-            {
-                _texture = ImageTexture.CreateFromImage(_image);
-                _image.Dispose();
-                _image = null;
-                _ids = null;
-                _building = false;
-                SetProcess(_open);
-            }
+            _image.SetPixel(x, y, colour);
+            _pixel++;
+
+            if ((_pixel & 15) == 0 &&
+                (Stopwatch.GetTimestamp() - started) * 1000.0 /
+                Stopwatch.Frequency >= budget)
+                break;
         }
 
-        if (_open) QueueRedraw();
+        if (_pixel == total)
+        {
+            _texture = ImageTexture.CreateFromImage(_image);
+            _image.Dispose();
+            _image = null;
+            _ids = null;
+            _building = false;
+            SetProcess(_open);
+        }
     }
+
+    if (_open)
+    {
+        _pois?.Tick(delta, PlayerTile());
+        QueueRedraw();
+    }
+}
 
     // =========================================================
     // Give known biomes readable colours and future biomes stable seeded-free colours.
@@ -396,44 +410,82 @@ public partial class WorldMapDebug : Control
             Vector2.One * (_viewRadius * 2f * scale));
     }
 
-    // =========================================================
-    // Draw biome boundaries and the live player marker.
-    public override void _Draw()
+// =========================================================
+// Draw biome outlines, nearby POIs and the live player position.
+public override void _Draw()
+{
+    if (!_open) return;
+
+    Rect2 panel = PanelRect();
+    Rect2 map = MapRect();
+    Font font = ThemeDB.FallbackFont;
+
+    DrawRect(panel, new Color(0.025f, 0.04f, 0.055f, 0.97f));
+    DrawRect(panel, new Color("#536674"), false, 1f);
+    DrawRect(map, new Color("#10161b"));
+
+    DrawString(font, panel.Position + new Vector2(16, 28),
+        "BIOME MAP  M/Esc close · Drag pan · Wheel zoom · R/F refresh · G fit",
+        HorizontalAlignment.Left, -1, 15, new Color("#d8e5ea"));
+
+    string hovered = "";
+
+    if (_texture != null)
     {
-        if (!_open) return;
+        DrawTextureRectRegion(_texture, map, SourceRect());
 
-        Rect2 panel = PanelRect();
-        Rect2 map = MapRect();
-        Font font = ThemeDB.FallbackFont;
-
-        DrawRect(panel, new Color(0.025f, 0.04f, 0.055f, 0.97f));
-        DrawRect(panel, new Color("#536674"), false, 1f);
-        DrawRect(map, new Color("#10161b"));
-
-        DrawString(font, panel.Position + new Vector2(16, 28),
-            "BIOME MAP  M/Esc close · Drag pan · Wheel zoom · R/F recenter · G fit",
-            HorizontalAlignment.Left, -1, 15, new Color("#d8e5ea"));
-
-        if (_texture != null)
-        {
-            DrawTextureRectRegion(_texture, map, SourceRect());
-
-            Vector2 point = MapPoint(PlayerTile(), map);
-            if (map.HasPoint(point))
+        if (_pois != null)
+            foreach (WorldMapPoiPreview.Entry entry in _pois.Entries)
             {
-                DrawCircle(point, 6f, Colors.Black);
-                DrawCircle(point, 4f, new Color("#ffed8a"));
+                Vector2 point = MapPoint(entry.Tile, map);
+                if (!map.HasPoint(point)) continue;
+
+                Color colour = entry.Kind switch
+                {
+                    DebugMapPoiKind.CaveEntrance => new Color("#ffae67"),
+                    DebugMapPoiKind.Resource => new Color("#78dfb1"),
+                    DebugMapPoiKind.Settlement => new Color("#9daaff"),
+                    _ => new Color("#e2d9f0")
+                };
+
+                Rect2 marker = new(
+                    point - Vector2.One * 4f, Vector2.One * 8f);
+                DrawRect(marker.Grow(1f), Colors.Black);
+                DrawRect(marker, colour);
+
+                if (point.DistanceSquaredTo(
+                    GetLocalMousePosition()) <= 100f)
+                    hovered = $"{entry.Kind}: {entry.Name} " +
+                        $"({entry.Tile.X:0}, {entry.Tile.Y:0})";
             }
+
+        Vector2 player = MapPoint(PlayerTile(), map);
+        if (map.HasPoint(player))
+        {
+            DrawCircle(player, 6f, Colors.Black);
+            DrawCircle(player, 4f, new Color("#ffed8a"));
         }
-
-        DrawRect(map, new Color("#526371"), false, 1f);
-
-        string status = _building
-            ? $"Building {_pixel * 100 / (_resolution * _resolution)}%..."
-            : $"Radius {_tileRadius:0} tiles · Seed {_chunks.WorldSeed} · Biomes only";
-
-        DrawString(font, panel.Position + new Vector2(16, panel.Size.Y - 20),
-            status, HorizontalAlignment.Left, -1, 15, new Color("#97aebc"));
     }
+
+    DrawRect(map, new Color("#526371"), false, 1f);
+
+    string progress = _building
+        ? $" · Biomes {_pixel * 100 / (_resolution * _resolution)}%"
+        : "";
+
+    if (_pois?.Building == true) progress += " · Preparing POIs";
+
+    string status =
+        $"Biome radius {_tileRadius:0} · POI radius {_pois?.Radius ?? 0:0}" +
+        $" · Seed {_chunks.WorldSeed}{progress}";
+
+    DrawString(font, panel.Position + new Vector2(16, panel.Size.Y - 40),
+        status, HorizontalAlignment.Left, -1, 14, new Color("#97aebc"));
+
+    DrawString(font, panel.Position + new Vector2(16, panel.Size.Y - 20),
+        hovered.Length > 0 ? hovered :
+            "Yellow: player · Orange: cave entrance · Hover markers for details",
+        HorizontalAlignment.Left, -1, 14, new Color("#d8e5ea"));
+}
     #endregion
 }

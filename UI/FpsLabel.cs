@@ -15,14 +15,22 @@ public partial class FpsLabel : Label
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Set the initial appearance and display the first reading.
-    public override void _Ready()
-    {
-        MouseFilter = MouseFilterEnum.Ignore;
-        AddThemeColorOverride("font_color", NormalColor);
-        UpdateDisplay();
-    }
+// =========================================================
+// Initialize FPS and attach shared top-right diagnostic layout.
+public override void _Ready()
+{
+    MouseFilter = MouseFilterEnum.Ignore;
+    AddThemeColorOverride("font_color", NormalColor);
+
+    if (GetParent().GetNodeOrNull<WorldDebugHudLayout>(
+        "WorldDebugHudLayout") == null)
+        GetParent().AddChild(new WorldDebugHudLayout
+        {
+            Name = "WorldDebugHudLayout"
+        });
+
+    UpdateDisplay();
+}
 
     // =========================================================
     // Refresh periodically instead of changing label text every frame.
