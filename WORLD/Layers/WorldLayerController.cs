@@ -1,5 +1,5 @@
-// Coordinates surface/cave activation, fading and shared elevation lookup.
-// Location state remains independent of inventory and debug input modes.
+// Coordinates surface/cave switching, streaming readiness and shared height queries.
+// Location state remains independent of inventory and debug input ownership.
 using Godot;
 using System.Collections.Generic;
 
@@ -17,40 +17,42 @@ public partial class WorldLayerController : Node
     private WorldConfig _config;
     private float _surfaceOpacity = 1f;
     private Label _status;
-
     private readonly List<WorldLayerMember> _surface = new();
     private WorldLayerMember _underground;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Register this optional feature without depending on the world root name.
+    // Register the optional layer service.
     public override void _EnterTree()
     {
         AddToGroup("world_layer_controller");
     }
 
     // =========================================================
-    // Wait for the test helper to supply the completed cave.
+    // Wait for the cave setup helper.
     public override void _Ready()
     {
         SetProcess(false);
     }
 
     // =========================================================
-    // Restore the surface if this feature is removed during play.
+    // Restore the surface when the feature is removed.
     public override void _ExitTree()
     {
         foreach (WorldLayerMember member in _surface)
-            if (GodotObject.IsInstanceValid(member))
-                member.SetActive(true);
+        {
+            if (!GodotObject.IsInstanceValid(member)) continue;
+            member.SetActive(true);
+            member.SetOpacity(1f);
+        }
 
         if (GodotObject.IsInstanceValid(_camera))
             _camera.Position = _cameraPosition;
     }
 
     // =========================================================
-    // Connect the existing player and completed underground layout.
+    // Connect the shared player and start underground preloading.
     public void Configure(Node world, Player player, CaveWorld cave)
     {
         _world = world;
@@ -60,25 +62,22 @@ public partial class WorldLayerController : Node
         _camera = player.GetNode<Camera2D>("Camera2D");
         _cameraPosition = _camera.Position;
 
-        _underground = WorldLayerMember.Attach(
-            cave.Root, WorldLayer.Cave);
+        _underground = WorldLayerMember.Attach(cave.Root, WorldLayer.Cave);
         _underground.SetActive(false);
         _underground.SetOpacity(0f);
+        cave.Streaming.ConfigurePlayer(player);
+        cave.Streaming.SetActive(false);
 
         CanvasLayer hud = new() { Name = "LayerHUD", Layer = 40 };
         AddChild(hud);
-        _status = new Label
-        {
-            Position = new Vector2(16, 170),
-            Text = "SURFACE | Cave test entrance nearby"
-        };
+        _status = new Label { Position = new Vector2(16, 170) };
         _status.AddThemeColorOverride("font_color", new Color("#8be4cf"));
         hud.AddChild(_status);
         SetProcess(true);
     }
 
     // =========================================================
-    // Handle reversible entrance traversal and animate surface visibility.
+    // Traverse only the entrance corridor and animate surface visibility.
     public override void _Process(double delta)
     {
         if (!GodotObject.IsInstanceValid(_player)) return;
@@ -93,25 +92,25 @@ public partial class WorldLayerController : Node
         if (health.IsAlive && InputModes.For(_player).GameplayAllowed)
         {
             if (Current == WorldLayer.Surface && corridor &&
-                tile.X >= 0f && tile.X < 0.6f)
+                tile.X >= 0f && tile.X < 0.6f &&
+                Cave.Streaming.EntryReady())
                 EnterCave();
-            else if (Current == WorldLayer.Cave && corridor && tile.X < -0.6f)
+            else if (Current == WorldLayer.Cave &&
+                corridor && tile.X < -0.6f)
                 ReturnToSurface();
         }
 
         float target = 1f;
+
         if (Current == WorldLayer.Cave)
         {
             float descent = corridor
-                ? Mathf.Clamp(tile.X / Cave.TunnelLengthTiles, 0f, 1f)
-                : 1f;
-
+                ? Mathf.Clamp(tile.X / Cave.TunnelLengthTiles, 0f, 1f) : 1f;
             float dim = Mathf.Clamp(
                 _config.ObstructingSpriteOpacityPercent / 100f, 0f, 1f);
             target = dim * (1f - descent);
 
-            float height = Cave.Elevation.SampleWorldHeight(
-                _player.GlobalPosition);
+            float height = Cave.Elevation.SampleWorldHeight(_player.GlobalPosition);
             _camera.Position = _cameraPosition +
                 Vector2.Down * (Cave.RimHeight - height);
         }
@@ -128,34 +127,41 @@ public partial class WorldLayerController : Node
 
         Cave.Entrance.Visible = Current == WorldLayer.Surface;
         _status.Text = Current == WorldLayer.Cave
-            ? "CAVE | Return through the entrance tunnel | M map is surface-only"
-            : "SURFACE | Walk into the marked cave opening";
+            ? $"CAVE | {Cave.Streaming.ReadyCount}/{Cave.Streaming.LoadedCount} chunks\n" +
+                "Return through entrance | M map is surface-only"
+            : Cave.Streaming.EntryReady()
+                ? "SURFACE | Cave entrance ready"
+                : "SURFACE | Preparing cave entrance...";
     }
     #endregion
 
     #region Switching
     // =========================================================
-    // Pause surface roots and activate the already-built cave.
+    // Activate completed cave chunks after the entrance buffer is ready.
     private void EnterCave()
     {
+        if (!Cave.Streaming.EntryReady()) return;
+
         CaptureSurface();
         foreach (WorldLayerMember member in _surface)
             member.SetActive(false);
 
         _underground.SetActive(true);
         _underground.SetOpacity(1f);
+        Cave.Streaming.SetActive(true);
         Current = WorldLayer.Cave;
         Epoch++;
-        _player.GetNode<MiningEmitter>("Systems/MiningEmitter").Stop();
+        StopMining();
         GD.Print("[Layers] Entered cave.");
     }
 
     // =========================================================
-    // Restore surface state and hide underground geometry.
+    // Restore surface simulation and disable every completed cave chunk.
     public void ReturnToSurface()
     {
         if (Current == WorldLayer.Surface) return;
 
+        Cave.Streaming.SetActive(false);
         _underground.SetActive(false);
         _underground.SetOpacity(0f);
 
@@ -169,20 +175,19 @@ public partial class WorldLayerController : Node
         Current = WorldLayer.Surface;
         Epoch++;
         _camera.Position = _cameraPosition;
-        _player.GetNode<MiningEmitter>("Systems/MiningEmitter").Stop();
+        StopMining();
         GD.Print("[Layers] Returned to surface.");
     }
 
     // =========================================================
-    // Capture current streamed objects at entry, keeping the player active.
+    // Capture surface roots while keeping pooled projectiles available for reuse.
     private void CaptureSurface()
     {
         _surface.Clear();
         AddSurface(_world.GetNode("GroundChunks"));
 
-        Node objects = _world.GetNode("WorldObjects");
-        foreach (Node child in objects.GetChildren())
-            if (child != _player)
+        foreach (Node child in _world.GetNode("WorldObjects").GetChildren())
+            if (child != _player && child is not Projectile)
                 AddSurface(child);
 
         Node systems = _world.GetNode("Systems");
@@ -201,16 +206,62 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Add one managed surface root.
+    // Register one managed surface root.
     private void AddSurface(Node node)
     {
         _surface.Add(WorldLayerMember.Attach(node, WorldLayer.Surface));
+    }
+
+    // =========================================================
+    // Stop the mining component without depending on its scene node name.
+    private void StopMining()
+    {
+        foreach (Node node in _player.GetNode("Systems").GetChildren())
+            if (node is MiningEmitter mining)
+                mining.Stop();
+    }
+    #endregion
+
+    #region Movement
+    // =========================================================
+    // Prevent cave movement into missing floor or unfinished chunks.
+    public Vector2 ConstrainVelocity(Vector2 position, Vector2 velocity, double delta)
+    {
+        if (Current != WorldLayer.Cave || delta <= 0)
+            return velocity;
+
+        Vector2 motion = velocity * (float)delta;
+        if (CanTravel(position, motion)) return velocity;
+
+        Vector2 horizontal = new(motion.X, 0f);
+        Vector2 vertical = new(0f, motion.Y);
+        bool canX = CanTravel(position, horizontal);
+        bool canY = CanTravel(position, vertical);
+
+        if (canX && (!canY || Mathf.Abs(motion.X) >= Mathf.Abs(motion.Y)))
+            return new Vector2(velocity.X, 0f);
+        if (canY)
+            return new Vector2(0f, velocity.Y);
+        return Vector2.Zero;
+    }
+
+    // =========================================================
+    // Check intermediate points so fast movement cannot skip unready space.
+    private bool CanTravel(Vector2 position, Vector2 motion)
+    {
+        int steps = Mathf.Max(1, Mathf.CeilToInt(motion.Length() / 12f));
+        if (steps > 64) return false;
+
+        for (int i = 1; i <= steps; i++)
+            if (!Cave.Streaming.IsAvailable(position + motion * ((float)i / steps)))
+                return false;
+        return true;
     }
     #endregion
 
     #region Shared Queries
     // =========================================================
-    // Find the optional controller in this scene tree.
+    // Find the optional controller in the current scene tree.
     public static WorldLayerController Find(Node context)
     {
         if (context == null || !context.IsInsideTree()) return null;
@@ -219,7 +270,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Select the owner's height provider without altering surface generation.
+    // Select the owner's elevation provider.
     public static float HeightFor(Node owner, Vector2 point)
     {
         WorldLayerController controller = Find(owner);
@@ -233,7 +284,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Select where player-created item drops belong.
+    // Route player-created drops to their current layer.
     public static Node2D DropRoot(Node context, Node2D surfaceRoot)
     {
         WorldLayerController controller = Find(context);
@@ -241,13 +292,4 @@ public partial class WorldLayerController : Node
             ? controller.Cave.Objects : surfaceRoot;
     }
     #endregion
-
-    // =========================================================
-// Stop the beam without depending on the component's scene node name.
-private void StopMining()
-{
-    foreach (Node node in _player.GetNode("Systems").GetChildren())
-        if (node is MiningEmitter mining)
-            mining.Stop();
-}
 }

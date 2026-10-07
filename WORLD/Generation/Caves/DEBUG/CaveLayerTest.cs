@@ -1,17 +1,17 @@
-// Places one removable cave test beside the current starting area.
-// Waits for surface streaming and checks entrance clearance before building.
+// Places a removable procedural cave test beside the starting area.
+// The helper supplies the existing world's seed and a cave generation profile.
 using Godot;
 
 public partial class CaveLayerTest : Node
 {
     #region Configuration
     [Export] public bool Enabled { get; set; } = true;
-    [Export] public float CaveDepthPixels { get; set; } = 160f;
+    [Export] public CaveGenerationSettings GenerationSettings { get; set; }
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Wait until surface terrain and startup objects are ready.
+    // Wait for surface readiness and choose a clear entrance location.
     public override void _Process(double delta)
     {
         if (!Enabled)
@@ -24,7 +24,6 @@ public partial class CaveLayerTest : Node
         ChunkController chunks = world.GetNode<ChunkController>(
             "Systems/ChunkController");
         if (!chunks.WorldReady) return;
-
         SetProcess(false);
 
         Player player = world.GetNode<Player>("WorldObjects/Player");
@@ -47,7 +46,6 @@ public partial class CaveLayerTest : Node
             float angle = Mathf.Tau * i / 24f;
             Vector2 candidate = player.GlobalPosition +
                 Vector2.FromAngle(angle) * 420f;
-
             Vector2 approach = candidate -
                 IsoGrid.TileToWorld(new Vector2(0.8f, 0f), chunks.TileSize);
 
@@ -68,30 +66,34 @@ public partial class CaveLayerTest : Node
         if (!found)
         {
             GD.PushError(
-                "[Cave test] No clear entrance location near this spawn. " +
+                "[Cave test] No clear entrance near this spawn. " +
                 "Try another seed or starting biome.");
             return;
         }
 
-        CaveWorld cave = new()
-        {
-            Name = "CaveWorld",
-            DepthPixels = Mathf.Max(32f, CaveDepthPixels)
-        };
-        AddChild(cave);
-        cave.Build(origin, chunks.TileSize,
-            elevation.SampleWorldHeight(origin));
+        CaveGenerationSettings settings = GenerationSettings ??
+            GD.Load<CaveGenerationSettings>(
+                "res://WORLD/Generation/Caves/DefaultCaveGeneration.tres");
 
-        WorldLayerController controller = new()
+        if (settings == null)
         {
-            Name = "WorldLayers"
-        };
+            GD.PushError("[Cave test] Missing cave generation profile.");
+            return;
+        }
+
+        CaveWorld cave = new() { Name = "CaveWorld" };
+        AddChild(cave);
+        cave.Build(
+            origin, chunks.TileSize, elevation.SampleWorldHeight(origin),
+            chunks.WorldSeed, settings);
+
+        WorldLayerController controller = new() { Name = "WorldLayers" };
         AddChild(controller);
         controller.Configure(world, player, cave);
 
         GD.Print(
-            $"[Cave test] Entrance at world {origin}. " +
-            "Walk into its centre, then follow the tunnel down-right.");
+            $"[Cave test] Seed {chunks.WorldSeed}; entrance at {origin}. " +
+            "Follow the descending tunnel into the generated network.");
     }
     #endregion
 }

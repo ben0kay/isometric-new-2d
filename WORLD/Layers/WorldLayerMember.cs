@@ -1,5 +1,5 @@
 // Identifies world membership and preserves inactive-layer settings.
-// Managed roots can pause without changing the player's shared systems.
+// Nested managed roots, such as streamed chunks, own their own activation.
 using Godot;
 using System.Collections.Generic;
 
@@ -22,7 +22,6 @@ public partial class WorldLayerMember : Node
     {
         WorldLayerMember member =
             root.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
-
         if (member != null) return member;
 
         member = new WorldLayerMember
@@ -36,7 +35,7 @@ public partial class WorldLayerMember : Node
     }
 
     // =========================================================
-    // Resolve ownership; the shared player follows the controller's state.
+    // Resolve ownership; the shared player follows the active location state.
     public static WorldLayer For(Node node)
     {
         for (Node current = node; current != null; current = current.GetParent())
@@ -49,12 +48,11 @@ public partial class WorldLayerMember : Node
                 current.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
             if (member != null) return member.Layer;
         }
-
         return WorldLayer.Surface;
     }
 
     // =========================================================
-    // Reject interaction between objects occupying different world layers.
+    // Reject interactions between different world layers.
     public static bool Same(Node a, Node b)
     {
         return For(a) == For(b);
@@ -63,7 +61,7 @@ public partial class WorldLayerMember : Node
 
     #region Activation
     // =========================================================
-    // Snapshot on departure and restore the exact settings on return.
+    // Snapshot on departure and restore the original settings on return.
     public void SetActive(bool active)
     {
         if (_active == active) return;
@@ -80,7 +78,6 @@ public partial class WorldLayerMember : Node
                 record.Body.CollisionLayer = 0;
                 record.Body.CollisionMask = 0;
             }
-
             foreach (var record in _process)
                 record.Node.ProcessMode = ProcessModeEnum.Disabled;
         }
@@ -96,7 +93,6 @@ public partial class WorldLayerMember : Node
                 record.Body.CollisionLayer = record.Layer;
                 record.Body.CollisionMask = record.Mask;
             }
-
             SetOpacity(1f);
         }
 
@@ -104,7 +100,7 @@ public partial class WorldLayerMember : Node
     }
 
     // =========================================================
-    // Fade only top-level canvas items to avoid multiplying nested alpha.
+    // Fade top-level canvas items without multiplying nested alpha.
     public void SetOpacity(float opacity)
     {
         opacity = Mathf.Clamp(opacity, 0f, 1f);
@@ -120,10 +116,14 @@ public partial class WorldLayerMember : Node
     }
 
     // =========================================================
-    // Capture descendants while avoiding nested helper components.
+    // Leave independently managed descendants to their own activation helpers.
     private void Capture(Node node, bool beneathCanvas)
     {
         if (node is WorldLayerMember) return;
+
+        if (node != _root &&
+            node.GetNodeOrNull<WorldLayerMember>("WorldLayerMember") != null)
+            return;
 
         _process.Add((node, node.ProcessMode));
 
