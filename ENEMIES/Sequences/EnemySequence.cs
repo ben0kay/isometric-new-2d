@@ -166,19 +166,21 @@ public partial class EnemySequence : Node
         }
     }
 
-    // =========================================================
-    // Fire through normal aiming and cooldown rules without editing attack resources.
-    public bool TryFire(AttackDefinition attack)
-    {
-        if (!Actor.HasTarget || !Actor.HasSight) return false;
-        float range = Actor.Definition.Combat.AttackRange;
-        Vector2 point = Actor.Target.GlobalPosition;
-        if (Actor.GlobalPosition.DistanceSquaredTo(point) > range * range)
-            return false;
+// =========================================================
+// Fire sequence attacks at the target's visible combat silhouette.
+public bool TryFire(AttackDefinition attack)
+{
+    if (!Actor.HasTarget || !Actor.HasSight) return false;
 
-        _weapon.Attack = attack ?? _defaultAttack;
-        return _weapon.TryFireAt(point);
-    }
+    float range = Actor.Definition.Combat.AttackRange;
+    Vector2 point = Actor.Target.GlobalPosition;
+
+    if (Actor.GlobalPosition.DistanceSquaredTo(point) > range * range)
+        return false;
+
+    _weapon.Attack = attack ?? _defaultAttack;
+    return _weapon.TryFireAtActor(Actor.Target);
+}
 
     // =========================================================
     // Choose a reproducible random initial dodge side.

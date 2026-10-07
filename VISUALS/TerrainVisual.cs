@@ -13,8 +13,8 @@ public partial class TerrainVisual : Node2D
     #endregion
 
     #region Creation
-    // =========================================================
-// Attach selected artwork with an optional alternative baked texture and material.
+// =========================================================
+// Attach selected artwork and a separate combat silhouette for living actors.
 public static TerrainVisual Attach(
     Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
     bool followMovement, VisualDefinition definition = null,
@@ -50,6 +50,7 @@ public static TerrainVisual Attach(
     }
 
     host.AddChild(visual);
+    CombatHitbox.Attach(host, visual);
     return visual;
 }
 

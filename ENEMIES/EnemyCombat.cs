@@ -1,5 +1,5 @@
 // Checks attack eligibility and starts optional enemy sequences.
-// Weapon cooldowns continue advancing while sequences own movement and attacks.
+// Ranged attacks aim at visible actor hitboxes; melee uses ground distance.
 using Godot;
 using System;
 
@@ -11,11 +11,12 @@ public partial class EnemyCombat : Node
     private EnemySequence _sequence;
     private WorldNavigation _navigation;
     private double _timer;
+    public event Action MeleeExecuted;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Resolve sibling components without depending on their Ready callback order.
+    // Resolve sibling components without depending on ready order.
     public override void _Ready()
     {
         _actor = GetParent().GetParent<Enemy>();
@@ -25,12 +26,13 @@ public partial class EnemyCombat : Node
     #endregion
 
     #region Combat
-      // =========================================================
-    // Advance weapon timing and check attacks at ten hertz; notify accepted melee hits.
+    // =========================================================
+    // Advance weapon timing and check eligible attacks at ten hertz.
     public void Tick(double delta)
     {
-        if (!_actor.Initialized || !_actor.IsActivated || _actor.SpawnPending ||
-            _actor.IsQueuedForDeletion() || _actor.Health?.IsAlive != true)
+        if (!_actor.Initialized || !_actor.IsActivated ||
+            _actor.SpawnPending || _actor.IsQueuedForDeletion() ||
+            _actor.Health?.IsAlive != true)
             return;
 
         _weapon.Tick(delta);
@@ -42,8 +44,10 @@ public partial class EnemyCombat : Node
 
         EnemyCombatSettings combat = _actor.Definition.Combat;
         Vector2 point = _actor.Target.GlobalPosition;
+
         if (_actor.GlobalPosition.DistanceSquaredTo(point) >
-            combat.AttackRange * combat.AttackRange) return;
+            combat.AttackRange * combat.AttackRange)
+            return;
 
         if (_sequence.IsConfigured)
         {
@@ -53,26 +57,27 @@ public partial class EnemyCombat : Node
 
         if (combat is RangedCombatSettings)
         {
-            _weapon.TryFireAt(point);
+            _weapon.TryFireAtActor(_actor.Target);
             return;
         }
 
         if (combat is not MeleeCombatSettings melee) return;
 
-        _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation")
-            as WorldNavigation;
-        if (_navigation == null ||
-            !_navigation.CanTravelDirectly(_actor.GlobalPosition, point)) return;
+        _navigation ??= GetTree().GetFirstNodeInGroup(
+            "world_navigation") as WorldNavigation;
 
-        Health targetHealth = _actor.Target.GetNodeOrNull<Health>("Systems/Health");
-        if (targetHealth?.Damage(melee.Damage, melee.DamageType) != true) return;
+        if (_navigation == null ||
+            !_navigation.CanTravelDirectly(_actor.GlobalPosition, point))
+            return;
+
+        Health targetHealth = _actor.Target.GetNodeOrNull<Health>(
+            "Systems/Health");
+
+        if (targetHealth?.Damage(melee.Damage, melee.DamageType) != true)
+            return;
 
         _timer = Math.Max(0.1, melee.Cooldown);
         MeleeExecuted?.Invoke();
     }
-    #endregion
-
-        #region Events
-    public event Action MeleeExecuted;
     #endregion
 }
