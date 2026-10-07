@@ -35,6 +35,7 @@ private double _targetTimer, _decisionTimer, _wanderTimer;
 private bool _retreating;
 private uint _activeLayer;
 private EnemySequence _sequence;
+private float? _chosenRangedDistance;
 #endregion
 
     #region Lifecycle
@@ -330,16 +331,15 @@ private void DecideMovement()
 }
 
 // =========================================================
-// Pursue around cover until sight returns, then maintain ranged spacing.
+// Pursue around cover, then use this enemy's cached ranged distance.
 private void DecideRangedMovement(
     Vector2 targetPoint, RangedCombatSettings ranged)
 {
+    float chosenDistance = GetRangedDistance(ranged);
+
     if (!HasSight)
     {
         _retreating = false;
-
-        // Keep approaching while blocked instead of stopping at firing distance.
-        // The motor uses navigation to route around solid obstacles.
         _motor.SetGoal(targetPoint, Definition.MoveSpeed, 1f);
         return;
     }
@@ -347,7 +347,7 @@ private void DecideRangedMovement(
     float distance = GlobalPosition.DistanceTo(targetPoint);
 
     if (distance < ranged.BackAwayRange) _retreating = true;
-    if (distance >= ranged.PreferredRange) _retreating = false;
+    if (distance >= chosenDistance) _retreating = false;
 
     if (_retreating)
     {
@@ -355,7 +355,7 @@ private void DecideRangedMovement(
         return;
     }
 
-    if (distance <= ranged.PreferredRange)
+    if (distance <= chosenDistance)
     {
         _motor.Stop();
         return;
@@ -426,6 +426,21 @@ private void DecideWandering()
         return;
     }
     _wanderTimer = 1.0;
+}
+
+// =========================================================
+// Choose one distance per enemy, weighted toward the preferred minimum.
+private float GetRangedDistance(RangedCombatSettings ranged)
+{
+    if (_chosenRangedDistance.HasValue)
+        return _chosenRangedDistance.Value;
+
+    float weight = Mathf.Pow(_rng.Randf(), ranged.RangeBias);
+    float distance = Mathf.Lerp(
+        ranged.PreferredRange, ranged.AttackRange, weight);
+
+    _chosenRangedDistance = distance;
+    return distance;
 }
     #endregion
 }
