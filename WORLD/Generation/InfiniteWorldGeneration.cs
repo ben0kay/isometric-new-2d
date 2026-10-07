@@ -101,4 +101,32 @@ public partial class InfiniteWorldGeneration : Node
                 yield return step;
     }
     #endregion
+
+        // =========================================================
+    // Hold both surface and entrance metadata until the owning chunk retires.
+    public IDisposable PinArea(Rect2 area)
+    {
+        if (!_initialized)
+            throw new InvalidOperationException(
+                "Infinite generation did not initialize successfully.");
+
+        IDisposable water = _basins.PinArea(area.Grow(4f));
+        IDisposable entrances = null;
+
+        try
+        {
+            entrances = _planner?.PinArea(area);
+        }
+        catch
+        {
+            water.Dispose();
+            throw;
+        }
+
+        return new GenerationLease(() =>
+        {
+            entrances?.Dispose();
+            water.Dispose();
+        });
+    }
 }

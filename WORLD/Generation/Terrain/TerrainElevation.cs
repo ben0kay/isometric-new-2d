@@ -52,13 +52,15 @@ public override void _Ready()
 
     #region Height Sampling
     // =========================================================
-    // Reuse exact-coordinate heights with a bounded FIFO cache.
+    // Cache completed terrain only; temporary cold-query heights remain uncached.
     public float GetHeight(Vector2 tile)
     {
         if (_heights.TryGetValue(tile, out float height))
             return height;
 
-        height = _generator.GetHeight(tile);
+        if (!_generator.TryGetHeight(tile, out height))
+            return height;
+
         int limit = Mathf.Max(1024, MaxCachedHeights);
 
         while (_heights.Count >= limit)

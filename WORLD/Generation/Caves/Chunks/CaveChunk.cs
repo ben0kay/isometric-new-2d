@@ -210,8 +210,8 @@ public IEnumerable<int> BuildSteps()
     }
     #endregion
 
-        // =========================================================
-    // Register nearby entrances before any cave floor or wall is sampled.
+    // =========================================================
+    // Hold nearby entrance decisions until this cave chunk is removed.
     private IEnumerable<int> PrepareMetadata()
     {
         InfiniteWorldGeneration generation =
@@ -225,6 +225,8 @@ public IEnumerable<int> BuildSteps()
             new Vector2(Coordinate.X * _size - 0.5f,
                 Coordinate.Y * _size - 0.5f),
             Vector2.One * _size);
+
+        GenerationMetadataLease.Attach(this, generation, area);
 
         foreach (int step in generation.PrepareArea(area))
             yield return step;

@@ -368,4 +368,15 @@ public Color SampleMountainGround(Vector2 tile)
     return new Color(rock, path, 0f, 1f);
 }
     #endregion
+
+        // =========================================================
+    // Expose whether the returned terrain height includes completed basin data.
+    public bool TryGetHeight(Vector2 tile, out float height)
+    {
+        float original = GetBaseHeight(tile);
+        height = original;
+
+        return _waterBasins == null ||
+            _waterBasins.TryApplyHeight(tile, original, out height);
+    }
 }

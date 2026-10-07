@@ -9,107 +9,91 @@
 [ext_resource type="Script" uid="uid://c3gypjn762e33" path="res://COMBAT/Weapons/MiningEmitter.cs" id="7_mining"]
 [ext_resource type="Script" uid="uid://kitcb3wc11rs" path="res://UI/Inventory/InventoryHud.cs" id="8_hud"]
 [ext_resource type="Script" uid="uid://dk80brlaqernn" path="res://ITEMS/ItemDefinition.cs" id="9_item"]
-[ext_resource type="Resource" path="res://PLAYER/Equipment/Weapons/BlasterItem.tres" id="10_blaster"]
-[ext_resource type="Resource" path="res://PLAYER/Equipment/Weapons/MiningLaserItem.tres" id="11_laser"]
-[ext_resource type="Resource" path="res://PLAYER/Equipment/Backpacks/StarterBackpack.tres" id="12_pack"]
+[ext_resource type="Resource" uid="uid://cavu4ebo2li8k" path="res://PLAYER/Equipment/Weapons/BlasterItem.tres" id="10_blaster"]
+[ext_resource type="Resource" uid="uid://wpe0upgpwiso" path="res://PLAYER/Equipment/Weapons/MiningLaserItem.tres" id="11_laser"]
+[ext_resource type="Resource" uid="uid://bbcn8cr7287fw" path="res://PLAYER/Equipment/Backpacks/StarterBackpack.tres" id="12_pack"]
 [ext_resource type="Resource" path="res://PLAYER/Inventory/DefaultCarryingRules.tres" id="13_rules"]
 [ext_resource type="Script" uid="uid://bovihm3dpiv7" path="res://PLAYER/Stats/PlayerStats.cs" id="14_stats"]
 [ext_resource type="Script" uid="uid://cjn1kt7k4lpni" path="res://PLAYER/Stats/PlayerVitals.cs" id="15_vitals"]
-[ext_resource type="Script" uid="uid://dnmmsxrrheexr" path="res://UI/Debug/PlayerStatsHud.cs" id="16_stats_hud"]
 [ext_resource type="Resource" path="res://PLAYER/Stats/DefaultPlayerStats.tres" id="17_profile"]
 [ext_resource type="Script" uid="uid://1d1lr6o4i6ae" path="res://PLAYER/Stats/StatModifier.cs" id="18_modifier"]
 [ext_resource type="Script" uid="uid://jxg0ic0aduk1" path="res://WORLDABLES/Objects/Storage/UI/StorageHud.cs" id="19_storage_hud"]
 [ext_resource type="Script" uid="uid://ds5ncg0hxvpqc" path="res://PLAYER/Gathering/PlayerGathering.cs" id="20_gathering"]
 [ext_resource type="Script" uid="uid://vbfabib50dpv" path="res://PLAYER/Inventory/PlayerHotbar.cs" id="21_hotbar"]
-[ext_resource type="Script" path="res://PLAYER/Gathering/PlayerDigging.cs" id="22_digging"]
+[ext_resource type="Script" uid="uid://cw3mwyc7qwxas" path="res://PLAYER/Gathering/PlayerDigging.cs" id="22_digging"]
 [ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelItem.tres" id="23_shovel"]
-[ext_resource type="Script" path="res://PLAYER/Movement/PlayerSurfaceEffects.cs" id="24_surface_effects"]
-[ext_resource type="Shader" path="res://WORLD/Contents/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
-
+[ext_resource type="Script" uid="uid://oeb8tex7mrgg" path="res://PLAYER/Movement/PlayerSurfaceEffects.cs" id="24_surface_effects"]
+[ext_resource type="Shader" uid="uid://5nn3avxqbtal" path="res://WORLD/Contents/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
-radius = 10.0
 
 [sub_resource type="Resource" id="TestMiningModifier"]
 script = ExtResource("18_modifier")
-Stat = 8
-Operation = 1
-Amount = 0.25
 
-[node name="Player" type="CharacterBody2D" groups=["players"]]
+[node name="Player" type="CharacterBody2D" unique_id=1658005045 groups=["players"]]
 collision_layer = 2
 collision_mask = 9
 motion_mode = 1
 script = ExtResource("1_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1229090290]
 shape = SubResource("CircleShape_player")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1281206520]
 position = Vector2(0, -24)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
 
-[node name="Systems" type="Node" parent="."]
+[node name="Systems" type="Node" parent="." unique_id=1846477850]
 
-[node name="Health" type="Node" parent="Systems"]
+[node name="Health" type="Node" parent="Systems" unique_id=1306461061]
 script = ExtResource("2_health")
-MaxHealth = 100
 DamageImmunity = 0.35
 
-[node name="Stats" type="Node" parent="Systems"]
+[node name="Stats" type="Node" parent="Systems" unique_id=1277382693]
 script = ExtResource("14_stats")
 Profile = ExtResource("17_profile")
-TestModifiersEnabled = false
 TestModifiers = Array[ExtResource("18_modifier")]([SubResource("TestMiningModifier")])
 
-[node name="Vitals" type="Node" parent="Systems"]
+[node name="Vitals" type="Node" parent="Systems" unique_id=676227563]
 script = ExtResource("15_vitals")
 
-[node name="CombatLife" type="Node" parent="Systems"]
+[node name="CombatLife" type="Node" parent="Systems" unique_id=986703503]
 script = ExtResource("3_life")
 Respawn = true
-RespawnDelay = 1.5
 
-[node name="Weapon" type="Node" parent="Systems"]
+[node name="Weapon" type="Node" parent="Systems" unique_id=859379336]
 script = ExtResource("4_weapon")
 
-[node name="Equipment" type="Node" parent="Systems"]
+[node name="Equipment" type="Node" parent="Systems" unique_id=1460911417]
 script = ExtResource("5_equipment")
-ToolSlotCount = 3
 StartingTools = Array[ExtResource("9_item")]([ExtResource("10_blaster"), ExtResource("11_laser"), ExtResource("23_shovel")])
 StartingBackpack = ExtResource("12_pack")
 
-[node name="Inventory" type="Node" parent="Systems"]
+[node name="Inventory" type="Node" parent="Systems" unique_id=517829259]
 script = ExtResource("6_inventory")
 Rules = ExtResource("13_rules")
 
-[node name="MiningEmitter" type="Node" parent="Systems"]
+[node name="MiningEmitter" type="Node" parent="Systems" unique_id=416659850]
 script = ExtResource("7_mining")
-BeamHoldTime = 0.14
 
-[node name="Hotbar" type="Node" parent="Systems"]
+[node name="Hotbar" type="Node" parent="Systems" unique_id=501466172]
 script = ExtResource("21_hotbar")
-SlotCount = 10
 
-[node name="Gathering" type="Node" parent="Systems"]
+[node name="Gathering" type="Node" parent="Systems" unique_id=571119716]
 script = ExtResource("20_gathering")
-GatheringRange = 64.0
-GatheringInterval = 0.35
 
-[node name="Digging" type="Node" parent="Systems"]
+[node name="Digging" type="Node" parent="Systems" unique_id=1857988218]
 script = ExtResource("22_digging")
 
-[node name="SurfaceEffects" type="Node" parent="Systems"]
+[node name="SurfaceEffects" type="Node" parent="Systems" unique_id=1695357460]
 script = ExtResource("24_surface_effects")
 SubmersionShader = ExtResource("25_submersion_shader")
 
-[node name="InventoryHud" type="CanvasLayer" parent="."]
+[node name="InventoryHud" type="CanvasLayer" parent="." unique_id=296340240]
 layer = 20
 script = ExtResource("8_hud")
 
-
-[node name="StorageHud" type="CanvasLayer" parent="."]
+[node name="StorageHud" type="CanvasLayer" parent="." unique_id=2023100645]
 layer = 21
 script = ExtResource("19_storage_hud")
-

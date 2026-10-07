@@ -36,6 +36,9 @@ public partial class TerrainSlopeWorld : Node
     private float _heightScale;
 
     public float MaximumAngle { get; private set; }
+    private WaterBasinWorld _basins;
+
+
     #endregion
 
     #region Lifecycle
@@ -133,13 +136,20 @@ public partial class TerrainSlopeWorld : Node
     }
 
     // =========================================================
-    // Reuse bounded cached slope classifications during generation and gameplay.
+    // Cache complete slope data and keep unchecked terrain temporarily unavailable.
     public SlopeSample SampleCell(Vector2I cell)
     {
         if (_cache.TryGetValue(cell, out SlopeSample sample))
             return sample;
 
         Vector2 tile = CellCentre(cell);
+        _basins ??= WaterBasinWorld.Find(this);
+
+        // Covers the interpolated heights used by the gradient samples.
+        if (_basins != null && !_basins.IsAreaReady(new Rect2(
+            tile - Vector2.One, Vector2.One * 2f)))
+            return new SlopeSample(Vector2.Zero, 90f, true);
+
         Vector2 gradient = GetGradient(tile);
         float angle = Mathf.RadToDeg(
             Mathf.Atan(gradient.Length() * _heightScale));

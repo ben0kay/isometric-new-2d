@@ -16,6 +16,10 @@ public partial class GlobalConfig : Node
 
     [Export(PropertyHint.Range, "16,256,8")]
     public float BasinCandidateSpacingTiles { get; set; } = 64f;
+
+        // Additional budget for basin data requested outside normal chunk preparation.
+    [Export(PropertyHint.Range, "0.05,2,0.05")]
+    public double BasinQueryBudgetMs { get; set; } = 0.25;
     #endregion
 
     #region Caves

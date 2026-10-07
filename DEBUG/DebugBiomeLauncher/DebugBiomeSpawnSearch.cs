@@ -89,6 +89,11 @@ public static class DebugBiomeSpawnSearch
             if (generator.GetBiome(tile).Id != world.RequestedBiomeId)
                 continue;
 
+                            using IDisposable candidateProtection = generation?.PinArea(
+                new Rect2(
+                    tile - Vector2.One * reach,
+                    Vector2.One * (reach * 2f)));
+
             if (generation != null)
                 foreach (int step in generation.PrepareArea(new Rect2(
                     tile - Vector2.One * reach,

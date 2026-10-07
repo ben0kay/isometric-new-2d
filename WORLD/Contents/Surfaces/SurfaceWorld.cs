@@ -40,6 +40,7 @@ public partial class SurfaceWorld : Node
     private TerrainElevation _elevation;
     private Node2D _ground;
     private WaterBasinWorld _basins;
+        private double _fillRefreshTimer;
     #endregion
 
     #region Lifecycle
@@ -55,45 +56,72 @@ public partial class SurfaceWorld : Node
         SetProcess(_basins != null);
     }
 
-// =========================================================
-    // Retire distant liquid artwork while keeping procedural data independent.
+    // =========================================================
+    // Restore nearby water and retire distant artwork in small staggered updates.
     public override void _Process(double delta)
     {
         if (!_chunks.WorldReady || _basins == null) return;
 
-        Player player = GetNode<Player>("../../WorldObjects/Player");
-        Vector2 centre = WorldToTile(player.GlobalPosition);
+        _fillRefreshTimer -= delta;
+        if (_fillRefreshTimer > 0) return;
+        _fillRefreshTimer = 0.15;
 
         Transform2D inverse =
             GetViewport().GetCanvasTransform().AffineInverse();
         Vector2 viewport = GetViewport().GetVisibleRect().Size;
-        float radius = _chunks.ChunkSize * 3f;
+
+        Vector2 low = new(float.MaxValue, float.MaxValue);
+        Vector2 high = new(float.MinValue, float.MinValue);
 
         for (int i = 0; i < 4; i++)
         {
             Vector2 corner = new(
                 (i == 1 || i == 2) ? viewport.X : 0f,
                 i >= 2 ? viewport.Y : 0f);
+            Vector2 tile = WorldToTile(inverse * corner);
 
-            radius = Mathf.Max(radius,
-                WorldToTile(inverse * corner).DistanceTo(centre) +
-                _chunks.ChunkSize * 2f);
+            low = new(Mathf.Min(low.X, tile.X), Mathf.Min(low.Y, tile.Y));
+            high = new(Mathf.Max(high.X, tile.X), Mathf.Max(high.Y, tile.Y));
         }
 
-        // Remove at most one distant water patch per frame.
+        Rect2 visible = new(low, high - low);
+        Rect2 restore = visible.Grow(_chunks.ChunkSize);
+        Rect2 retain = visible.Grow(_chunks.ChunkSize * 2f);
+
+        bool created = false;
+        bool removed = false;
+
         foreach (WaterBasinWorld.Basin basin in _basins.Basins)
         {
-            if (!GodotObject.IsInstanceValid(basin.Patch) ||
-                basin.Patch.IsQueuedForDeletion())
+            if (!basin.Resident) continue;
+
+            bool exists = GodotObject.IsInstanceValid(basin.Patch);
+            if (exists && basin.Patch.IsQueuedForDeletion()) continue;
+
+            if (exists)
+            {
+                if (!removed &&
+                    !retain.Grow(basin.Extent).HasPoint(basin.Centre))
+                {
+                    basin.Patch.QueueFree();
+                    basin.Patch = null;
+                    removed = true;
+                }
+                continue;
+            }
+
+            if (created || basin.Fill <= 0.0001f ||
+                !restore.Grow(basin.Extent).HasPoint(basin.Centre))
                 continue;
 
-            float retain = radius + basin.Extent;
-            if (basin.Centre.DistanceSquaredTo(centre) <= retain * retain)
-                continue;
+            Rect2 footprint = new(
+                basin.Centre - Vector2.One * basin.Extent,
+                Vector2.One * (basin.Extent * 2f));
 
-            basin.Patch.QueueFree();
-            basin.Patch = null;
-            break;
+            if (!_chunks.HasReadySurface(footprint)) continue;
+
+            CreateFill(basin);
+            created = true;
         }
     }
 

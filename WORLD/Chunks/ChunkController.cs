@@ -349,7 +349,7 @@ public partial class ChunkController : Node
 
 	#region Stage 1 — Prepare Distant Terrain
 	// =========================================================
-	// Prepare shared reservations before terrain heights and objects are cached.
+	// Hold metadata for the chunk's lifetime and finish it before sampling terrain.
 	private IEnumerable<ChunkBuildStage> PrepareChunk(ChunkRecord chunk)
 	{
 		InfiniteWorldGeneration generation =
@@ -363,9 +363,6 @@ public partial class ChunkController : Node
 			new Vector2(chunk.Coordinate.X * ChunkSize - 0.5f,
 				chunk.Coordinate.Y * ChunkSize - 0.5f),
 			Vector2.One * ChunkSize);
-
-		foreach (int step in generation.PrepareArea(area))
-			yield return ChunkBuildStage.Queued;
 
 		chunk.Ground = new WorldChunk
 		{
@@ -382,6 +379,11 @@ public partial class ChunkController : Node
 		};
 
 		_groundRoot.AddChild(chunk.Ground);
+		GenerationMetadataLease.Attach(chunk.Ground, generation, area);
+
+		foreach (int step in generation.PrepareArea(area))
+			yield return ChunkBuildStage.Queued;
+
 		foreach (ChunkBuildStage stage in chunk.Ground.PrepareSteps())
 			yield return stage;
 
@@ -674,4 +676,26 @@ private void UpdateDebug()
 }
 
 	#endregion
+
+		// =========================================================
+	// Check loaded surface ownership without invoking slope or basin queries.
+	public bool HasReadySurface(Rect2 tileArea)
+	{
+		if (!WorldReady) return false;
+
+		Vector2I first = new(
+			Mathf.FloorToInt((tileArea.Position.X + 0.5f) / ChunkSize),
+			Mathf.FloorToInt((tileArea.Position.Y + 0.5f) / ChunkSize));
+		Vector2I last = new(
+			Mathf.FloorToInt((tileArea.End.X + 0.5f) / ChunkSize),
+			Mathf.FloorToInt((tileArea.End.Y + 0.5f) / ChunkSize));
+
+		for (int y = first.Y; y <= last.Y; y++)
+		for (int x = first.X; x <= last.X; x++)
+			if (_chunks.TryGetValue(new Vector2I(x, y), out ChunkRecord chunk) &&
+				chunk.Ready && !chunk.Retiring)
+				return true;
+
+		return false;
+	}
 }

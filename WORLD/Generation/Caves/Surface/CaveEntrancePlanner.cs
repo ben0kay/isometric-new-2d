@@ -15,9 +15,8 @@ public sealed class CaveEntrancePlanner
     private readonly Node2D _ground;
     private readonly WaterBasinWorld _basins;
     private readonly CaveSurfaceSampler _sampler;
-
-    private readonly Dictionary<Vector2I, CaveHole> _cells = new();
-    private readonly Queue<Vector2I> _order = new();
+    private readonly GenerationCellCache<CaveHole> _cells;
+    private CaveWorld _cave;
 
     private readonly int _offset, _stride;
     private readonly float _pitch, _reach, _clearTiles;
@@ -79,27 +78,55 @@ public sealed class CaveEntrancePlanner
             maximumClearance = Mathf.Max(maximumClearance, profile.ClearRadius);
         }
 
-        _clearTiles = maximumClearance * Mathf.Sqrt(
-            1f / (chunks.TileSize.X * chunks.TileSize.X) +
-            1f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
+                _clearTiles = maximumClearance * Mathf.Sqrt(
+            2f / (chunks.TileSize.X * chunks.TileSize.X) +
+            2f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
+
+        _cells = new GenerationCellCache<CaveHole>(CacheLimit, hole =>
+        {
+            if (hole != null) _cave?.RemoveHole(hole);
+        });
     }
     #endregion
 
     #region Planning
-    // =========================================================
-    // Prepare entrances around either surface or underground construction.
-    public IEnumerable<int> PrepareArea(Rect2 area, CaveWorld cave)
+
+        // =========================================================
+    // Use the same candidate rectangle for preparation and lifetime protection.
+    private void CandidateRange(
+        Rect2 area, out Vector2I first, out Vector2I last)
     {
         Rect2 nearby = area.Grow(
             _config.CaveDiscoveryRadiusTiles + _reach);
 
-        int firstX = Mathf.FloorToInt((nearby.Position.X - HubX) / _pitch);
-        int lastX = Mathf.CeilToInt((nearby.End.X - HubX) / _pitch);
-        int firstY = Mathf.FloorToInt(nearby.Position.Y / _pitch);
-        int lastY = Mathf.CeilToInt(nearby.End.Y / _pitch);
+        first = new Vector2I(
+            Mathf.FloorToInt((nearby.Position.X - HubX) / _pitch),
+            Mathf.FloorToInt(nearby.Position.Y / _pitch));
 
-        for (int y = firstY; y <= lastY; y++)
-        for (int x = firstX; x <= lastX; x++)
+        last = new Vector2I(
+            Mathf.CeilToInt((nearby.End.X - HubX) / _pitch),
+            Mathf.CeilToInt(nearby.End.Y / _pitch));
+    }
+
+    // =========================================================
+    // Protect entrance decisions used by the requested chunk and discovery buffer.
+    public IDisposable PinArea(Rect2 area)
+    {
+        CandidateRange(area, out Vector2I first, out Vector2I last);
+        return _cells.Pin(first, last);
+    }
+
+        // =========================================================
+    // Prepare shared entrances while protecting unfinished placement checks.
+    public IEnumerable<int> PrepareArea(Rect2 area, CaveWorld cave)
+    {
+        _cave = cave;
+        using IDisposable protection = PinArea(area);
+
+        CandidateRange(area, out Vector2I first, out Vector2I last);
+
+        for (int y = first.Y; y <= last.Y; y++)
+        for (int x = first.X; x <= last.X; x++)
         {
             Vector2I cell = new(x, y);
             if (_cells.ContainsKey(cell)) continue;
@@ -115,6 +142,7 @@ public sealed class CaveEntrancePlanner
 
             float sideX = (hash & 1u) == 0 ? -1f : 1f;
             float sideY = (hash & 2u) == 0 ? -1f : 1f;
+
             Vector2 mouth = room + new Vector2(
                 sideX * _offset,
                 sideY * (Settings.EntranceTunnelLengthTiles + _offset));
@@ -122,16 +150,19 @@ public sealed class CaveEntrancePlanner
 
             Vector2 point = _ground.ToGlobal(
                 IsoGrid.TileToWorld(mouth, _chunks.TileSize));
-
             CaveHole hole = null;
 
             if (point.DistanceSquaredTo(_spawn) >
                 _chunks.SpawnClearRadius * _chunks.SpawnClearRadius)
             {
-                // Water decisions must exist before validating this mouth.
-                foreach (int step in _basins.PrepareArea(new Rect2(
+                Rect2 waterArea = new(
                     mouth - Vector2.One * _clearTiles,
-                    Vector2.One * (_clearTiles * 2f))))
+                    Vector2.One * (_clearTiles * 2f));
+                waterArea = waterArea.Grow(2f);
+
+                using IDisposable waterProtection = _basins.PinArea(waterArea);
+
+                foreach (int step in _basins.PrepareArea(waterArea))
                     yield return step;
 
                 CaveSurfaceSampler.Result result = new();
@@ -152,18 +183,7 @@ public sealed class CaveEntrancePlanner
                 }
             }
 
-            if (_cells.ContainsKey(cell)) continue;
-
-            while (_cells.Count >= CacheLimit)
-            {
-                Vector2I old = _order.Dequeue();
-                CaveHole departing = _cells[old];
-                _cells.Remove(old);
-                if (departing != null) cave.RemoveHole(departing);
-            }
-
-            _cells.Add(cell, hole);
-            _order.Enqueue(cell);
+            if (!_cells.TryAdd(cell, hole)) continue;
 
             if (hole != null)
             {
@@ -189,4 +209,6 @@ public sealed class CaveEntrancePlanner
                 yield return hole;
     }
     #endregion
+
+
 }

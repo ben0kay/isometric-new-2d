@@ -2,6 +2,8 @@
 // Water fill can change independently while basin geometry remains intact.
 using Godot;
 using System.Collections.Generic;
+using System;
+using System.Diagnostics;
 
 public partial class WaterBasinWorld : Node
 {
@@ -66,17 +68,26 @@ public partial class WaterBasinWorld : Node
 
     #region State
     private const int CacheLimit = 1024;
+    private const int MaximumPendingCells = 256;
+
+    private sealed class CellJob
+    {
+        public Basin Result;
+        public IEnumerator<int> Work;
+    }
 
     private readonly List<Basin> _basins = new();
-    private readonly Dictionary<Vector2I, Basin> _cells = new();
-    private readonly Queue<Vector2I> _order = new();
+    private readonly Dictionary<Vector2I, CellJob> _jobs = new();
+    private readonly Queue<Vector2I> _pending = new();
 
+    private GenerationCellCache<Basin> _cells;
     private WorldGenerator _generator;
     private ChunkController _chunks;
     private Node2D _ground;
     private Vector2 _spawnTile;
     private float _spacing;
     private bool _enabled;
+    private double _queryBudget;
 
     public IReadOnlyList<Basin> Basins => _basins;
     public float MaximumDepth { get; private set; }
@@ -100,107 +111,101 @@ public partial class WaterBasinWorld : Node
     }
 
     // =========================================================
-    // Snapshot generation settings without scanning the world.
+    // Snapshot basin rules and enable budgeted background data preparation.
     public void Initialize(
         WorldGenerator generator, ChunkController chunks, Node2D ground)
     {
         _generator = generator;
         _chunks = chunks;
         _ground = ground;
+        _cells = new GenerationCellCache<Basin>(CacheLimit, ReleaseBasin);
 
         WorldConfig config = WorldConfig.Find(generator);
         _enabled = config.GenerateBiomeBasins;
         _spacing = config.BasinCandidateSpacingTiles;
+        _queryBudget = config.BasinQueryBudgetMs;
 
         if (!float.IsFinite(_spacing) || _spacing < 16f)
-            throw new System.InvalidOperationException(
+            throw new InvalidOperationException(
                 "BasinCandidateSpacingTiles must be finite and at least 16.");
+
+        if (!double.IsFinite(_queryBudget) || _queryBudget <= 0)
+            throw new InvalidOperationException(
+                "BasinQueryBudgetMs must be finite and positive.");
 
         Player player = generator.GetNode<Player>(
             "../../WorldObjects/Player");
         _spawnTile = IsoGrid.WorldToTile(
             ground.ToLocal(player.GlobalPosition), chunks.TileSize);
 
-        if (!_enabled) return;
-
-        HashSet<BiomeBasinProfile> validated = new();
-        foreach (BiomeDefinition biome in generator.Catalog.GetEnabledBiomes())
+        if (_enabled)
         {
-            BiomeBasinProfile profile =
-                biome.GetFeature<BiomeBasinProfile>("basins");
-            if (profile == null || !profile.Enabled) continue;
+            HashSet<BiomeBasinProfile> validated = new();
 
-            if (validated.Add(profile)) profile.Validate(biome.Id);
-            MaximumDepth = Mathf.Max(MaximumDepth, profile.BasinDepth);
-
-            foreach (WaterDefinition template in profile.Templates)
+            foreach (BiomeDefinition biome in
+                generator.Catalog.GetEnabledBiomes())
             {
-                float largest = Mathf.Max(
-                    template.RadiusTiles.X, template.RadiusTiles.Y) *
-                    profile.SizeMultiplierRange.Y * 1.1f +
-                    template.ClearanceTiles;
+                BiomeBasinProfile profile =
+                    biome.GetFeature<BiomeBasinProfile>("basins");
+                if (profile == null || !profile.Enabled) continue;
 
-                if (largest > _spacing * 0.4f)
-                    throw new System.InvalidOperationException(
-                        $"Biome '{biome.Id}' needs larger basin cells. " +
-                        "Increase BasinCandidateSpacingTiles or reduce basin size.");
+                if (validated.Add(profile)) profile.Validate(biome.Id);
+                MaximumDepth = Mathf.Max(MaximumDepth, profile.BasinDepth);
+
+                foreach (WaterDefinition template in profile.Templates)
+                {
+                    float largest = Mathf.Max(
+                        template.RadiusTiles.X, template.RadiusTiles.Y) *
+                        profile.SizeMultiplierRange.Y * 1.1f +
+                        template.ClearanceTiles;
+
+                    if (largest > _spacing * 0.4f)
+                        throw new InvalidOperationException(
+                            $"Biome '{biome.Id}' needs larger basin cells. " +
+                            "Increase BasinCandidateSpacingTiles or reduce basin size.");
+                }
             }
         }
+
+        SetProcess(_enabled);
     }
     #endregion
 
-        #region Local Planning
+    #region Local Planning
     // =========================================================
-    // Prepare all basin cells affecting a requested tile-space area.
+    // Prepare an area under the caller's chunk-building budget.
     public IEnumerable<int> PrepareArea(Rect2 area)
     {
         if (!_enabled) yield break;
 
+        using IDisposable protection = PinArea(area);
         Vector2I first = CellAt(area.Position);
         Vector2I last = CellAt(area.End);
 
         for (int y = first.Y; y <= last.Y; y++)
         for (int x = first.X; x <= last.X; x++)
-            foreach (int step in PrepareCell(new Vector2I(x, y)))
-                yield return step;
-    }
-
-    // =========================================================
-    // Cache completed decisions, including cells with no basin.
-    private IEnumerable<int> PrepareCell(Vector2I cell)
-    {
-        if (_cells.ContainsKey(cell)) yield break;
-
-        Basin result = null;
-        foreach (int step in BiomeBasinGenerator.PrepareCell(
-            _generator, _chunks, _spawnTile, _spacing, cell,
-            basin => result = basin))
-            yield return step;
-
-        // Another query may have finished this cell while this iterator yielded.
-        if (_cells.ContainsKey(cell)) yield break;
-
-        while (_cells.Count >= CacheLimit)
         {
-            Vector2I old = _order.Dequeue();
-            Basin departing = _cells[old];
-            _cells.Remove(old);
+            Vector2I cell = new(x, y);
 
-            if (departing == null) continue;
-            departing.Resident = false;
-            _basins.Remove(departing);
-
-            if (GodotObject.IsInstanceValid(departing.Patch))
-                departing.Patch.QueueFree();
+            while (!_cells.ContainsKey(cell))
+            {
+                RequestCell(cell);
+                StepCell(cell);
+                yield return 0;
+            }
         }
-
-        _cells.Add(cell, result);
-        _order.Enqueue(cell);
-        if (result != null) _basins.Add(result);
     }
 
     // =========================================================
-    // Use floor division on both sides of the world origin.
+    // Protect metadata required by a chunk or an incremental placement check.
+    public IDisposable PinArea(Rect2 area)
+    {
+        if (!_enabled) return new GenerationLease(null);
+        return _cells.Pin(CellAt(area.Position), CellAt(area.End));
+    }
+
+    // =========================================================
+    // Use floor division for positive and negative generation coordinates.
     private Vector2I CellAt(Vector2 tile)
     {
         return new Vector2I(
@@ -209,51 +214,171 @@ public partial class WaterBasinWorld : Node
     }
 
     // =========================================================
-    // Complete cold data queries so terrain never caches an incomplete height.
-    private Basin ReadCell(Vector2I cell)
+    // Queue one shared job without doing basin validation inside the query.
+    private void RequestCell(Vector2I cell)
     {
-        if (!_enabled) return null;
+        if (!_enabled || _cells.ContainsKey(cell) ||
+            _jobs.ContainsKey(cell) || _jobs.Count >= MaximumPendingCells)
+            return;
+
+        CellJob job = new();
+        job.Work = BiomeBasinGenerator.PrepareCell(
+            _generator, _chunks, _spawnTile, _spacing, cell,
+            basin => job.Result = basin).GetEnumerator();
+
+        _jobs.Add(cell, job);
+        _pending.Enqueue(cell);
+    }
+
+    // =========================================================
+    // Resume one small generation step, publishing only completed decisions.
+    private void StepCell(Vector2I cell)
+    {
+        if (!_jobs.TryGetValue(cell, out CellJob job)) return;
+        if (job.Work.MoveNext()) return;
+
+        job.Work.Dispose();
+        _jobs.Remove(cell);
+
+        if (_cells.TryAdd(cell, job.Result) && job.Result != null)
+            _basins.Add(job.Result);
+    }
+
+    // =========================================================
+    // Advance cold-query work under its own small frame budget.
+    public override void _Process(double delta)
+    {
+        long started = Stopwatch.GetTimestamp();
+
+        while (_pending.Count > 0 &&
+            (Stopwatch.GetTimestamp() - started) * 1000.0 /
+            Stopwatch.Frequency < _queryBudget)
+        {
+            Vector2I cell = _pending.Peek();
+
+            if (!_jobs.ContainsKey(cell))
+            {
+                _pending.Dequeue();
+                continue;
+            }
+
+            StepCell(cell);
+        }
+    }
+
+    // =========================================================
+    // Dispose suspended generation work when the world closes.
+    public override void _ExitTree()
+    {
+        foreach (CellJob job in _jobs.Values)
+            job.Work.Dispose();
+
+        _jobs.Clear();
+        _pending.Clear();
+    }
+
+    // =========================================================
+    // Release only a basin whose metadata is no longer protected.
+    private void ReleaseBasin(Basin basin)
+    {
+        if (basin == null) return;
+
+        basin.Resident = false;
+        _basins.Remove(basin);
+
+        if (GodotObject.IsInstanceValid(basin.Patch) &&
+            !basin.Patch.IsQueuedForDeletion())
+            basin.Patch.QueueFree();
+    }
+
+    // =========================================================
+    // Check readiness while requesting missing data without generating it inline.
+    public bool IsAreaReady(Rect2 area)
+    {
+        if (!_enabled) return true;
+
+        Vector2I first = CellAt(area.Position);
+        Vector2I last = CellAt(area.End);
+        bool ready = true;
+
+        for (int y = first.Y; y <= last.Y; y++)
+        for (int x = first.X; x <= last.X; x++)
+        {
+            Vector2I cell = new(x, y);
+            if (_cells.ContainsKey(cell)) continue;
+
+            RequestCell(cell);
+            ready = false;
+        }
+
+        return ready;
+    }
+
+    // =========================================================
+    // Return a completed height or an explicitly temporary uncarved height.
+    public bool TryApplyHeight(
+        Vector2 tile, float originalHeight, out float height)
+    {
+        height = originalHeight;
+        if (!_enabled) return true;
+
+        Vector2I cell = CellAt(tile);
 
         if (!_cells.TryGetValue(cell, out Basin basin))
         {
-            foreach (int step in PrepareCell(cell)) { }
-            basin = _cells[cell];
+            RequestCell(cell);
+            return false;
         }
 
-        return basin;
+        if (basin != null) height -= basin.DepthAt(tile);
+        return true;
     }
     #endregion
 
-
     // =========================================================
-    // Carve the deterministic basin belonging to this coordinate's cell.
+    // Preserve existing callers without completing cold generation synchronously.
     public float ApplyHeight(Vector2 tile, float originalHeight)
     {
-        Basin basin = ReadCell(CellAt(tile));
-        return basin == null
-            ? originalHeight : originalHeight - basin.DepthAt(tile);
+        TryApplyHeight(tile, originalHeight, out float height);
+        return height;
     }
 
     // =========================================================
-    // Query basin geometry without loading surface artwork.
+    // Query completed basin data, requesting unchecked cells for later frames.
     public Basin GetBasinAt(Vector2 tile)
     {
-        Basin basin = ReadCell(CellAt(tile));
+        if (!_enabled) return null;
+
+        Vector2I cell = CellAt(tile);
+        if (!_cells.TryGetValue(cell, out Basin basin))
+        {
+            RequestCell(cell);
+            return null;
+        }
+
         return basin != null && basin.InwardDistance(tile) > 0f
             ? basin : null;
     }
 
     // =========================================================
-    // Check only cells intersecting the requested footprint.
+    // Keep unchecked footprints unavailable instead of assuming they are dry.
     public bool Overlaps(Vector2 centre, float radius)
     {
-        Vector2I first = CellAt(centre - Vector2.One * radius);
-        Vector2I last = CellAt(centre + Vector2.One * radius);
+        if (!_enabled) return false;
+
+        Rect2 area = new(
+            centre - Vector2.One * radius,
+            Vector2.One * (radius * 2f));
+
+        if (!IsAreaReady(area)) return true;
+
+        Vector2I first = CellAt(area.Position);
+        Vector2I last = CellAt(area.End);
 
         for (int y = first.Y; y <= last.Y; y++)
         for (int x = first.X; x <= last.X; x++)
         {
-            Basin basin = ReadCell(new Vector2I(x, y));
+            _cells.TryGetValue(new Vector2I(x, y), out Basin basin);
             if (basin == null) continue;
 
             float separation = basin.Extent + radius;
