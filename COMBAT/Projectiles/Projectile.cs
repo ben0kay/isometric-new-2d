@@ -1,5 +1,5 @@
-// Sweeps visible projectile segments against actor combat hitboxes.
-// Existing ground-path obstruction checks remain separate from actor targeting.
+// Sweeps projectile segments against actor hitboxes and height-based ground cover.
+// Short obstacles remain solid for walking but allow shots to pass.
 using Godot;
 
 public partial class Projectile : Node2D
@@ -9,11 +9,14 @@ public partial class Projectile : Node2D
     private readonly PhysicsRayQueryParameters2D _actorQuery = new();
     private readonly PhysicsRayQueryParameters2D _worldQuery = new();
     private readonly Godot.Collections.Array<Rid> _excluded = new();
+    private readonly Godot.Collections.Array<Rid> _worldExcluded = new();
 
     private ProjectilePool _pool;
     private Sprite2D _sprite;
     private Vector2 _direction;
     private float _speed, _remaining, _visualHeight, _launchHeight;
+    private float _coverHeight;
+    private WorldLayer _layer;
     private int _damage;
     private DamageType _damageType;
     private bool _active;
@@ -21,7 +24,7 @@ public partial class Projectile : Node2D
 
     #region Lifecycle
     // =========================================================
-    // Prepare reusable queries and run after actors synchronize their hitboxes.
+    // Prepare reusable queries and run after actor hitboxes synchronize.
     public override void _Ready()
     {
         EnsureTexture();
@@ -39,118 +42,125 @@ public partial class Projectile : Node2D
         _actorQuery.CollideWithAreas = true;
         _actorQuery.HitFromInside = true;
 
-        _worldQuery.CollideWithBodies = true;
-        _worldQuery.CollideWithAreas = false;
-        _worldQuery.HitFromInside = true;
-        _worldQuery.CollisionMask = 1u;
-
         Hide();
         SetPhysicsProcess(false);
     }
 
-// =========================================================
-// Release reusable query wrappers when the world is destroyed.
-public override void _ExitTree()
-{
-    _actorQuery.Dispose();
-    _worldQuery.Dispose();
-    _excluded.Clear();
-}
-
-// =========================================================
-// Reject shots from previous layers before checking any impacts.
-public override void _PhysicsProcess(double delta)
-{
-    if (!_active) return;
-
-    int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
-    int launchedEpoch = HasMeta("world_layer_epoch")
-        ? GetMeta("world_layer_epoch").AsInt32() : 0;
-
-    if (epoch != launchedEpoch)
+    // =========================================================
+    // Dispose query resources when the world closes.
+    public override void _ExitTree()
     {
-        Release();
-        return;
+        _actorQuery.Dispose();
+        _worldQuery.Dispose();
+        _excluded.Dispose();
+        _worldExcluded.Dispose();
     }
-
-    float step = Mathf.Min((float)delta, _remaining);
-    if (step <= 0f) { Release(); return; }
-
-    Vector2 start = GlobalPosition;
-    Vector2 next = start + _direction * _speed * step;
-    Vector2 visualOffset = Vector2.Up * (_launchHeight + _visualHeight);
-
-    _worldQuery.From = start;
-    _worldQuery.To = next;
-    var worldHit = GetWorld2D().DirectSpaceState.IntersectRay(_worldQuery);
-    var actorHit = FindActorHit(start + visualOffset, next + visualOffset);
-
-    float worldDistance = float.PositiveInfinity;
-    float actorDistance = float.PositiveInfinity;
-
-    if (worldHit.Count > 0)
-        worldDistance =
-            (worldHit["position"].AsVector2() - start).Dot(_direction);
-
-    if (actorHit.Count > 0)
-        actorDistance = (
-            actorHit["position"].AsVector2() -
-            (start + visualOffset)).Dot(_direction);
-
-    if (worldHit.Count > 0 && worldDistance <= actorDistance)
-    {
-        Release();
-        return;
-    }
-
-    if (actorHit.Count > 0)
-    {
-        CombatHitbox hitbox =
-            actorHit["collider"].AsGodotObject() as CombatHitbox;
-        hitbox?.ReceiveDamage(_damage, _damageType);
-        Release();
-        return;
-    }
-
-    GlobalPosition = next;
-    _remaining -= step;
-    if (_remaining <= 0f) Release();
-}
-
-// =========================================================
-// Capture the current layer epoch so shots cannot cross a later transition.
-public void Launch(
-    ProjectilePool pool, Vector2 origin, Vector2 direction,
-    ProjectileAttack attack, uint mask, float sourceHeight)
-{
-    _pool = pool;
-    GlobalPosition = origin;
-    _direction = direction.Normalized();
-    _speed = Mathf.Max(1f, attack.Speed);
-    _remaining = Mathf.Max(0.05f, attack.Lifetime);
-    _visualHeight = attack.VisualHeight;
-    _launchHeight = sourceHeight;
-    _damage = System.Math.Max(0, attack.Damage);
-    _damageType = attack.Type;
-
-    SetMeta("world_layer_epoch",
-        WorldLayerController.Find(this)?.Epoch ?? 0);
-
-    _actorQuery.CollisionMask = mask;
-    _excluded.Clear();
-    _actorQuery.Exclude = _excluded;
-
-    _sprite.Modulate = attack.Tint;
-    _sprite.Rotation = _direction.Angle();
-    _sprite.Position = Vector2.Up * (_launchHeight + _visualHeight);
-
-    _active = true;
-    Show();
-    SetPhysicsProcess(true);
-}
 
     // =========================================================
-    // Return this shot to the existing pool exactly once.
+    // Sweep cover and actor hits, resolving whichever occurs first.
+    public override void _PhysicsProcess(double delta)
+    {
+        if (!_active) return;
+
+        int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
+        int launchedEpoch = HasMeta("world_layer_epoch")
+            ? GetMeta("world_layer_epoch").AsInt32() : 0;
+
+        if (epoch != launchedEpoch)
+        {
+            Release();
+            return;
+        }
+
+        float step = Mathf.Min((float)delta, _remaining);
+        if (step <= 0f) { Release(); return; }
+
+        Vector2 start = GlobalPosition;
+        Vector2 next = start + _direction * _speed * step;
+        Vector2 visualOffset =
+            Vector2.Up * (_launchHeight + _visualHeight);
+
+        var worldHit = CombatCover.FindHit(
+            GetWorld2D().DirectSpaceState,
+            _worldQuery, _worldExcluded,
+            start, next, _coverHeight, _layer);
+
+        var actorHit = FindActorHit(
+            start + visualOffset, next + visualOffset);
+
+        float worldDistance = float.PositiveInfinity;
+        float actorDistance = float.PositiveInfinity;
+
+        if (worldHit.Count > 0)
+            worldDistance =
+                (worldHit["position"].AsVector2() - start).Dot(_direction);
+
+        if (actorHit.Count > 0)
+            actorDistance =
+                (actorHit["position"].AsVector2() -
+                    (start + visualOffset)).Dot(_direction);
+
+        if (worldHit.Count > 0 && worldDistance <= actorDistance)
+        {
+            Release();
+            return;
+        }
+
+        if (actorHit.Count > 0)
+        {
+            CombatHitbox hitbox =
+                actorHit["collider"].AsGodotObject() as CombatHitbox;
+            hitbox?.ReceiveDamage(_damage, _damageType);
+            Release();
+            return;
+        }
+
+        GlobalPosition = next;
+        _remaining -= step;
+        if (_remaining <= 0f) Release();
+    }
+
+    // =========================================================
+    // Reset every pooled shot's captured combat and layer settings.
+    public void Launch(
+        ProjectilePool pool, Vector2 origin, Vector2 direction,
+        ProjectileAttack attack, uint mask, float sourceHeight,
+        float coverHeight = CombatCover.DefaultHeight,
+        WorldLayer layer = WorldLayer.Surface)
+    {
+        _pool = pool;
+        GlobalPosition = origin;
+        _direction = direction.Normalized();
+        _speed = Mathf.Max(1f, attack.Speed);
+        _remaining = Mathf.Max(0.05f, attack.Lifetime);
+        _visualHeight = attack.VisualHeight;
+        _launchHeight = sourceHeight;
+        _coverHeight = float.IsFinite(coverHeight) && coverHeight > 0f
+            ? coverHeight : CombatCover.DefaultHeight;
+        _layer = layer;
+        _damage = System.Math.Max(0, attack.Damage);
+        _damageType = attack.Type;
+
+        SetMeta("world_layer_epoch",
+            WorldLayerController.Find(this)?.Epoch ?? 0);
+
+        _actorQuery.CollisionMask = mask;
+        _excluded.Clear();
+        _worldExcluded.Clear();
+        _actorQuery.Exclude = _excluded;
+
+        _sprite.Modulate = attack.Tint;
+        _sprite.Rotation = _direction.Angle();
+        _sprite.Position =
+            Vector2.Up * (_launchHeight + _visualHeight);
+
+        _active = true;
+        Show();
+        SetPhysicsProcess(true);
+    }
+
+    // =========================================================
+    // Return an active shot to the pool exactly once.
     private void Release()
     {
         if (!_active) return;
@@ -163,7 +173,7 @@ public void Launch(
 
     #region Actor Queries
     // =========================================================
-    // Ignore inactive or recently removed targets without absorbing the shot.
+    // Skip inactive actors and hitboxes belonging to another layer.
     private Godot.Collections.Dictionary FindActorHit(
         Vector2 from, Vector2 to)
     {
@@ -182,7 +192,8 @@ public void Launch(
             CombatHitbox hitbox =
                 hit["collider"].AsGodotObject() as CombatHitbox;
 
-            if (hitbox != null && hitbox.CanReceiveProjectile)
+            if (hitbox != null && hitbox.CanReceiveProjectile &&
+                hitbox.MatchesLayer(_layer))
                 return hit;
 
             _excluded.Add(hit["rid"].AsRid());

@@ -44,15 +44,21 @@ public partial class ProjectilePool : Node
 
 	#region Pool Operations
 // =========================================================
-// Launch a reusable projectile with the shooter's captured terrain elevation.
+// Launch pooled shots with captured elevation, cover height and layer.
 public bool Fire(
     Vector2 origin, Vector2 direction, ProjectileAttack attack,
-    uint mask, float sourceHeight)
+    uint mask, float sourceHeight,
+    float coverHeight = CombatCover.DefaultHeight,
+    WorldLayer layer = WorldLayer.Surface)
 {
     if (_available.Count == 0 && _created >= Capacity) return false;
+
     Projectile projectile = _available.Count > 0
         ? _available.Pop() : CreateProjectile();
-    projectile.Launch(this, origin, direction, attack, mask, sourceHeight);
+
+    projectile.Launch(
+        this, origin, direction, attack, mask, sourceHeight,
+        coverHeight, layer);
     return true;
 }
 

@@ -144,5 +144,13 @@ public partial class CombatHitbox : Area2D
         if (CanReceiveProjectile)
             _health.Damage(amount, type);
     }
+
+    // =========================================================
+// Prevent a projectile from damaging an actor in another world layer.
+public bool MatchesLayer(WorldLayer layer)
+{
+    return GodotObject.IsInstanceValid(_actor) &&
+        WorldLayerMember.For(_actor) == layer;
+}
     #endregion
 }

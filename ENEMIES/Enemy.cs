@@ -23,18 +23,19 @@ public partial class Enemy : CharacterBody2D
     public event Action Died;
     #endregion
 
-    #region Private State
-    private EnemyMotor _motor;
-    private EnemyCombat _combat;
-    private Health _targetHealth;
-    private WorldNavigation _navigation;
-    private readonly RandomNumberGenerator _rng = new();
-    private readonly PhysicsRayQueryParameters2D _sightQuery = new();
-    private double _targetTimer, _decisionTimer, _wanderTimer;
-    private bool _retreating;
-    private uint _activeLayer;
-    private EnemySequence _sequence;
-    #endregion
+#region Private State
+private EnemyMotor _motor;
+private EnemyCombat _combat;
+private Health _targetHealth;
+private WorldNavigation _navigation;
+private readonly RandomNumberGenerator _rng = new();
+private readonly PhysicsRayQueryParameters2D _sightQuery = new();
+private readonly Godot.Collections.Array<Rid> _sightExcluded = new();
+private double _targetTimer, _decisionTimer, _wanderTimer;
+private bool _retreating;
+private uint _activeLayer;
+private EnemySequence _sequence;
+#endregion
 
     #region Lifecycle
 // =========================================================
@@ -116,14 +117,17 @@ public override void _EnterTree()
         }
     }
 
-    // =========================================================
-    // Remove subscriptions and dispose this actor's reusable query resources.
-    public override void _ExitTree()
-    {
-        if (GodotObject.IsInstanceValid(Health)) Health.Died -= OnDeath;
-        _sightQuery.Dispose();
-        _rng.Dispose();
-    }
+// =========================================================
+// Remove subscriptions and dispose reusable awareness resources.
+public override void _ExitTree()
+{
+    if (GodotObject.IsInstanceValid(Health))
+        Health.Died -= OnDeath;
+
+    _sightQuery.Dispose();
+    _sightExcluded.Dispose();
+    _rng.Dispose();
+}
 
     // =========================================================
     // Activate only after the population manager accepts the final spawn checks.
@@ -226,10 +230,11 @@ private void OnDeath()
     }
 
 // =========================================================
-// Acquire nearby players, retaining a target by ForgetRange rather than home distance.
+// Require sight for acquisition while retaining tracked targets behind cover.
 private void SelectTarget()
 {
     Player next = HasTarget ? Target : null;
+
     if (next != null &&
         GlobalPosition.DistanceSquaredTo(next.GlobalPosition) >
             Definition.ForgetRange * Definition.ForgetRange)
@@ -241,11 +246,17 @@ private void SelectTarget()
 
     foreach (Node node in GetTree().GetNodesInGroup("players"))
     {
-        if (node is not Player player || !IsLiving(player)) continue;
+        if (node is not Player player || !IsLiving(player) ||
+            !WorldLayerMember.Same(this, player))
+            continue;
 
-        float distance = GlobalPosition.DistanceSquaredTo(player.GlobalPosition);
+        float distance =
+            GlobalPosition.DistanceSquaredTo(player.GlobalPosition);
+
         if (distance > Definition.DetectionRange * Definition.DetectionRange ||
-            distance >= best || !CanSee(player.GlobalPosition)) continue;
+            distance >= best ||
+            !CanSee(player.GlobalPosition, player))
+            continue;
 
         next = player;
         best = distance;
@@ -262,14 +273,22 @@ private void SelectTarget()
     _decisionTimer = 0.0;
 }
 
-    // =========================================================
-    // Test sight against solid obstacles; ranged shots may cross open chasms.
-    private bool CanSee(Vector2 point)
-    {
-        _sightQuery.From = GlobalPosition;
-        _sightQuery.To = point;
-        return GetWorld2D().DirectSpaceState.IntersectRay(_sightQuery).Count == 0;
-    }
+// =========================================================
+// Check same-layer sight against tall obstacles and tree trunk footprints.
+private bool CanSee(Vector2 point, Player player = null)
+{
+    player ??= Target;
+
+    if (!IsLiving(player) || !WorldLayerMember.Same(this, player))
+        return false;
+
+    return CombatCover.FindHit(
+        GetWorld2D().DirectSpaceState,
+        _sightQuery, _sightExcluded,
+        GlobalPosition, point,
+        CombatCover.HeightFor(player),
+        WorldLayerMember.For(this)).Count == 0;
+}
     #endregion
 
     #region Decisions

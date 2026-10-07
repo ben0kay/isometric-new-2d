@@ -4,10 +4,14 @@ using Godot;
 
 public partial class Player : CharacterBody2D
 {
-	#region Configuration
-	[ExportGroup("Artwork")]
-	[Export] public VisualDefinition VisualOverride { get; set; }
-	#endregion
+#region Configuration
+[ExportGroup("Artwork")]
+[Export] public VisualDefinition VisualOverride { get; set; }
+
+[ExportGroup("Cover")]
+[Export(PropertyHint.Range, "1,256,1")]
+public float BodyHeight { get; set; } = CombatCover.DefaultHeight;
+#endregion
 
 	#region State
 	private TerrainVisual _visual;
