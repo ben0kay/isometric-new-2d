@@ -1,50 +1,50 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://b2om0uo6j1tp2"]
 
-[ext_resource type="PackedScene" path="res://PLAYER/Player.tscn" id="1_player"]
+[ext_resource type="PackedScene" uid="uid://fqjv7dvfg82e" path="res://PLAYER/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://UI/Debug/WorldMapDebug.tscn" id="2_map"]
-[ext_resource type="Script" path="res://WORLD/Chunks/ChunkController.cs" id="3_chunks"]
-[ext_resource type="Script" path="res://UI/FpsLabel.cs" id="4_fps"]
-[ext_resource type="Script" path="res://WORLD/Navigation/WorldNavigation.cs" id="5_navigation"]
+[ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="3_chunks"]
+[ext_resource type="Script" uid="uid://7qiets80o66t" path="res://UI/FpsLabel.cs" id="4_fps"]
+[ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="5_navigation"]
 [ext_resource type="PackedScene" path="res://ENEMIES/EnemyPopulation.tscn" id="6_enemies"]
-[ext_resource type="Script" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="7_elevation"]
-[ext_resource type="Script" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="8_projectiles"]
-[ext_resource type="Script" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="9_atmosphere"]
-[ext_resource type="Script" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="10_fog"]
-[ext_resource type="Script" path="res://WORLD/Generation/WorldGenerator.cs" id="11_generator"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="12_biomes"]
-[ext_resource type="Script" path="res://UI/Debug/WorldCollisionDebug.cs" id="13_collision"]
+[ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="7_elevation"]
+[ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="8_projectiles"]
+[ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="9_atmosphere"]
+[ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="10_fog"]
+[ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="11_generator"]
+[ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="12_biomes"]
+[ext_resource type="Script" uid="uid://b4ssrp88221n3" path="res://UI/Debug/WorldCollisionDebug.cs" id="13_collision"]
 [ext_resource type="PackedScene" path="res://WORLD/Contents/Vegetation/VegetationInteraction.tscn" id="14_vegetation"]
 [ext_resource type="PackedScene" path="res://SYSTEMS/Input/InputModes.tscn" id="15_input"]
 [ext_resource type="PackedScene" path="res://CONFIG/WorldConfig.tscn" id="16_config"]
 [ext_resource type="PackedScene" path="res://WORLDABLES/Presets/LandingSite/LandingSite.tscn" id="17_landing"]
-[ext_resource type="Script" path="res://ITEMS/World/ResourceWorld.cs" id="18_resources"]
-[ext_resource type="Resource" path="res://ITEMS/ItemCatalog.tres" id="19_items"]
-[ext_resource type="Script" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="20_surfaces"]
-[ext_resource type="Script" path="res://WORLD/Generation/InfiniteWorldGeneration.cs" id="21_infinite"]
+[ext_resource type="Script" uid="uid://b4ie12vtnyf60" path="res://ITEMS/World/ResourceWorld.cs" id="18_resources"]
+[ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="19_items"]
+[ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="20_surfaces"]
+[ext_resource type="Script" uid="uid://deafdno075uwe" path="res://WORLD/Generation/InfiniteWorldGeneration.cs" id="21_infinite"]
 
-[node name="WorldInfinite" type="Node2D"]
+[node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
-[node name="WorldMapDebug" parent="." instance=ExtResource("2_map")]
+[node name="WorldMapDebug" parent="." unique_id=1433222833 instance=ExtResource("2_map")]
 
-[node name="GroundChunks" type="Node2D" parent="."]
+[node name="GroundChunks" type="Node2D" parent="." unique_id=120483983]
 z_index = -2
 
-[node name="WorldObjects" type="Node2D" parent="."]
+[node name="WorldObjects" type="Node2D" parent="." unique_id=1082625607]
 y_sort_enabled = true
 
-[node name="LandingSite" parent="WorldObjects" instance=ExtResource("17_landing")]
+[node name="LandingSite" parent="WorldObjects" unique_id=2129706736 instance=ExtResource("17_landing")]
 position = Vector2(0, 180)
 
-[node name="Player" parent="WorldObjects" instance=ExtResource("1_player")]
+[node name="Player" parent="WorldObjects" unique_id=2089807956 instance=ExtResource("1_player")]
 position = Vector2(0, 180)
 
-[node name="Systems" type="Node" parent="."]
+[node name="Systems" type="Node" parent="." unique_id=701126458]
 
-[node name="Resources" type="Node" parent="Systems"]
+[node name="Resources" type="Node" parent="Systems" unique_id=63139354]
 script = ExtResource("18_resources")
 Catalog = ExtResource("19_items")
 
-[node name="Atmosphere" type="Node" parent="Systems"]
+[node name="Atmosphere" type="Node" parent="Systems" unique_id=1205417837]
 script = ExtResource("9_atmosphere")
 SunTint = Color(1, 0.94, 0.82, 1)
 FaceAmbient = 0.24
@@ -55,39 +55,38 @@ FogColor = Color(0.16, 0.31, 0.43, 1)
 FogDensity = 0.72
 FogNoiseScale = 0.0012
 
-[node name="GroundFog" type="Node" parent="Systems"]
+[node name="GroundFog" type="Node" parent="Systems" unique_id=411169372]
 script = ExtResource("10_fog")
 
-[node name="WorldGenerator" type="Node" parent="Systems"]
+[node name="WorldGenerator" type="Node" parent="Systems" unique_id=1728001368]
 script = ExtResource("11_generator")
 Catalog = ExtResource("12_biomes")
-BorderWarpFraction = 0.55
 
-[node name="TerrainElevation" type="Node" parent="Systems"]
+[node name="TerrainElevation" type="Node" parent="Systems" unique_id=606950317]
 script = ExtResource("7_elevation")
 
-[node name="WorldNavigation" type="Node" parent="Systems"]
+[node name="WorldNavigation" type="Node" parent="Systems" unique_id=136700648]
 script = ExtResource("5_navigation")
 
-[node name="ChunkController" type="Node" parent="Systems"]
+[node name="ChunkController" type="Node" parent="Systems" unique_id=173883711]
 script = ExtResource("3_chunks")
 
-[node name="Surfaces" type="Node" parent="Systems"]
+[node name="Surfaces" type="Node" parent="Systems" unique_id=864590200]
 script = ExtResource("20_surfaces")
 PlaceTestWater = false
 
-[node name="EnemyPopulation" parent="Systems" instance=ExtResource("6_enemies")]
+[node name="EnemyPopulation" parent="Systems" unique_id=588426670 instance=ExtResource("6_enemies")]
 
-[node name="ProjectilePool" type="Node" parent="Systems"]
+[node name="ProjectilePool" type="Node" parent="Systems" unique_id=764369652]
 script = ExtResource("8_projectiles")
 
-[node name="VegetationInteraction" parent="Systems" instance=ExtResource("14_vegetation")]
+[node name="VegetationInteraction" parent="Systems" unique_id=2050555837 instance=ExtResource("14_vegetation")]
 
-[node name="InputModes" parent="Systems" instance=ExtResource("15_input")]
+[node name="InputModes" parent="Systems" unique_id=847625827 instance=ExtResource("15_input")]
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1465899038]
 
-[node name="ChunkInfo" type="Label" parent="HUD"]
+[node name="ChunkInfo" type="Label" parent="HUD" unique_id=2034964428]
 offset_left = 16.0
 offset_top = 40.0
 offset_right = 960.0
@@ -99,7 +98,7 @@ theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 text = "Loading infinite world..."
 
-[node name="FPS" type="Label" parent="HUD"]
+[node name="FPS" type="Label" parent="HUD" unique_id=1091363374]
 offset_left = 16.0
 offset_top = 12.0
 offset_right = 180.0
@@ -110,15 +109,11 @@ theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 script = ExtResource("4_fps")
 
-[node name="CollisionDebug" type="Node2D" parent="."]
+[node name="CollisionDebug" type="Node2D" parent="." unique_id=306949628]
 script = ExtResource("13_collision")
 
-[node name="CONFIG" parent="." instance=ExtResource("16_config")]
+[node name="CONFIG" parent="." unique_id=485093835 instance=ExtResource("16_config")]
 SpawnFrequencyMultiplier = 0.5
-DebugMapRadiusTiles = 128.0
-DebugBiomeSearchRadiusTiles = 1024.0
-CaveDiscoveryRadiusTiles = 128.0
-CaveFloorElevation = -160.0
 
-[node name="InfiniteGeneration" type="Node" parent="."]
+[node name="InfiniteGeneration" type="Node" parent="." unique_id=1419098382]
 script = ExtResource("21_infinite")

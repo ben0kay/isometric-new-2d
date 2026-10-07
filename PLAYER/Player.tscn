@@ -15,7 +15,7 @@
 [ext_resource type="Resource" path="res://PLAYER/Inventory/DefaultCarryingRules.tres" id="13_rules"]
 [ext_resource type="Script" uid="uid://bovihm3dpiv7" path="res://PLAYER/Stats/PlayerStats.cs" id="14_stats"]
 [ext_resource type="Script" uid="uid://cjn1kt7k4lpni" path="res://PLAYER/Stats/PlayerVitals.cs" id="15_vitals"]
-[ext_resource type="Resource" path="res://PLAYER/Stats/DefaultPlayerStats.tres" id="17_profile"]
+[ext_resource type="Script" uid="uid://dx1kwu4tc8m1p" path="res://PLAYER/Stats/PlayerStatProfile.cs" id="17_profile_script"]
 [ext_resource type="Script" uid="uid://1d1lr6o4i6ae" path="res://PLAYER/Stats/StatModifier.cs" id="18_modifier"]
 [ext_resource type="Script" uid="uid://jxg0ic0aduk1" path="res://WORLDABLES/Objects/Storage/UI/StorageHud.cs" id="19_storage_hud"]
 [ext_resource type="Script" uid="uid://ds5ncg0hxvpqc" path="res://PLAYER/Gathering/PlayerGathering.cs" id="20_gathering"]
@@ -26,6 +26,10 @@
 [ext_resource type="Shader" uid="uid://5nn3avxqbtal" path="res://WORLD/Contents/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
+
+[sub_resource type="Resource" id="PlayerBaseStats"]
+script = ExtResource("17_profile_script")
+MovementSpeed = 480.0
 
 [sub_resource type="Resource" id="TestMiningModifier"]
 script = ExtResource("18_modifier")
@@ -52,7 +56,7 @@ DamageImmunity = 0.35
 
 [node name="Stats" type="Node" parent="Systems" unique_id=1277382693]
 script = ExtResource("14_stats")
-Profile = ExtResource("17_profile")
+Profile = SubResource("PlayerBaseStats")
 TestModifiers = Array[ExtResource("18_modifier")]([SubResource("TestMiningModifier")])
 
 [node name="Vitals" type="Node" parent="Systems" unique_id=676227563]
