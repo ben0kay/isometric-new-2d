@@ -75,13 +75,11 @@ public override async void _Ready()
 }
 
 // =========================================================
-// Update survival, movement, jumping and the selected item's primary use.
+// Report activity while the survival helper owns all reserve calculations.
 public override void _PhysicsProcess(double delta)
 {
     _survival ??= GetNode<PlayerSurvival>("Systems/Survival");
     _consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
-
-    _survival.Tick(delta);
     _weapon.Tick(delta);
 
     bool gameplayAllowed = InputModes.For(this).GameplayAllowed;
@@ -89,12 +87,15 @@ public override void _PhysicsProcess(double delta)
     bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
         gameplayAllowed;
 
-    _jump.Tick(delta,
+    bool jumped = _jump.Tick(delta,
         movementAllowed && !attackBlocked, _health.IsAlive,
         JumpPeakHeight, JumpDuration);
 
+    if (jumped) _survival.OnJump();
+
     if (!_health.IsAlive)
     {
+        _survival.Tick(delta, false);
         _consumption.Tick(delta, false);
         Velocity = Vector2.Zero;
         _visual.UpdateHeight();
@@ -106,6 +107,7 @@ public override void _PhysicsProcess(double delta)
 
     Vector2 direction = movementAllowed
         ? ReadMovement() : Vector2.Zero;
+    Vector2 beforeMovement = GlobalPosition;
 
     Velocity = direction.Normalized() *
         _stats.Get(PlayerStat.MovementSpeed) *
@@ -124,6 +126,7 @@ public override void _PhysicsProcess(double delta)
 
     if (!_health.IsAlive)
     {
+        _survival.Tick(delta, false);
         _consumption.Tick(delta, false);
         Velocity = Vector2.Zero;
         _jump.Reset();
@@ -135,7 +138,8 @@ public override void _PhysicsProcess(double delta)
 
     _consumption.Tick(delta, useHeld);
 
-    bool firing = useHeld && _weapon.Attack != null;
+    AttackDefinition attack = _weapon.Attack;
+    bool firing = useHeld && attack != null;
     float horizontal = firing
         ? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
@@ -149,7 +153,15 @@ public override void _PhysicsProcess(double delta)
         }
     }
 
-    if (firing) _weapon.TryFireAtCursor();
+    if (firing && _weapon.TryFireAtCursor() &&
+        attack is ProjectileAttack)
+        ReportWork(System.Math.Max(0.03, attack.Cooldown));
+
+    bool walking = direction.LengthSquared() > 0f &&
+        !IsAirborne && !jumped &&
+        GlobalPosition.DistanceSquaredTo(beforeMovement) > 0.000001f;
+
+    _survival.Tick(delta, walking);
 }
 
 // =========================================================
@@ -166,4 +178,12 @@ private Vector2 ReadMovement()
 		(Input.IsPhysicalKeyPressed(Key.Up) ? 1f : 0f));
 }
 	#endregion
+
+	// =========================================================
+// Forward successful action duration to the player's survival helper.
+public void ReportWork(double seconds)
+{
+    _survival ??= GetNode<PlayerSurvival>("Systems/Survival");
+    _survival.ReportWork(seconds);
+}
 }

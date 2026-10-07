@@ -43,46 +43,49 @@ public partial class PlayerJump : Node2D
     #endregion
 
     #region Jump
-    // =========================================================
-    // Start once per RMB press and advance a smooth takeoff-and-landing arc.
-    public void Tick(
-        double delta, bool inputAllowed, bool alive,
-        float peakHeight, float duration)
+// =========================================================
+// Advance jumping and report a successful takeoff exactly once.
+public bool Tick(
+    double delta, bool inputAllowed, bool alive,
+    float peakHeight, float duration)
+{
+    bool rightHeld = Input.IsMouseButtonPressed(MouseButton.Right);
+    bool pressed = rightHeld && !_rightHeld;
+    _rightHeld = rightHeld;
+
+    int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
+    if (!alive || epoch != _layerEpoch)
     {
-        bool rightHeld = Input.IsMouseButtonPressed(MouseButton.Right);
-        bool pressed = rightHeld && !_rightHeld;
-        _rightHeld = rightHeld;
-
-        int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
-        if (!alive || epoch != _layerEpoch)
-        {
-            _layerEpoch = epoch;
-            Reset();
-            return;
-        }
-
-        if (pressed && inputAllowed && !IsAirborne)
-        {
-            _elapsed = 0f;
-            _peak = Mathf.Max(1f, peakHeight);
-            _duration = Mathf.Max(0.1f, duration);
-            IsAirborne = true;
-        }
-
-        if (!IsAirborne) return;
-
-        _elapsed = Mathf.Min(_duration, _elapsed + (float)delta);
-        float progress = _elapsed / _duration;
-        Height = 4f * _peak * progress * (1f - progress);
-
-        if (_elapsed >= _duration)
-        {
-            Height = 0f;
-            IsAirborne = false;
-        }
-
-        QueueRedraw();
+        _layerEpoch = epoch;
+        Reset();
+        return false;
     }
+
+    bool started = false;
+    if (pressed && inputAllowed && !IsAirborne)
+    {
+        _elapsed = 0f;
+        _peak = Mathf.Max(1f, peakHeight);
+        _duration = Mathf.Max(0.1f, duration);
+        IsAirborne = true;
+        started = true;
+    }
+
+    if (!IsAirborne) return false;
+
+    _elapsed = Mathf.Min(_duration, _elapsed + (float)delta);
+    float progress = _elapsed / _duration;
+    Height = 4f * _peak * progress * (1f - progress);
+
+    if (_elapsed >= _duration)
+    {
+        Height = 0f;
+        IsAirborne = false;
+    }
+
+    QueueRedraw();
+    return started;
+}
 
     // =========================================================
     // Reset airborne state after death or a world-layer transition.
