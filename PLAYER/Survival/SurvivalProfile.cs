@@ -47,4 +47,37 @@ public partial class SurvivalProfile : Resource
     [Export(PropertyHint.Range, "0,10,0.05")]
     public float JumpFatigueCost { get; set; } = 0.5f;
     #endregion
+
+    #region Sprinting
+[ExportGroup("Sprint")]
+[Export(PropertyHint.Range, "1,3,0.05")]
+public float SprintSpeedMultiplier { get; set; } = 1.6f;
+
+[Export(PropertyHint.Range, "0,100,0.5")]
+public float SprintStaminaPerSecond { get; set; } = 15f;
+
+[Export(PropertyHint.Range, "0,100,0.5")]
+public float StaminaRecoveryPerSecond { get; set; } = 12f;
+
+[Export(PropertyHint.Range, "0,10,0.1")]
+public double StaminaRecoveryDelaySeconds { get; set; } = 1.5;
+
+[Export(PropertyHint.Range, "1,10,0.05")]
+public float SprintFoodMultiplier { get; set; } = 2f;
+
+[Export(PropertyHint.Range, "1,10,0.05")]
+public float SprintWaterMultiplier { get; set; } = 2.5f;
+
+[Export(PropertyHint.Range, "0,10,0.05")]
+public float SprintFatiguePerMinute { get; set; } = 1.2f;
+#endregion
+
+#region Consequences
+[ExportGroup("Consequences")]
+[Export(PropertyHint.Range, "0,20,0.1")]
+public float StarvationDamagePerSecond { get; set; } = 0.5f;
+
+[Export(PropertyHint.Range, "0,20,0.1")]
+public float DehydrationDamagePerSecond { get; set; } = 1f;
+#endregion
 }

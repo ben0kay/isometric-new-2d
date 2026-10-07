@@ -14,18 +14,24 @@ public partial class PlayerSurvival : Node
     private double _elapsed, _workRemaining;
     private double _foodPending, _waterPending, _fatiguePending;
     private float _climateFood = 1f, _climateWater = 1f;
+
+    private SurvivalConsequences _consequences;
+private double _staminaRecoveryDelay;
+private bool _sprintExhausted;
+public bool IsSprinting { get; private set; }
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Resolve reserve storage without starting an independent update loop.
-    public override void _Ready()
-    {
-        _vitals = GetNode<PlayerVitals>("../Vitals");
-        Profile ??= new SurvivalProfile();
-        SetProcess(false);
-        SetPhysicsProcess(false);
-    }
+// =========================================================
+// Resolve reserves and consequences without independent processing loops.
+public override void _Ready()
+{
+    _vitals = GetNode<PlayerVitals>("../Vitals");
+    Profile ??= new SurvivalProfile();
+    _consequences = new SurvivalConsequences(_vitals);
+    SetProcess(false);
+    SetPhysicsProcess(false);
+}
     #endregion
 
     #region Activity
@@ -59,51 +65,106 @@ public partial class PlayerSurvival : Node
         _climateFood = Positive(food);
         _climateWater = Positive(water);
     }
+
+    // =========================================================
+// Spend stamina for sprint movement and recover after a short exertion delay.
+public float UpdateSprint(double delta, bool requested)
+{
+    IsSprinting = false;
+    if (!_vitals.Health.IsAlive || delta <= 0.0) return 1f;
+
+    // Releasing Shift allows another sprint after exhausting stamina.
+    if (!requested) _sprintExhausted = false;
+
+    float cost = Positive(Profile.SprintStaminaPerSecond) * (float)delta;
+    float stamina = _vitals.GetCurrent(PlayerReserve.Stamina);
+
+    if (requested && !_sprintExhausted && stamina > 0f)
+    {
+        if (stamina >= cost)
+        {
+            _vitals.Change(PlayerReserve.Stamina, -cost);
+            _staminaRecoveryDelay =
+                Math.Max(0.0, Profile.StaminaRecoveryDelaySeconds);
+            IsSprinting = true;
+            return Mathf.Max(1f, Profile.SprintSpeedMultiplier);
+        }
+
+        _vitals.Change(PlayerReserve.Stamina, -stamina);
+        _sprintExhausted = true;
+        _staminaRecoveryDelay =
+            Math.Max(0.0, Profile.StaminaRecoveryDelaySeconds);
+    }
+    else if (requested && stamina <= 0f)
+        _sprintExhausted = true;
+
+    double recoveryTime = Math.Max(0.0, delta - _staminaRecoveryDelay);
+    _staminaRecoveryDelay = Math.Max(0.0, _staminaRecoveryDelay - delta);
+
+    if (recoveryTime > 0.0)
+        _vitals.Change(PlayerReserve.Stamina,
+            Positive(Profile.StaminaRecoveryPerSecond) * (float)recoveryTime);
+
+    return 1f;
+}
     #endregion
 
     #region Survival Clock
-    // =========================================================
-    // Accumulate the exact time spent moving and working before the next update.
-    public void Tick(double delta, bool walking)
+// =========================================================
+// Accumulate walking, sprinting and work costs on the shared survival clock.
+public void Tick(double delta, bool walking, bool sprinting = false)
+{
+    if (!_vitals.Health.IsAlive)
     {
-        if (!_vitals.Health.IsAlive)
-        {
-            _elapsed = _workRemaining = 0.0;
-            _foodPending = _waterPending = _fatiguePending = 0.0;
-            return;
-        }
-
-        if (!double.IsFinite(delta) || delta <= 0.0) return;
-
-        double walkingSeconds = walking ? delta : 0.0;
-        double workingSeconds = Math.Min(delta, _workRemaining);
-        _workRemaining = Math.Max(0.0, _workRemaining - delta);
-
-        if (Profile.FoodDrainEnabled)
-            _foodPending += DrainAmount(
-                PlayerReserve.Food, Profile.FoodMinutesToEmpty,
-                WeightedSeconds(delta, walkingSeconds, workingSeconds,
-                    Profile.WalkingFoodMultiplier, Profile.WorkingFoodMultiplier)
-                    * _climateFood);
-
-        if (Profile.WaterDrainEnabled)
-            _waterPending += DrainAmount(
-                PlayerReserve.Water, Profile.WaterMinutesToEmpty,
-                WeightedSeconds(delta, walkingSeconds, workingSeconds,
-                    Profile.WalkingWaterMultiplier, Profile.WorkingWaterMultiplier)
-                    * _climateWater);
-
-        if (Profile.FatigueEnabled)
-            _fatiguePending += (
-                delta * Positive(Profile.AwakeFatiguePerMinute) +
-                walkingSeconds * Positive(Profile.WalkingFatiguePerMinute) +
-                workingSeconds * Positive(Profile.WorkingFatiguePerMinute)) / 60.0;
-
-        _elapsed += delta;
-        if (_elapsed < 1.0) return;
-        _elapsed %= 1.0;
-        ApplyPending();
+        _elapsed = _workRemaining = 0.0;
+        _foodPending = _waterPending = _fatiguePending = 0.0;
+        _staminaRecoveryDelay = 0.0;
+        _sprintExhausted = IsSprinting = false;
+        _consequences.Reset();
+        return;
     }
+
+    if (!double.IsFinite(delta) || delta <= 0.0) return;
+
+    double movingSeconds = walking ? delta : 0.0;
+    double workingSeconds = Math.Min(delta, _workRemaining);
+    _workRemaining = Math.Max(0.0, _workRemaining - delta);
+
+    float movementFood = sprinting
+        ? Profile.SprintFoodMultiplier : Profile.WalkingFoodMultiplier;
+    float movementWater = sprinting
+        ? Profile.SprintWaterMultiplier : Profile.WalkingWaterMultiplier;
+    float movementFatigue = sprinting
+        ? Profile.SprintFatiguePerMinute : Profile.WalkingFatiguePerMinute;
+
+    if (Profile.FoodDrainEnabled)
+        _foodPending += DrainAmount(
+            PlayerReserve.Food, Profile.FoodMinutesToEmpty,
+            WeightedSeconds(delta, movingSeconds, workingSeconds,
+                movementFood, Profile.WorkingFoodMultiplier) * _climateFood);
+
+    if (Profile.WaterDrainEnabled)
+        _waterPending += DrainAmount(
+            PlayerReserve.Water, Profile.WaterMinutesToEmpty,
+            WeightedSeconds(delta, movingSeconds, workingSeconds,
+                movementWater, Profile.WorkingWaterMultiplier) * _climateWater);
+
+    if (Profile.FatigueEnabled)
+        _fatiguePending += (
+            delta * Positive(Profile.AwakeFatiguePerMinute) +
+            movingSeconds * Positive(movementFatigue) +
+            workingSeconds * Positive(Profile.WorkingFatiguePerMinute)) / 60.0;
+
+    _elapsed += delta;
+    if (_elapsed < 1.0) return;
+
+    // Apply all accumulated time, including any long frame.
+    double elapsed = _elapsed;
+    _elapsed = 0.0;
+
+    ApplyPending();
+    _consequences.Tick(elapsed, Profile);
+}
 
     // =========================================================
     // Add activity surcharges to the ordinary elapsed survival time.

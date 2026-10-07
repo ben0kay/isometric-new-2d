@@ -20,6 +20,17 @@ public partial class InventoryTab : HBoxContainer
     private ProgressBar _healthBar;
     private Button _drop;
     private InventoryAddress? _selected;
+
+    private static readonly PlayerReserve[] DisplayReserves =
+{
+    PlayerReserve.Stamina,
+    PlayerReserve.Oxygen,
+    PlayerReserve.Energy,
+    PlayerReserve.Food,
+    PlayerReserve.Water,
+    PlayerReserve.Fatigue
+};
+
     #endregion
 
     #region Lifecycle
@@ -185,99 +196,143 @@ public partial class InventoryTab : HBoxContainer
     #endregion
 
     #region Vitals And Inspector
-    // =========================================================
-    // Place live vitals above the selected-item inspector.
-    private void BuildDetails()
+// =========================================================
+// Show all player reserves above the selected-item inspector.
+private void BuildDetails()
+{
+    VBoxContainer right = new()
     {
-        VBoxContainer right = new()
-        {
-            CustomMinimumSize = new Vector2(320, 0),
-            SizeFlagsHorizontal = SizeFlags.ExpandFill
-        };
-        AddChild(right);
-        right.AddThemeConstantOverride("separation", 12);
+        CustomMinimumSize = new Vector2(320, 0),
+        SizeFlagsHorizontal = SizeFlags.ExpandFill
+    };
+    AddChild(right);
+    right.AddThemeConstantOverride("separation", 12);
 
-        VBoxContainer stats = Hud.Section(right, "VITALS");
-        _healthText = new Label();
-        stats.AddChild(_healthText);
-        _healthBar = AddBar(stats, new Color("#ee6575"));
+    VBoxContainer stats = Hud.Section(right, "VITALS");
+    stats.AddThemeConstantOverride("separation", 4);
 
-        foreach (PlayerReserve reserve in new[]
-            { PlayerReserve.Stamina, PlayerReserve.Oxygen, PlayerReserve.Energy })
-        {
-            Label label = new();
-            stats.AddChild(label);
-            _reserveLabels.Add(label);
-            _reserveBars.Add(AddBar(stats, reserve == PlayerReserve.Stamina
-                ? new Color("#4adc98") : new Color("#55cfeb")));
-        }
+    _healthText = new Label();
+    stats.AddChild(_healthText);
+    _healthBar = AddBar(stats, new Color("#ee6575"));
 
-        VBoxContainer inspector = Hud.Section(right, "ITEM INFORMATION");
-        _itemTitle = new Label
+    foreach (PlayerReserve reserve in DisplayReserves)
+    {
+        Label label = new();
+        stats.AddChild(label);
+        _reserveLabels.Add(label);
+
+        Color tint = reserve switch
         {
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
+            PlayerReserve.Stamina => new Color("#4adc98"),
+            PlayerReserve.Oxygen => new Color("#55cfeb"),
+            PlayerReserve.Energy => new Color("#b795ed"),
+            PlayerReserve.Food => new Color("#dcb96b"),
+            PlayerReserve.Water => new Color("#559fee"),
+            PlayerReserve.Fatigue => new Color("#e79767"),
+            _ => Colors.White
         };
-        inspector.AddChild(_itemTitle);
-        _itemIcon = new TextureRect
-        {
-            CustomMinimumSize = new Vector2(80, 80),
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
-        };
-        inspector.AddChild(_itemIcon);
-        _itemDetails = new Label
-        {
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            SizeFlagsVertical = SizeFlags.ExpandFill
-        };
-        inspector.AddChild(_itemDetails);
-        _drop = new Button
-        {
-            Text = "DROP STACK",
-            FocusMode = FocusModeEnum.None,
-            CustomMinimumSize = new Vector2(0, 36)
-        };
-        inspector.AddChild(_drop);
-        _drop.Pressed += DropSelected;
+
+        ProgressBar bar = AddBar(stats, tint);
+        bar.TooltipText = reserve == PlayerReserve.Fatigue
+            ? "Accumulated fatigue: lower is better."
+            : "Remaining reserve: higher is better.";
+        _reserveBars.Add(bar);
     }
 
-    // =========================================================
-    // Create a lightweight bar with a shared dark background.
-    private static ProgressBar AddBar(Node parent, Color tint)
+    VBoxContainer inspector = Hud.Section(right, "ITEM INFORMATION");
+    _itemTitle = new Label
     {
-        ProgressBar bar = new()
+        AutowrapMode = TextServer.AutowrapMode.WordSmart
+    };
+    inspector.AddChild(_itemTitle);
+
+    _itemIcon = new TextureRect
+    {
+        CustomMinimumSize = new Vector2(80, 80),
+        ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+        StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered
+    };
+    inspector.AddChild(_itemIcon);
+
+    _itemDetails = new Label
+    {
+        AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        SizeFlagsVertical = SizeFlags.ExpandFill
+    };
+    inspector.AddChild(_itemDetails);
+
+    _drop = new Button
+    {
+        Text = "DROP STACK",
+        FocusMode = FocusModeEnum.None,
+        CustomMinimumSize = new Vector2(0, 36)
+    };
+    inspector.AddChild(_drop);
+    _drop.Pressed += DropSelected;
+}
+
+// =========================================================
+// Create compact reserve bars without the outer panel's content padding.
+private static ProgressBar AddBar(Node parent, Color tint)
+{
+    ProgressBar bar = new()
+    {
+        CustomMinimumSize = new Vector2(0, 10),
+        SizeFlagsHorizontal = SizeFlags.ExpandFill,
+        ShowPercentage = false
+    };
+
+    bar.AddThemeStyleboxOverride("background", new StyleBoxFlat
+    {
+        BgColor = new Color("#18343c"),
+        CornerRadiusTopLeft = 3,
+        CornerRadiusTopRight = 3,
+        CornerRadiusBottomLeft = 3,
+        CornerRadiusBottomRight = 3
+    });
+
+    bar.AddThemeStyleboxOverride("fill", new StyleBoxFlat
+    {
+        BgColor = tint,
+        CornerRadiusTopLeft = 3,
+        CornerRadiusTopRight = 3,
+        CornerRadiusBottomLeft = 3,
+        CornerRadiusBottomRight = 3
+    });
+
+    parent.AddChild(bar);
+    return bar;
+}
+
+// =========================================================
+// Display live reserves with enough precision to see gradual survival changes.
+private void RefreshVitals()
+{
+    Health health = Hud.Vitals.Health;
+    _healthText.Text =
+        $"{health.VitalityLabel}   {health.Current}/{health.MaxHealth}";
+    _healthBar.MaxValue = Mathf.Max(1, health.MaxHealth);
+    _healthBar.Value = health.Current;
+
+    for (int i = 0; i < DisplayReserves.Length; i++)
+    {
+        PlayerReserve reserve = DisplayReserves[i];
+        float current = Hud.Vitals.GetCurrent(reserve);
+        float maximum = Hud.Vitals.GetMaximum(reserve);
+
+        string name = reserve switch
         {
-            CustomMinimumSize = new Vector2(0, 10),
-            ShowPercentage = false
+            PlayerReserve.Food => "Hunger reserve",
+            PlayerReserve.Water => "Thirst reserve",
+            _ => reserve.ToString()
         };
-        bar.AddThemeStyleboxOverride("background",
-            UIInventoryMaster.Style(new Color("#18343c"), Colors.Transparent));
-        bar.AddThemeStyleboxOverride("fill",
-            UIInventoryMaster.Style(tint, Colors.Transparent));
-        parent.AddChild(bar);
-        return bar;
-    }
 
-    // =========================================================
-    // Show actual health and current suit reserves.
-    private void RefreshVitals()
-    {
-        Health health = Hud.Vitals.Health;
-        _healthText.Text = $"{health.VitalityLabel}   {health.Current}/{health.MaxHealth}";
-        _healthBar.MaxValue = health.MaxHealth;
-        _healthBar.Value = health.Current;
-
-        PlayerReserve[] reserves =
-            { PlayerReserve.Stamina, PlayerReserve.Oxygen, PlayerReserve.Energy };
-        for (int i = 0; i < reserves.Length; i++)
-        {
-            float current = Hud.Vitals.GetCurrent(reserves[i]);
-            float maximum = Hud.Vitals.GetMaximum(reserves[i]);
-            _reserveLabels[i].Text = $"{reserves[i]}   {current:0}/{maximum:0}";
-            _reserveBars[i].MaxValue = Mathf.Max(1f, maximum);
-            _reserveBars[i].Value = current;
-        }
+        _reserveLabels[i].Text =
+            $"{name}   {current:0.00}/{maximum:0.#}";
+        _reserveBars[i].MaxValue = Mathf.Max(1f, maximum);
+        _reserveBars[i].Value = current;
     }
+}
 
     // =========================================================
     // Inspect an inventory cell without changing the active hotbar selection.

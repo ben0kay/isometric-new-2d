@@ -112,4 +112,16 @@ public void SetMaximum(int maximum, bool fill = false)
         if (!IsAlive) EmitSignal(SignalName.Died);
         return true;
     }
+
+    // =========================================================
+// Apply internal survival damage independently from armor and combat immunity.
+public bool DamageSurvival(int amount)
+{
+    if (!IsAlive || amount <= 0) return false;
+
+    Current = Math.Max(0, Current - amount);
+    EmitSignal(SignalName.Changed, Current, MaxHealth);
+    if (!IsAlive) EmitSignal(SignalName.Died);
+    return true;
+}
 }

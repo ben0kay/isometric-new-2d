@@ -75,7 +75,7 @@ public override async void _Ready()
 }
 
 // =========================================================
-// Report activity while the survival helper owns all reserve calculations.
+// Handle sprint input and report actions to the survival helper.
 public override void _PhysicsProcess(double delta)
 {
 	_survival ??= GetNode<PlayerSurvival>("Systems/Survival");
@@ -105,14 +105,20 @@ public override void _PhysicsProcess(double delta)
 
 	_surfaceEffects.UpdateState(_visual);
 
-	Vector2 direction = movementAllowed
-		? ReadMovement() : Vector2.Zero;
+	Vector2 direction = movementAllowed ? ReadMovement() : Vector2.Zero;
 	Vector2 beforeMovement = GlobalPosition;
+
+	bool sprintRequested = movementAllowed &&
+		direction.LengthSquared() > 0f && !IsAirborne && !jumped &&
+		Input.IsPhysicalKeyPressed(Key.Shift);
+
+	float sprintMultiplier = _survival.UpdateSprint(delta, sprintRequested);
 
 	Velocity = direction.Normalized() *
 		_stats.Get(PlayerStat.MovementSpeed) *
 		_inventory.MovementFactor *
-		_surfaceEffects.MovementMultiplier;
+		_surfaceEffects.MovementMultiplier *
+		sprintMultiplier;
 
 	WorldLayerController layers = WorldLayerController.Find(this);
 	if (layers != null)
@@ -157,11 +163,17 @@ public override void _PhysicsProcess(double delta)
 		attack is ProjectileAttack)
 		ReportWork(System.Math.Max(0.03, attack.Cooldown));
 
-	bool walking = direction.LengthSquared() > 0f &&
+	bool moving = direction.LengthSquared() > 0f &&
 		!IsAirborne && !jumped &&
 		GlobalPosition.DistanceSquaredTo(beforeMovement) > 0.000001f;
 
-	_survival.Tick(delta, walking);
+	_survival.Tick(delta, moving, moving && _survival.IsSprinting);
+
+	if (!_health.IsAlive)
+	{
+		Velocity = Vector2.Zero;
+		_jump.Reset();
+	}
 }
 
 // =========================================================

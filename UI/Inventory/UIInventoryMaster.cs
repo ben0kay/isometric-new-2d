@@ -218,44 +218,46 @@ public VBoxContainer Section(Node parent, string title)
 	}
 
 // =========================================================
-// Center the actual container size and keep it above the bottom hotbar.
+// Enlarge the centered inventory window while keeping the hotbar accessible.
 private void FitWindow()
 {
-	Vector2 screen = GetViewport().GetVisibleRect().Size;
-	float margin = Mathf.Max(8f, ScreenMargin);
+    Vector2 screen = GetViewport().GetVisibleRect().Size;
+    float margin = Mathf.Max(8f, ScreenMargin);
 
-	Vector2 hotbarMinimum = _hotbarPanel.GetCombinedMinimumSize();
-	Vector2 hotbarSize = new(
-		Mathf.Max(Hotbar.SlotCount * 82f + 18f, hotbarMinimum.X),
-		Mathf.Max(100f, hotbarMinimum.Y));
+    Vector2 hotbarMinimum = _hotbarPanel.GetCombinedMinimumSize();
+    Vector2 hotbarSize = new(
+        Mathf.Max(Hotbar.SlotCount * 82f + 18f, hotbarMinimum.X),
+        Mathf.Max(100f, hotbarMinimum.Y));
 
-	float hotbarScale = Mathf.Min(1f,
-		Mathf.Max(1f, screen.X - margin * 2f) / hotbarSize.X);
+    float hotbarScale = Mathf.Min(1f,
+        Mathf.Max(1f, screen.X - margin * 2f) / hotbarSize.X);
 
-	_hotbarPanel.Size = hotbarSize;
-	_hotbarRoot.Scale = Vector2.One * hotbarScale;
-	_hotbarRoot.Position = new Vector2(
-		(screen.X - hotbarSize.X * hotbarScale) * 0.5f,
-		screen.Y - hotbarSize.Y * hotbarScale - margin);
+    _hotbarPanel.Size = hotbarSize;
+    _hotbarRoot.Scale = Vector2.One * hotbarScale;
+    _hotbarRoot.Position = new Vector2(
+        (screen.X - hotbarSize.X * hotbarScale) * 0.5f,
+        screen.Y - hotbarSize.Y * hotbarScale - margin);
 
-	Vector2 minimum = _window.GetCombinedMinimumSize();
-	Vector2 design = new(
-		Mathf.Max(WindowSize.X, minimum.X),
-		Mathf.Max(WindowSize.Y, minimum.Y));
+    float availableWidth = Mathf.Max(1f, screen.X - margin * 2f);
+    float availableHeight = Mathf.Max(1f,
+        _hotbarRoot.Position.Y - margin * 2f);
 
-	float availableWidth = Mathf.Max(1f, screen.X - margin * 2f);
-	float availableHeight = Mathf.Max(1f,
-		_hotbarRoot.Position.Y - margin * 2f);
+    Vector2 minimum = _window.GetCombinedMinimumSize();
+    Vector2 design = new(
+        Mathf.Max(minimum.X,
+            Mathf.Max(WindowSize.X, availableWidth * 0.96f)),
+        Mathf.Max(minimum.Y,
+            Mathf.Max(WindowSize.Y, availableHeight * 0.96f)));
 
-	float scale = Mathf.Min(1f, Mathf.Min(
-		availableWidth / design.X,
-		availableHeight / design.Y));
+    float scale = Mathf.Min(1f, Mathf.Min(
+        availableWidth / design.X,
+        availableHeight / design.Y));
 
-	_window.Size = design;
-	_window.Scale = Vector2.One * scale;
-	_window.Position = new Vector2(
-		(screen.X - design.X * scale) * 0.5f,
-		margin + (availableHeight - design.Y * scale) * 0.5f);
+    _window.Size = design;
+    _window.Scale = Vector2.One * scale;
+    _window.Position = new Vector2(
+        (screen.X - design.X * scale) * 0.5f,
+        margin + (availableHeight - design.Y * scale) * 0.5f);
 }
 
 	// =========================================================
