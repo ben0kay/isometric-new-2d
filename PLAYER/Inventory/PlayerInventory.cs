@@ -270,6 +270,28 @@ public bool TryDrop(InventoryAddress address)
 	Report($"Dropped {stack.Item.DisplayName} ×{stack.Count}");
 	return true;
 }
+
+// =========================================================
+// Remove one verified backpack item and preserve shortcuts until its stack empties.
+public bool TryTakeOne(InventoryAddress address, ItemDefinition expected)
+{
+    if (address.Area != InventoryArea.Bag || !HasAddress(address))
+        return false;
+
+    InventoryStack stack = _storage.Get(address.Index);
+    if (stack.IsEmpty ||
+        !InventoryStorage.SameItem(stack.Item, expected))
+        return false;
+
+    InventoryStack remaining = new(stack.Item, stack.Count - 1);
+    _storage.Set(address.Index, remaining);
+
+    if (remaining.IsEmpty)
+        Removed?.Invoke(address);
+
+    Recalculate();
+    return true;
+}
 	#endregion
 
 	#region Carrying State

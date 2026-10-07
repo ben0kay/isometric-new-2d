@@ -24,6 +24,9 @@
 [ext_resource type="Resource" path="res://PLAYER/Equipment/Tools/Shovel/ShovelItem.tres" id="23_shovel"]
 [ext_resource type="Script" uid="uid://oeb8tex7mrgg" path="res://PLAYER/Movement/PlayerSurfaceEffects.cs" id="24_surface_effects"]
 [ext_resource type="Shader" uid="uid://5nn3avxqbtal" path="res://WORLD/Contents/Water/SubmergedArtwork.gdshader" id="25_submersion_shader"]
+[ext_resource type="Script" path="res://PLAYER/Survival/PlayerSurvival.cs" id="26_survival"]
+[ext_resource type="Resource" path="res://PLAYER/Survival/DefaultSurvivalProfile.tres" id="27_survival_profile"]
+[ext_resource type="Script" path="res://PLAYER/Survival/PlayerConsumption.cs" id="28_consumption"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 
@@ -93,6 +96,13 @@ script = ExtResource("22_digging")
 [node name="SurfaceEffects" type="Node" parent="Systems" unique_id=1695357460]
 script = ExtResource("24_surface_effects")
 SubmersionShader = ExtResource("25_submersion_shader")
+
+[node name="Survival" type="Node" parent="Systems"]
+script = ExtResource("26_survival")
+Profile = ExtResource("27_survival_profile")
+
+[node name="Consumption" type="Node" parent="Systems"]
+script = ExtResource("28_consumption")
 
 [node name="InventoryHud" type="CanvasLayer" parent="." unique_id=296340240]
 layer = 20

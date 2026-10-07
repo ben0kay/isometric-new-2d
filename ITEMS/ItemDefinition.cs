@@ -26,8 +26,9 @@ public partial class ItemDefinition : Resource
     [Export] public Color Tint { get; set; } = Colors.White;
     #endregion
 
-    #region Use
-    [ExportGroup("Use")]
-    [Export] public AttackDefinition Attack { get; set; }
-    #endregion
+#region Use
+[ExportGroup("Use")]
+[Export] public AttackDefinition Attack { get; set; }
+[Export] public ConsumableDefinition Consumable { get; set; }
+#endregion
 }

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SurvivalProfile" format=3]
+
+[ext_resource type="Script" path="res://PLAYER/Survival/SurvivalProfile.cs" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+FoodDrainEnabled = true
+FoodMinutesToEmpty = 120.0
+WaterDrainEnabled = true
+WaterMinutesToEmpty = 90.0

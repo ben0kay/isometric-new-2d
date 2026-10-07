@@ -32,6 +32,8 @@ public float JumpDuration { get; set; } = 0.55f;
 	private PlayerJump _jump;
 public float JumpHeight => _jump?.Height ?? 0f;
 public bool IsAirborne => _jump?.IsAirborne ?? false;
+private PlayerSurvival _survival;
+private PlayerConsumption _consumption;
 	
 	#endregion
 
@@ -73,69 +75,81 @@ public override async void _Ready()
 }
 
 // =========================================================
-// Update movement, RMB jumping, terrain artwork and liquid exposure.
+// Update survival, movement, jumping and the selected item's primary use.
 public override void _PhysicsProcess(double delta)
 {
-	_weapon.Tick(delta);
-	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-	bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
-		InputModes.For(this).GameplayAllowed;
+    _survival ??= GetNode<PlayerSurvival>("Systems/Survival");
+    _consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
 
-	_jump.Tick(delta,
-		movementAllowed && !attackBlocked, _health.IsAlive,
-		JumpPeakHeight, JumpDuration);
+    _survival.Tick(delta);
+    _weapon.Tick(delta);
 
-	if (!_health.IsAlive)
-	{
-		Velocity = Vector2.Zero;
-		_visual.UpdateHeight();
-		_jump.UpdatePose(_visual);
-		return;
-	}
+    bool gameplayAllowed = InputModes.For(this).GameplayAllowed;
+    bool attackBlocked = _inventoryHud.BlocksWorldAttack();
+    bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
+        gameplayAllowed;
 
-	_surfaceEffects.UpdateState(_visual);
+    _jump.Tick(delta,
+        movementAllowed && !attackBlocked, _health.IsAlive,
+        JumpPeakHeight, JumpDuration);
 
-	Vector2 direction = movementAllowed
-		? ReadMovement() : Vector2.Zero;
+    if (!_health.IsAlive)
+    {
+        _consumption.Tick(delta, false);
+        Velocity = Vector2.Zero;
+        _visual.UpdateHeight();
+        _jump.UpdatePose(_visual);
+        return;
+    }
 
-	Velocity = direction.Normalized() *
-		_stats.Get(PlayerStat.MovementSpeed) *
-		_inventory.MovementFactor *
-		_surfaceEffects.MovementMultiplier;
+    _surfaceEffects.UpdateState(_visual);
 
-	WorldLayerController layers = WorldLayerController.Find(this);
-	if (layers != null)
-		Velocity = layers.ConstrainVelocity(GlobalPosition, Velocity, delta);
+    Vector2 direction = movementAllowed
+        ? ReadMovement() : Vector2.Zero;
 
-	MoveAndSlide();
-	_visual.UpdateHeight();
-	_jump.UpdatePose(_visual);
-	_surfaceEffects.UpdateState(_visual);
-	_surfaceEffects.TickExposure(delta);
+    Velocity = direction.Normalized() *
+        _stats.Get(PlayerStat.MovementSpeed) *
+        _inventory.MovementFactor *
+        _surfaceEffects.MovementMultiplier;
 
-	if (!_health.IsAlive)
-	{
-		Velocity = Vector2.Zero;
-		_jump.Reset();
-		return;
-	}
+    WorldLayerController layers = WorldLayerController.Find(this);
+    if (layers != null)
+        Velocity = layers.ConstrainVelocity(GlobalPosition, Velocity, delta);
 
-	bool firing = !attackBlocked && _weapon.Attack != null &&
-		Input.IsMouseButtonPressed(MouseButton.Left);
-	float horizontal = firing
-		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+    MoveAndSlide();
+    _visual.UpdateHeight();
+    _jump.UpdatePose(_visual);
+    _surfaceEffects.UpdateState(_visual);
+    _surfaceEffects.TickExposure(delta);
 
-	if (Mathf.Abs(horizontal) > 0.001f)
-	{
-		float nextFacing = horizontal > 0f ? 1f : -1f;
-		if (nextFacing != _facing)
-		{
-			_facing = nextFacing;
-			_visual.Scale = new Vector2(_facing, 1f);
-		}
-	}
+    if (!_health.IsAlive)
+    {
+        _consumption.Tick(delta, false);
+        Velocity = Vector2.Zero;
+        _jump.Reset();
+        return;
+    }
 
-	if (firing) _weapon.TryFireAtCursor();
+    bool useHeld = gameplayAllowed && !attackBlocked &&
+        Input.IsMouseButtonPressed(MouseButton.Left);
+
+    _consumption.Tick(delta, useHeld);
+
+    bool firing = useHeld && _weapon.Attack != null;
+    float horizontal = firing
+        ? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+
+    if (Mathf.Abs(horizontal) > 0.001f)
+    {
+        float nextFacing = horizontal > 0f ? 1f : -1f;
+        if (nextFacing != _facing)
+        {
+            _facing = nextFacing;
+            _visual.Scale = new Vector2(_facing, 1f);
+        }
+    }
+
+    if (firing) _weapon.TryFireAtCursor();
 }
 
 // =========================================================

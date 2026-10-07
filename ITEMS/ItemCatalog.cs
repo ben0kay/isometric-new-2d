@@ -7,42 +7,73 @@ using System.Collections.Generic;
 [Tool, GlobalClass]
 public partial class ItemCatalog : Resource
 {
-    #region Configuration
-    [Export] public Godot.Collections.Array<ItemDefinition> Items
-        { get; set; } = new();
-    #endregion
+#region Configuration
+[Export] public Godot.Collections.Array<ItemDefinition> Items
+    { get; set; } = new();
+
+[Export] public Godot.Collections.Array<ItemCatalog> Categories
+    { get; set; } = new();
+#endregion
 
     #region State
     private readonly Dictionary<string, ItemDefinition> _items = new();
     #endregion
 
-    #region Lookup
-    // =========================================================
-    // Validate and index the catalog once per world initialization.
-    public void Initialize()
+#region Lookup
+// =========================================================
+// Flatten the master and category catalogs into one runtime lookup.
+public void Initialize()
+{
+    _items.Clear();
+    RegisterCatalog(this, new HashSet<ItemCatalog>());
+}
+
+// =========================================================
+// Register nested entries while rejecting cycles and duplicate item IDs.
+private void RegisterCatalog(
+    ItemCatalog catalog, HashSet<ItemCatalog> visiting)
+{
+    if (catalog == null || !visiting.Add(catalog))
+        throw new InvalidOperationException(
+            "Item catalogs contain a missing category or circular reference.");
+
+    foreach (ItemDefinition item in catalog.Items)
     {
-        _items.Clear();
-        foreach (ItemDefinition item in Items)
-        {
-            if (item == null || string.IsNullOrWhiteSpace(item.Id) ||
-                item.MaxStack < 1 || item.WeightKg < 0f ||
-                item.VolumeLitres < 0f)
-                throw new InvalidOperationException("Invalid item catalog entry.");
+        if (item == null || string.IsNullOrWhiteSpace(item.Id) ||
+            item.MaxStack < 1 ||
+            !float.IsFinite(item.WeightKg) || item.WeightKg < 0f ||
+            !float.IsFinite(item.VolumeLitres) || item.VolumeLitres < 0f)
+            throw new InvalidOperationException("Invalid item catalog entry.");
 
-            if (!_items.TryAdd(item.Id, item))
-                throw new InvalidOperationException($"Duplicate item ID: {item.Id}");
+        item.Consumable?.Validate();
 
-            if (item.Icon == null) item.Icon = CreateIcon(item.Id);
-        }
+        if (item.Consumable != null && item.Attack != null)
+            throw new InvalidOperationException(
+                $"Item '{item.Id}' cannot attack and consume on the same input.");
+
+        if (!_items.TryAdd(item.Id, item))
+            throw new InvalidOperationException(
+                $"Duplicate item ID: {item.Id}");
+
+        if (item.Icon == null)
+            item.Icon = item.Id == "alien_berry"
+                ? AlienBerryDrawing.GetTexture()
+                : CreateIcon(item.Id);
     }
 
-    // =========================================================
-    // Return the canonical item shared by drops and inventory.
-    public ItemDefinition Get(string id)
-    {
-        return _items.TryGetValue(id, out ItemDefinition item) ? item : null;
-    }
-    #endregion
+    foreach (ItemCatalog category in catalog.Categories)
+        RegisterCatalog(category, visiting);
+
+    visiting.Remove(catalog);
+}
+
+// =========================================================
+// Return an item directly from the initialized master lookup.
+public ItemDefinition Get(string id)
+{
+    return _items.TryGetValue(id, out ItemDefinition item) ? item : null;
+}
+#endregion
 
     #region Placeholder Artwork
 // =========================================================
