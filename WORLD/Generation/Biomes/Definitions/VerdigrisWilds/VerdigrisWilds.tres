@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b2xoxuy2qckl5" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWildsBiome.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisGround.tres" id="5_ground"]
+[ext_resource type="Resource" uid="uid://bo4avqdipk3r5" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisGround.tres" id="5_ground"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="6_tree"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="7_frond"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="8_shrub"]
@@ -11,8 +11,7 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="10_medium"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="30_basins"]
-
+[ext_resource type="Resource" uid="uid://dpq1akejv836b" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="30_basins"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisColours.tres" id="40_colours"]
 
 [sub_resource type="Resource" id="RockEntry"]
@@ -57,13 +56,13 @@ Grass = Array[ExtResource("3_entry")]([SubResource("ShortEntry"), SubResource("M
 script = ExtResource("1_biome")
 Id = "verdigris_wilds"
 DisplayName = "Verdigris Wilds"
-ColourProfile = ExtResource("40_colours")
 SandboxOrder = 3
 Tags = PackedStringArray("Alien", "Lush", "Organic")
 MoistureRange = Vector2(0.55, 1)
 RollingHeight = 18.0
 RollingFeatureSize = 24.0
 PlateausEnabled = false
+ColourProfile = ExtResource("40_colours")
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
 Rocks = Array[ExtResource("3_entry")]([SubResource("RockEntry")])
@@ -72,4 +71,3 @@ FeatureOverrides = Dictionary[String, Resource]({
 "ground": ExtResource("5_ground")
 })
 Enemies = ExtResource("12_enemies")
-

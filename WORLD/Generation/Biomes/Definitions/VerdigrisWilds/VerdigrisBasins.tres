@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="BiomeBasinProfile" format=3]
+[gd_resource type="Resource" script_class="BiomeBasinProfile" format=3 uid="uid://dpq1akejv836b"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeBasinProfile.cs" id="1_profile"]
+[ext_resource type="Script" uid="uid://m5yn8pjbg1hd" path="res://WORLD/Contents/Water/WaterDefinition.cs" id="1_bqwhd"]
+[ext_resource type="Script" uid="uid://ej5lf4rrvb1" path="res://WORLD/Generation/Biomes/BiomeBasinProfile.cs" id="1_profile"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Water/Templates/RoundBasin.tres" id="2_round"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Water/Templates/LongBasin.tres" id="3_long"]
 
@@ -8,10 +9,6 @@
 script = ExtResource("1_profile")
 Enabled = true
 SpawnProbability = 0.7
-Templates = Array[Resource]([ExtResource("2_round"), ExtResource("3_long")])
+Templates = Array[ExtResource("1_bqwhd")]([ExtResource("2_round"), ExtResource("3_long")])
 SizeMultiplierRange = Vector2(0.8, 1.25)
-MaximumHeightVariation = 2.0
-BasinDepth = 16.0
-ShoreWidthTiles = 3.0
-WaterSurfaceDrop = 4.0
 InitialFillRange = Vector2(0.85, 1)

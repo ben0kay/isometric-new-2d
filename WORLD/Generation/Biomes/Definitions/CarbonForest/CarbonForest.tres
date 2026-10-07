@@ -12,8 +12,6 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest/ForestColours.tres" id="40_colours"]
-
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
 Definition = ExtResource("4_small")
@@ -63,7 +61,6 @@ Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry"), SubResour
 script = ExtResource("1_biome")
 Id = "carbon_forest"
 DisplayName = "Carbon Forest"
-ColourProfile = ExtResource("40_colours")
 SandboxOrder = 2
 Tags = PackedStringArray("Alien", "Forest", "Vegetated")
 MoistureRange = Vector2(0.45, 1)
@@ -74,4 +71,3 @@ Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry")])
 Enemies = ExtResource("20_enemies")
-
