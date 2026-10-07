@@ -64,12 +64,13 @@ public partial class ResourceWorld : Node
         return true;
     }
 
-    // =========================================================
-// Spawn carried equipment or materials using their actual definition.
+// =========================================================
+// Drop inventory items into the player's currently active world layer.
 public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
 {
+    Node2D objects = WorldLayerController.DropRoot(this, _objects);
     if (item == null || count <= 0 ||
-        !GodotObject.IsInstanceValid(_objects)) return false;
+        !GodotObject.IsInstanceValid(objects)) return false;
 
     WorldPickup pickup = new()
     {
@@ -78,9 +79,9 @@ public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
         Count = count,
         PickupRadius = Mathf.Max(8f, PickupRadius),
         PickupDelay = Math.Max(0, PickupDelay),
-        Position = _objects.ToLocal(globalPosition)
+        Position = objects.ToLocal(globalPosition)
     };
-    _objects.CallDeferred(Node.MethodName.AddChild, pickup);
+    objects.CallDeferred(Node.MethodName.AddChild, pickup);
     return true;
 }
 

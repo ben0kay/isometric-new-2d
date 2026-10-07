@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Caves/CaveEntrance.cs" id="1_entrance"]
+
+[node name="CaveEntrance" type="Node2D"]
+z_index = 2
+script = ExtResource("1_entrance")

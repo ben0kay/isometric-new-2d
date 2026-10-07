@@ -60,18 +60,19 @@ public partial class WorldStorage : Node
         return _contents.Get(index);
     }
 
-    // =========================================================
-    // Check interaction distance on the logical ground plane.
-    public bool CanInteract(Player player)
-    {
-        return Initialized && GodotObject.IsInstanceValid(Host) &&
-            Host.IsInsideTree() && !Host.IsQueuedForDeletion() &&
-            GodotObject.IsInstanceValid(player) && player.IsInsideTree() &&
-            !player.IsQueuedForDeletion() &&
-            player.GetNode<Health>("Systems/Health").IsAlive &&
-            Host.GlobalPosition.DistanceSquaredTo(player.GlobalPosition) <=
-                Definition.InteractionRange * Definition.InteractionRange;
-    }
+// =========================================================
+// Require matching world layers as well as normal proximity and health.
+public bool CanInteract(Player player)
+{
+    return Initialized && GodotObject.IsInstanceValid(Host) &&
+        Host.IsInsideTree() && !Host.IsQueuedForDeletion() &&
+        GodotObject.IsInstanceValid(player) && player.IsInsideTree() &&
+        !player.IsQueuedForDeletion() &&
+        WorldLayerMember.Same(Host, player) &&
+        player.GetNode<Health>("Systems/Health").IsAlive &&
+        Host.GlobalPosition.DistanceSquaredTo(player.GlobalPosition) <=
+            Definition.InteractionRange * Definition.InteractionRange;
+}
     #endregion
 
     #region Transfers

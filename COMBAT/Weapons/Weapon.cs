@@ -36,43 +36,38 @@ public partial class Weapon : Node
     #endregion
 
     #region Aiming
-    // =========================================================
-    // Aim visible projectiles at the cursor and preserve terrain-aware tool aiming.
-    public bool TryFireAtCursor()
-    {
-        if (Attack == null || !_health.IsAlive || _cooldown > 0.0)
-            return false;
+// =========================================================
+// Aim using the shooter's world layer for projectiles and terrain-aware tools.
+public bool TryFireAtCursor()
+{
+	if (Attack == null || !_health.IsAlive || _cooldown > 0.0)
+		return false;
 
-        ResolveElevation();
-        Vector2 cursor = Source.GetGlobalMousePosition();
+	Vector2 cursor = Source.GetGlobalMousePosition();
 
-        if (Attack is ProjectileAttack)
-            return TryFireAt(
-                cursor + Vector2.Down *
-                (SourceHeight() + Attack.VisualHeight));
+	if (Attack is ProjectileAttack)
+		return TryFireAt(
+			cursor + Vector2.Down * (SourceHeight() + Attack.VisualHeight));
 
-        Vector2 target = cursor + Vector2.Down * Attack.VisualHeight;
-        if (_elevation != null)
-        {
-            for (int i = 0; i < 12; i++)
-            {
-                Vector2 next = cursor + Vector2.Down *
-                    (_elevation.SampleWorldHeight(target) +
-                    Attack.VisualHeight);
+	Vector2 target = cursor + Vector2.Down * Attack.VisualHeight;
+	for (int i = 0; i < 12; i++)
+	{
+		Vector2 next = cursor + Vector2.Down *
+			(WorldLayerController.HeightFor(Source, target) +
+			Attack.VisualHeight);
 
-                if (next.DistanceSquaredTo(target) < 0.0001f)
-                {
-                    target = next;
-                    break;
-                }
-                target = next;
-            }
-        }
+		if (next.DistanceSquaredTo(target) < 0.0001f)
+		{
+			target = next;
+			break;
+		}
+		target = next;
+	}
 
-        return TryFireAt(target);
-    }
+	return TryFireAt(target);
+}
 
-    // =========================================================
+	// =========================================================
 	// Translate a visible body aiming point onto this projectile's launch plane.
 	public bool TryFireAtActor(Node2D target)
 	{
@@ -155,12 +150,11 @@ public partial class Weapon : Node
 			"terrain_elevation") as TerrainElevation;
 	}
 
-	// =========================================================
-	// Read the shooter's current launch elevation.
-    private float SourceHeight()
-    {
-        ResolveElevation();
-        return _elevation?.SampleWorldHeight(Source.GlobalPosition) ?? 0f;
-    }
-    #endregion
+// =========================================================
+// Read the shooter's elevation from its own world layer.
+private float SourceHeight()
+{
+	return WorldLayerController.HeightFor(Source, Source.GlobalPosition);
+}
+	#endregion
 }

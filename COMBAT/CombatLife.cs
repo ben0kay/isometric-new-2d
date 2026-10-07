@@ -112,22 +112,26 @@ private void OnChanged(int current, int maximum)
         SetProcess(true);
     }
 
-    // =========================================================
-    // Return the player to its starting point with temporary damage protection.
-    private void Revive()
-    {
-        _waiting = false;
-        _actor.GlobalPosition = _spawn;
-        _actor.Velocity = Vector2.Zero;
-        _actor.CollisionLayer = _collisionLayer;
-        _health.Restore();
-        _actor.Show();
-        _actor.SetPhysicsProcess(true);
+// =========================================================
+// Reset world ownership before returning the player to its surface spawn.
+private void Revive()
+{
+    _waiting = false;
 
-        Camera2D camera = _actor.GetNodeOrNull<Camera2D>("Camera2D");
-        if (camera == null) return;
-        camera.ResetSmoothing();
-        camera.ForceUpdateScroll();
-    }
+    if (_actor is Player)
+        WorldLayerController.Find(this)?.ReturnToSurface();
+
+    _actor.GlobalPosition = _spawn;
+    _actor.Velocity = Vector2.Zero;
+    _actor.CollisionLayer = _collisionLayer;
+    _health.Restore();
+    _actor.Show();
+    _actor.SetPhysicsProcess(true);
+
+    Camera2D camera = _actor.GetNodeOrNull<Camera2D>("Camera2D");
+    if (camera == null) return;
+    camera.ResetSmoothing();
+    camera.ForceUpdateScroll();
+}
     #endregion
 }

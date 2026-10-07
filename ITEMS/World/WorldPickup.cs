@@ -80,36 +80,39 @@ public override void _Ready()
     #endregion
 
     #region Collection
-    // =========================================================
-    // Collect unit-by-unit up to a small budget, preserving any rejected remainder.
-    public override void _PhysicsProcess(double delta)
+// =========================================================
+// Collect nearby items only when player and pickup occupy the same layer.
+public override void _PhysicsProcess(double delta)
+{
+    _delay -= delta;
+    if (_delay > 0) return;
+    _retry -= delta;
+    if (_retry > 0) return;
+    _retry = 0.5;
+
+    foreach (Player player in _players)
     {
-        _delay -= delta;
-        if (_delay > 0) return;
-        _retry -= delta;
-        if (_retry > 0) return;
-        _retry = 0.5;
+        if (!GodotObject.IsInstanceValid(player) ||
+            player.IsQueuedForDeletion() ||
+            !WorldLayerMember.Same(this, player)) continue;
 
-        foreach (Player player in _players)
+        if (!player.GetNode<Health>("Systems/Health").IsAlive) continue;
+
+        PlayerInventory inventory =
+            player.GetNode<PlayerInventory>("Systems/Inventory");
+
+        int budget = 16;
+        while (Count > 0 && budget-- > 0)
         {
-            if (!GodotObject.IsInstanceValid(player) ||
-                player.IsQueuedForDeletion()) continue;
-            if (!player.GetNode<Health>("Systems/Health").IsAlive) continue;
-
-            PlayerInventory inventory = player.GetNode<PlayerInventory>(
-                "Systems/Inventory");
-            int budget = 16;
-            while (Count > 0 && budget-- > 0)
-            {
-                if (!inventory.TryCollect(Item, 1)) break;
-                Count--;
-            }
-
-            if (Count > 0) continue;
-            SetPhysicsProcess(false);
-            QueueFree();
-            return;
+            if (!inventory.TryCollect(Item, 1)) break;
+            Count--;
         }
+
+        if (Count > 0) continue;
+        SetPhysicsProcess(false);
+        QueueFree();
+        return;
     }
+}
     #endregion
 }

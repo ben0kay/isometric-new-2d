@@ -137,24 +137,28 @@ public static TerrainVisual Attach(
     }
 
 // =========================================================
-// Resolve late-starting elevation services and synchronize the owner's artwork.
+// Follow the owner's active elevation provider and invalidate on layer changes.
 public void UpdateHeight()
 {
     if (_elevation == null)
     {
         _elevation = GetTree().GetFirstNodeInGroup(
             "terrain_elevation") as TerrainElevation;
-
-        // Resample even if the owner stood still while the service initialized.
         if (_elevation != null) _sampled = false;
     }
 
+    int epoch = WorldLayerController.Find(this)?.Epoch ?? 0;
+    bool changedLayer = !HasMeta("height_layer_epoch") ||
+        GetMeta("height_layer_epoch").AsInt32() != epoch;
+
     Vector2 point = _host.GlobalPosition;
-    if (_sampled && point == _lastPosition) return;
+    if (_sampled && point == _lastPosition && !changedLayer) return;
 
     _sampled = true;
     _lastPosition = point;
-    float height = _elevation?.SampleWorldHeight(point) ?? 0f;
+    SetMeta("height_layer_epoch", epoch);
+
+    float height = WorldLayerController.HeightFor(_host, point);
     Position = new Vector2(0f, -height);
 }
     #endregion

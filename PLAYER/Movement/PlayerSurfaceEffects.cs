@@ -43,56 +43,57 @@ public partial class PlayerSurfaceEffects : Node
     #endregion
 
     #region Sampling And Artwork
-    // =========================================================
-    // Sample liquid effects and align the visible immersion line.
-    public void UpdateState(TerrainVisual visual)
+// =========================================================
+// Apply surface liquid effects only while occupying the surface world.
+public void UpdateState(TerrainVisual visual)
+{
+    _world ??= SurfaceWorld.Find(this);
+
+    bool surface = WorldLayerMember.For(_player) == WorldLayer.Surface;
+    SurfaceWorld.SurfaceSample sample = !surface || _world == null
+        ? new SurfaceWorld.SurfaceSample(1f, 0f, Colors.White)
+        : _world.Sample(_player.GlobalPosition);
+
+    MovementMultiplier = sample.MovementMultiplier;
+
+    if (_exposureLiquid != sample.ExposureLiquid)
     {
-        _world ??= SurfaceWorld.Find(this);
-        SurfaceWorld.SurfaceSample sample = _world == null
-            ? new SurfaceWorld.SurfaceSample(1f, 0f, Colors.White)
-            : _world.Sample(_player.GlobalPosition);
-
-        MovementMultiplier = sample.MovementMultiplier;
-
-        if (_exposureLiquid != sample.ExposureLiquid)
-        {
-            _exposureLiquid = sample.ExposureLiquid;
-            _damageElapsed = _damageAmount = 0.0;
-        }
-        _damageRate = sample.DamagePerSecond;
-
-        if (!_triedArtwork && visual != null)
-        {
-            _triedArtwork = true;
-            _artwork = visual.GetNodeOrNull<Sprite2D>("Artwork");
-
-            if (_artwork != null && SubmersionShader != null &&
-                _artwork.Material == PlaceholderAtlas.BakedMaterial)
-            {
-                _originalMaterial = _artwork.Material;
-                _material = new ShaderMaterial { Shader = SubmersionShader };
-                _artwork.Material = _material;
-            }
-            else
-                GD.PushWarning(
-                    "Surface effects: movement and exposure are enabled, " +
-                    "but immersion masking requires the baked player sprite.");
-        }
-
-        if (_material == null || visual == null) return;
-
-        bool wet = sample.SubmersionPixels > 0.01f;
-        if (wet != _submerged)
-        {
-            _submerged = wet;
-            _material.SetShaderParameter("submerged", wet);
-        }
-
-        if (!wet) return;
-        _material.SetShaderParameter("waterline_y",
-            visual.GlobalPosition.Y - sample.SubmersionPixels);
-        _material.SetShaderParameter("water_color", sample.Tint);
+        _exposureLiquid = sample.ExposureLiquid;
+        _damageElapsed = _damageAmount = 0.0;
     }
+    _damageRate = sample.DamagePerSecond;
+
+    if (!_triedArtwork && visual != null)
+    {
+        _triedArtwork = true;
+        _artwork = visual.GetNodeOrNull<Sprite2D>("Artwork");
+
+        if (_artwork != null && SubmersionShader != null &&
+            _artwork.Material == PlaceholderAtlas.BakedMaterial)
+        {
+            _originalMaterial = _artwork.Material;
+            _material = new ShaderMaterial { Shader = SubmersionShader };
+            _artwork.Material = _material;
+        }
+        else
+            GD.PushWarning(
+                "Surface effects: immersion masking requires the baked player sprite.");
+    }
+
+    if (_material == null || visual == null) return;
+
+    bool wet = sample.SubmersionPixels > 0.01f;
+    if (wet != _submerged)
+    {
+        _submerged = wet;
+        _material.SetShaderParameter("submerged", wet);
+    }
+
+    if (!wet) return;
+    _material.SetShaderParameter(
+        "waterline_y", visual.GlobalPosition.Y - sample.SubmersionPixels);
+    _material.SetShaderParameter("water_color", sample.Tint);
+}
     #endregion
 
     #region Exposure

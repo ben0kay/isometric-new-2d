@@ -19,6 +19,7 @@
 [ext_resource type="PackedScene" path="res://WORLD/Contents/Ores/Iron/IronDeposit.tscn" id="20_iron_deposit"]
 [ext_resource type="PackedScene" path="res://WORLDABLES/Presets/LandingSite/LandingSite.tscn" id="21_landing_site"]
 [ext_resource type="Script" uid="uid://b4ie12vtnyf60" path="res://ITEMS/World/ResourceWorld.cs" id="22_resources"]
+[ext_resource type="Script" uid="uid://be8na75ybvu35" path="res://WORLD/Generation/Caves/DEBUG/CaveLayerTest.cs" id="23_7wrb7"]
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="23_item_catalog"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="30_surfaces"]
 [ext_resource type="Resource" uid="uid://nwjy3riw3qui" path="res://WORLD/Contents/Water/Water.tres" id="31_water"]
@@ -127,3 +128,6 @@ script = ExtResource("16_4857e")
 
 [node name="CONFIG" parent="." unique_id=857453352 instance=ExtResource("20_6li7p")]
 SpawnFrequencyMultiplier = 0.5
+
+[node name="CaveLayerTest" type="Node" parent="." unique_id=342114073]
+script = ExtResource("23_7wrb7")

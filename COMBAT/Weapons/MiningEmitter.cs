@@ -166,14 +166,12 @@ public void Emit(MiningAttack attack, Vector2 direction)
         _glow.SetPointPosition(1, _glow.ToLocal(visibleEnd));
     }
 
-    // =========================================================
-    // Match terrain elevation and the attack's visual aiming height.
-    private Vector2 ToVisible(Vector2 groundPoint)
-    {
-        _elevation ??= GetTree().GetFirstNodeInGroup("terrain_elevation")
-            as TerrainElevation;
-        float terrainHeight = _elevation?.SampleWorldHeight(groundPoint) ?? 0f;
-        return groundPoint + Vector2.Up * (terrainHeight + _visualHeight);
-    }
+// =========================================================
+// Place beam artwork against the source actor's current world layer.
+private Vector2 ToVisible(Vector2 groundPoint)
+{
+    float height = WorldLayerController.HeightFor(_source, groundPoint);
+    return groundPoint + Vector2.Up * (height + _visualHeight);
+}
     #endregion
 }
