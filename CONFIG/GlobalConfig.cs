@@ -68,4 +68,69 @@ public double DebugMapPoiBudgetMs { get; set; } = 0.5;
 	[Export(PropertyHint.Range, "128,512,16")]
 	public float CaveDiscoveryRadiusTiles { get; set; } = 128f;
 	#endregion
+
+	#region Navigation
+[ExportGroup("NAVIGATION")]
+
+[ExportSubgroup("Work Budget")]
+// Shared soft budget across surface and cave route planning.
+[Export(PropertyHint.Range, "0.05,3,0.05")]
+public double NavigationBudgetMs { get; set; } = 0.35;
+
+[Export(PropertyHint.Range, "1,8,1")]
+public int NavigationSearchesPerTick { get; set; } = 2;
+
+[ExportSubgroup("Search Areas")]
+[Export(PropertyHint.Range, "16,64,8")]
+public int NavigationCellSize { get; set; } = 32;
+
+[Export(PropertyHint.Range, "1,32,1")]
+public float NavigationAgentClearance { get; set; } = 12f;
+
+// Padding uses logical world units, rather than terrain tiles.
+[Export(PropertyHint.Range, "64,512,32")]
+public int NavigationInitialPadding { get; set; } = 128;
+
+[Export(PropertyHint.Range, "128,2048,64")]
+public int NavigationMaximumPadding { get; set; } = 1024;
+
+[Export(PropertyHint.Range, "256,16384,256")]
+public int NavigationMaximumGridCells { get; set; } = 4096;
+
+[Export(PropertyHint.Range, "1,16,1")]
+public int NavigationCachedGridsPerLayer { get; set; } = 4;
+
+[ExportSubgroup("Request Timing")]
+// Urgent requests are distributed across this many physics ticks.
+[Export(PropertyHint.Range, "1,12,1")]
+public int NavigationStaggerTicks { get; set; } = 4;
+
+[Export(PropertyHint.Range, "0.25,5,0.25")]
+public double NavigationFailedRetrySeconds { get; set; } = 1.0;
+#endregion
+
+#region Enemy Updates
+[ExportGroup("ENEMY UPDATES")]
+
+[ExportSubgroup("Scheduling")]
+[Export(PropertyHint.Range, "1,12,1")]
+public int EnemyOnScreenStaggerTicks { get; set; } = 3;
+
+[Export(PropertyHint.Range, "3,60,1")]
+public int EnemyOffScreenStaggerTicks { get; set; } = 12;
+
+[ExportSubgroup("Off Screen")]
+[Export(PropertyHint.Range, "0.1,3,0.05")]
+public double EnemyOffScreenTargetInterval { get; set; } = 0.75;
+
+[Export(PropertyHint.Range, "0.1,2,0.05")]
+public double EnemyOffScreenDecisionInterval { get; set; } = 0.4;
+
+[ExportSubgroup("Screen Checks")]
+[Export(PropertyHint.Range, "1,60,1")]
+public int EnemyScreenCheckTicks { get; set; } = 12;
+
+[Export(PropertyHint.Range, "0,512,16")]
+public float EnemyScreenMarginPixels { get; set; } = 128f;
+#endregion
 }

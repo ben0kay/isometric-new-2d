@@ -61,9 +61,12 @@ private void RegisterCatalog(
                 $"Duplicate item ID: {item.Id}");
 
         if (item.Icon == null)
-            item.Icon = item.Id == "alien_berry"
-                ? AlienBerryDrawing.GetTexture()
-                : CreateIcon(item.Id);
+            item.Icon = item.Id switch
+            {
+                "alien_berry" => AlienBerryDrawing.GetTexture(),
+                "test_cube" => TestCubeItemDrawing.GetTexture(),
+                _ => CreateIcon(item.Id)
+            };
     }
 
     foreach (ItemCatalog category in catalog.Categories)
