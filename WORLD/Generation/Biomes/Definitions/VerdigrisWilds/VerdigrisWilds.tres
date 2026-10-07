@@ -1,4 +1,4 @@
-[gd_resource type="Resource" format=3 uid="uid://c4igqtsq2v45v"]
+[gd_resource type="Resource" script_class="VerdigrisWildsBiome" format=3 uid="uid://c4igqtsq2v45v"]
 
 [ext_resource type="Script" uid="uid://b2xoxuy2qckl5" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWildsBiome.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]

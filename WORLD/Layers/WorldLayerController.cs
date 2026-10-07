@@ -1,5 +1,5 @@
-// Coordinates paired cave holes and destination surface loading.
-// Surface simulation stays paused while its builder prepares an underground exit.
+// Coordinates cave transitions, incremental surface registration and exit readiness.
+// Surface simulation stays paused while destination chunks are prepared.
 using Godot;
 using System.Collections.Generic;
 
@@ -11,41 +11,55 @@ public partial class WorldLayerController : Node
     public CaveWorld Cave { get; private set; }
 
     private Node _world;
+    private Node2D _ground, _objects;
     private Player _player;
     private Camera2D _camera;
+    private SceneTree _tree;
     private Vector2 _cameraPosition;
     private WorldConfig _config;
     private ChunkController _surfaceChunks;
-    private float _surfaceOpacity = 1f;
     private Label _status;
 
+    private float _surfaceOpacity = 1f;
+    private float _appliedOpacity = float.NaN;
+    private double _landingTimer;
+    private double _hudTimer;
+
     private CaveHole _lastEntry, _pendingExit;
-    private bool _exitReady;
+    private bool _entryDeparted;
+    private bool _exitReady, _surfaceLoaded;
     private Vector2 _exitLanding;
+    private string _exitStatus = "";
 
     private readonly List<WorldLayerMember> _surface = new();
+    private readonly Dictionary<Node, WorldLayerMember> _roots = new();
+    private readonly HashSet<WorldLayerMember> _inheritedFade = new();
+    private readonly Queue<Node> _addedSurface = new();
     private WorldLayerMember _underground;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Register the optional location service.
+    // Register the optional layer service.
     public override void _EnterTree()
     {
         AddToGroup("world_layer_controller");
     }
 
     // =========================================================
-    // Wait for the debug setup helper.
+    // Wait for cave configuration.
     public override void _Ready()
     {
         SetProcess(false);
     }
 
     // =========================================================
-    // Restore surface roots if this feature is removed.
+    // Disconnect listeners and restore managed surface branches.
     public override void _ExitTree()
     {
+        if (GodotObject.IsInstanceValid(_tree))
+            _tree.NodeAdded -= OnNodeAdded;
+
         foreach (WorldLayerMember member in _surface)
         {
             if (!GodotObject.IsInstanceValid(member)) continue;
@@ -58,12 +72,14 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Connect the shared player, cave streamer and existing surface streamer.
+    // Connect the shared player, surface streamer and cave services.
     public void Configure(Node world, Player player, CaveWorld cave)
     {
         _world = world;
         _player = player;
         Cave = cave;
+        _ground = world.GetNode<Node2D>("GroundChunks");
+        _objects = world.GetNode<Node2D>("WorldObjects");
         _config = WorldConfig.Find(world);
         _surfaceChunks = world.GetNode<ChunkController>("Systems/ChunkController");
         _camera = player.GetNode<Camera2D>("Camera2D");
@@ -75,19 +91,25 @@ public partial class WorldLayerController : Node
         cave.Streaming.ConfigurePlayer(player);
         cave.Streaming.SetActive(false);
 
+        _tree = GetTree();
+        _tree.NodeAdded += OnNodeAdded;
+
         CanvasLayer hud = new() { Name = "LayerHUD", Layer = 40 };
         AddChild(hud);
-        _status = new Label { Position = new Vector2(16, 170) };
+        _status = new Label { Position = new Vector2(16, 200) };
         _status.AddThemeColorOverride("font_color", new Color("#8be4cf"));
         hud.AddChild(_status);
         SetProcess(true);
     }
 
     // =========================================================
-    // Detect either hole, preload its destination and update layer presentation.
+    // Detect entry, prepare an approached exit and update presentation.
     public override void _Process(double delta)
     {
         if (!GodotObject.IsInstanceValid(_player)) return;
+
+        _landingTimer -= delta;
+        _hudTimer -= delta;
 
         Health health = _player.GetNode<Health>("Systems/Health");
         if (!health.IsAlive && Current == WorldLayer.Cave)
@@ -95,24 +117,19 @@ public partial class WorldLayerController : Node
 
         Vector2 tile = Cave.WorldToTile(_player.GlobalPosition);
 
-        if (Current == WorldLayer.Surface)
+        if (Current == WorldLayer.Surface &&
+            health.IsAlive && InputModes.For(_player).GameplayAllowed)
         {
-            _pendingExit = null;
-            _exitReady = false;
-
-            if (health.IsAlive && InputModes.For(_player).GameplayAllowed)
+            foreach (CaveHole hole in Cave.Holes)
             {
-                foreach (CaveHole hole in Cave.Holes)
+                Vector2 local = hole.Coordinates(tile);
+                if (local.X >= 0f && local.X < 0.6f &&
+                    Mathf.Abs(local.Y) < 1.4f &&
+                    Cave.Streaming.EntryReady(hole))
                 {
-                    Vector2 local = hole.Coordinates(tile);
-                    if (local.X >= 0f && local.X < 0.6f &&
-                        Mathf.Abs(local.Y) < 1.4f &&
-                        Cave.Streaming.EntryReady(hole))
-                    {
-                        EnterCave(hole);
-                        tile = Cave.WorldToTile(_player.GlobalPosition);
-                        break;
-                    }
+                    EnterCave(hole);
+                    tile = Cave.WorldToTile(_player.GlobalPosition);
+                    break;
                 }
             }
         }
@@ -120,26 +137,57 @@ public partial class WorldLayerController : Node
         if (Current == WorldLayer.Cave)
         {
             CaveHole approach = Cave.TransitionAt(tile);
+
+            // Descending through A does not immediately preload A again.
+            // Turning back toward its mouth still permits an early return.
+            if (!_entryDeparted)
+            {
+                float along = _lastEntry.Coordinates(tile).X;
+                if (approach != _lastEntry || along > 1f)
+                    _entryDeparted = true;
+                else if (along >= -0.1f)
+                    approach = null;
+            }
+
             if (approach != _pendingExit)
             {
                 _pendingExit = approach;
                 _exitReady = false;
+                _surfaceLoaded = false;
+                _landingTimer = 0;
+                _exitStatus = "";
             }
 
-            if (_pendingExit != null)
+            if (_pendingExit != null && !_exitReady)
             {
-                bool loaded = _surfaceChunks.PrepareDestination(
-                    _pendingExit.OutsidePosition(Cave.TileSize));
+                if (!_surfaceLoaded)
+                {
+                    _surfaceLoaded = _surfaceChunks.PrepareDestination(
+                        _pendingExit.OutsidePosition(Cave.TileSize));
+                    DrainAddedSurface();
 
-                // New surface props must be paused before the next physics tick.
-                PauseSurfaceContent();
+                    if (!_surfaceLoaded)
+                        _exitStatus = _surfaceChunks.GetMeta(
+                            "destination_preload_status", "loading surface").AsString();
+                }
 
-                _exitReady = loaded &&
-                    TrySurfaceLanding(_pendingExit, out _exitLanding);
+                if (_surfaceLoaded && _landingTimer <= 0)
+                {
+                    _landingTimer = 0.25;
+                    _exitReady = TrySurfaceLanding(_pendingExit, out _exitLanding);
+                    _exitStatus = _exitReady
+                        ? "surface ready"
+                        : "surface loaded; no safe landing found";
+                }
+            }
 
+            DrainAddedSurface();
+
+            if (_pendingExit != null && _exitReady &&
+                health.IsAlive && InputModes.For(_player).GameplayAllowed)
+            {
                 Vector2 local = _pendingExit.Coordinates(tile);
-                if (_exitReady && local.X < -0.6f &&
-                    health.IsAlive && InputModes.For(_player).GameplayAllowed)
+                if (local.X <= -0.45f && Mathf.Abs(local.Y) < 1.4f)
                 {
                     string id = _pendingExit.Id;
                     RestoreSurface(_exitLanding);
@@ -152,29 +200,157 @@ public partial class WorldLayerController : Node
     }
     #endregion
 
-    #region Switching
+    #region Incremental Surface Registration
     // =========================================================
-    // Align entry with the corridor and activate the shared cave network.
+    // Queue newly added surface content while excluding shared gameplay nodes.
+    private void OnNodeAdded(Node node)
+    {
+        if (Current != WorldLayer.Cave || node is WorldLayerMember)
+            return;
+
+        bool surface = _ground.IsAncestorOf(node) || _objects.IsAncestorOf(node);
+        for (Node parent = node; parent != null; parent = parent.GetParent())
+        {
+            if (parent is Player || parent is Projectile) return;
+            if (_roots.ContainsKey(parent)) surface = true;
+        }
+
+        if (surface) _addedSurface.Enqueue(node);
+    }
+
+    // =========================================================
+    // Pause new branches without revisiting existing surface hierarchies.
+    private void DrainAddedSurface()
+    {
+        while (_addedSurface.Count > 0)
+        {
+            Node node = _addedSurface.Dequeue();
+            if (!GodotObject.IsInstanceValid(node) ||
+                node.IsQueuedForDeletion() || !node.IsInsideTree())
+                continue;
+
+            bool covered = false;
+            for (Node parent = node; parent != null; parent = parent.GetParent())
+            {
+                if (!_roots.TryGetValue(parent, out WorldLayerMember member))
+                    continue;
+                covered = member.Covers(node);
+                break;
+            }
+
+            if (covered) continue;
+
+            WorldLayerMember added = RegisterRoot(node);
+            added.SetActive(false);
+            if (!_inheritedFade.Contains(added))
+                added.SetOpacity(_surfaceOpacity);
+        }
+    }
+
+    // =========================================================
+    // Register a branch and detect inherited canvas fading.
+    private WorldLayerMember RegisterRoot(Node node)
+    {
+        if (_roots.TryGetValue(node, out WorldLayerMember existing))
+            return existing;
+
+        bool inherited = false;
+        for (Node parent = node.GetParent(); parent != null; parent = parent.GetParent())
+        {
+            if (parent is CanvasItem && _roots.ContainsKey(parent))
+            {
+                inherited = true;
+                break;
+            }
+        }
+
+        WorldLayerMember member = WorldLayerMember.Attach(node, WorldLayer.Surface);
+        _roots.Add(node, member);
+        _surface.Add(member);
+        if (inherited) _inheritedFade.Add(member);
+        return member;
+    }
+
+    // =========================================================
+    // Include branches independently registered during earlier visits.
+    private void RegisterExistingBranches(Node node)
+    {
+        if (node is WorldLayerMember || node.IsQueuedForDeletion()) return;
+
+        WorldLayerMember member =
+            node.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
+        if (member != null && member.Layer == WorldLayer.Surface)
+            RegisterRoot(node);
+
+        foreach (Node child in node.GetChildren())
+            RegisterExistingBranches(child);
+    }
+
+    // =========================================================
+    // Collect surface ownership once when entering a cave.
+    private void CaptureSurface()
+    {
+        _surface.Clear();
+        _roots.Clear();
+        _inheritedFade.Clear();
+        _addedSurface.Clear();
+
+        RegisterRoot(_ground);
+        RegisterExistingBranches(_ground);
+
+        foreach (Node child in _objects.GetChildren())
+        {
+            if (child == _player || child is Projectile ||
+                child.IsQueuedForDeletion()) continue;
+            RegisterRoot(child);
+            RegisterExistingBranches(child);
+        }
+
+        Node systems = _world.GetNode("Systems");
+        foreach (string name in new[]
+        {
+            "ChunkController", "WorldNavigation", "EnemyPopulation",
+            "Atmosphere", "GroundFog", "VegetationInteraction", "Surfaces"
+        })
+        {
+            Node node = systems.GetNodeOrNull<Node>(name);
+            if (node == null) continue;
+            RegisterRoot(node);
+            RegisterExistingBranches(node);
+        }
+
+        Node fading = _config.GetNodeOrNull<Node>("PlayerObstructionFade");
+        if (fading != null) RegisterRoot(fading);
+    }
+    #endregion
+
+    #region Switching And Landing
+    // =========================================================
+    // Align entry and pause existing surface simulation once.
     private void EnterCave(CaveHole hole)
     {
         if (!Cave.Streaming.EntryReady(hole)) return;
 
         Vector2 local = hole.Coordinates(Cave.WorldToTile(_player.GlobalPosition));
-        Vector2 entryPosition = Cave.TileToWorld(
-            hole.TileAt(Mathf.Clamp(local.X, 0f, 0.5f)));
+        Vector2 entry = Cave.TileToWorld(hole.TileAt(Mathf.Clamp(local.X, 0f, 0.5f)));
+        if (!Cave.Streaming.IsAvailable(entry)) return;
 
-        if (!Cave.Streaming.IsAvailable(entryPosition)) return;
-
-        _surface.Clear();
         CaptureSurface();
+
+        // Restore presentation before any branch takes a fresh snapshot.
+        foreach (WorldLayerMember member in _surface)
+            member.SetOpacity(1f);
         foreach (WorldLayerMember member in _surface)
             member.SetActive(false);
 
-        _player.GlobalPosition = entryPosition;
+        _player.GlobalPosition = entry;
         _player.Velocity = Vector2.Zero;
         _lastEntry = hole;
+        _entryDeparted = false;
         _pendingExit = null;
         _exitReady = false;
+        _surfaceLoaded = false;
+        _appliedOpacity = float.NaN;
 
         _underground.SetActive(true);
         _underground.SetOpacity(1f);
@@ -182,26 +358,24 @@ public partial class WorldLayerController : Node
         Current = WorldLayer.Cave;
         Epoch++;
         StopMining();
-
         GD.Print($"[Layers] Entered through hole {hole.Id}.");
     }
 
     // =========================================================
-    // Keep death/respawn integration compatible with the existing no-argument call.
+    // Preserve the existing death and respawn integration.
     public void ReturnToSurface()
     {
         if (Current == WorldLayer.Surface) return;
-
-        Vector2 landing = _lastEntry != null
+        RestoreSurface(_lastEntry != null
             ? _lastEntry.OutsidePosition(Cave.TileSize)
-            : _player.GlobalPosition;
-        RestoreSurface(landing);
+            : _player.GlobalPosition);
     }
 
     // =========================================================
-    // Restore surface play only after normal exit readiness has been confirmed.
+    // Restore existing and newly streamed surface branches.
     private void RestoreSurface(Vector2 landing)
     {
+        DrainAddedSurface();
         Cave.Streaming.SetActive(false);
         _underground.SetActive(false);
         _underground.SetOpacity(0f);
@@ -213,75 +387,27 @@ public partial class WorldLayerController : Node
         {
             if (!GodotObject.IsInstanceValid(member)) continue;
             member.SetActive(true);
-            member.SetOpacity(_surfaceOpacity);
+            if (!_inheritedFade.Contains(member))
+                member.SetOpacity(_surfaceOpacity);
         }
 
         Current = WorldLayer.Surface;
         Epoch++;
         _pendingExit = null;
         _exitReady = false;
+        _surfaceLoaded = false;
+        _appliedOpacity = float.NaN;
         _camera.Position = _cameraPosition;
         _camera.ResetSmoothing();
         StopMining();
     }
 
     // =========================================================
-    // Register current surface roots without disabling the shared player or pool.
-    private void CaptureSurface()
-    {
-        _surface.RemoveAll(member =>
-            !GodotObject.IsInstanceValid(member) || member.IsQueuedForDeletion());
-
-        AddSurface(_world.GetNode("GroundChunks"));
-
-        foreach (Node child in _world.GetNode("WorldObjects").GetChildren())
-            if (child != _player && child is not Projectile &&
-                !child.IsQueuedForDeletion())
-                AddSurface(child);
-
-        Node systems = _world.GetNode("Systems");
-        foreach (string name in new[]
-        {
-            "ChunkController", "WorldNavigation", "EnemyPopulation",
-            "Atmosphere", "GroundFog", "VegetationInteraction", "Surfaces"
-        })
-        {
-            Node node = systems.GetNodeOrNull<Node>(name);
-            if (node != null) AddSurface(node);
-        }
-
-        Node fading = _config.GetNodeOrNull<Node>("PlayerObstructionFade");
-        if (fading != null) AddSurface(fading);
-    }
-
-    // =========================================================
-    // Include objects added by destination generation in the inactive surface layer.
-    private void PauseSurfaceContent()
-    {
-        CaptureSurface();
-        foreach (WorldLayerMember member in _surface)
-        {
-            member.SetActive(false);
-            member.SetOpacity(_surfaceOpacity);
-        }
-    }
-
-    // =========================================================
-    // Deduplicate managed surface roots.
-    private void AddSurface(Node node)
-    {
-        WorldLayerMember member = WorldLayerMember.Attach(node, WorldLayer.Surface);
-        if (!_surface.Contains(member))
-            _surface.Add(member);
-    }
-
-    // =========================================================
-    // Find a loaded, walkable landing without querying disabled surface physics.
+    // Check ready terrain and obstacle footprints without disabled physics queries.
     private bool TrySurfaceLanding(CaveHole hole, out Vector2 landing)
     {
         Vector2 centre = hole.OutsidePosition(Cave.TileSize);
-        List<Obstacle> obstacles = WorldPlacement.CollectObstacles(
-            _world.GetNode<Node2D>("WorldObjects"));
+        List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
 
         for (int i = 0; i <= 8; i++)
         {
@@ -298,9 +424,7 @@ public partial class WorldLayerController : Node
                     obstacle.IsQueuedForDeletion()) continue;
 
                 Vector2 difference = point - obstacle.GlobalPosition;
-                Vector2 separation = obstacle.Footprint * 0.5f +
-                    new Vector2(18f, 18f);
-
+                Vector2 separation = obstacle.Footprint * 0.5f + new Vector2(18f, 18f);
                 if (Mathf.Abs(difference.X) < separation.X &&
                     Mathf.Abs(difference.Y) < separation.Y)
                 {
@@ -319,7 +443,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Stop the beam without relying on the component's node name.
+    // Stop mining without depending on the component's node name.
     private void StopMining()
     {
         foreach (Node node in _player.GetNode("Systems").GetChildren())
@@ -330,11 +454,10 @@ public partial class WorldLayerController : Node
 
     #region Presentation
     // =========================================================
-    // Fade at either ramp and bring the camera back to its surface offset at the mouth.
+    // Fade only when opacity changes and refresh diagnostic text periodically.
     private void UpdatePresentation(double delta)
     {
         float target = 1f;
-
         if (Current == WorldLayer.Cave)
         {
             Vector2 tile = Cave.WorldToTile(_player.GlobalPosition);
@@ -343,41 +466,50 @@ public partial class WorldLayerController : Node
                 ? Mathf.Clamp(ramp.Coordinates(tile).X / ramp.TunnelLength, 0f, 1f)
                 : 1f;
 
-            float dim = Mathf.Clamp(
-                _config.ObstructingSpriteOpacityPercent / 100f, 0f, 1f);
-            target = dim * (1f - descent);
+            target = Mathf.Clamp(
+                _config.ObstructingSpriteOpacityPercent / 100f, 0f, 1f) * (1f - descent);
 
             float reference = ramp != null
                 ? Mathf.Lerp(ramp.RimHeight, Cave.RimHeight, descent)
                 : Cave.RimHeight;
-            float height = Cave.Elevation.SampleWorldHeight(_player.GlobalPosition);
-
-            _camera.Position = _cameraPosition + Vector2.Down * (reference - height);
+            _camera.Position = _cameraPosition + Vector2.Down *
+                (reference - Cave.Elevation.SampleWorldHeight(_player.GlobalPosition));
         }
         else
             _camera.Position = _cameraPosition;
 
-        float step = (float)delta /
-            Mathf.Max(0.05f, _config.ObstructionFadeSeconds);
-        _surfaceOpacity = Mathf.MoveToward(_surfaceOpacity, target, step);
+        _surfaceOpacity = Mathf.MoveToward(
+            _surfaceOpacity, target,
+            (float)delta / Mathf.Max(0.05f, _config.ObstructionFadeSeconds));
 
-        foreach (WorldLayerMember member in _surface)
-            if (GodotObject.IsInstanceValid(member))
-                member.SetOpacity(_surfaceOpacity);
+        if (float.IsNaN(_appliedOpacity) ||
+            !Mathf.IsEqualApprox(_appliedOpacity, _surfaceOpacity))
+        {
+            _appliedOpacity = _surfaceOpacity;
+            foreach (WorldLayerMember member in _surface)
+                if (GodotObject.IsInstanceValid(member) &&
+                    !_inheritedFade.Contains(member))
+                    member.SetOpacity(_surfaceOpacity);
+        }
 
         foreach (CaveHole hole in Cave.Holes)
-            hole.Marker.Visible = Current == WorldLayer.Surface || hole == _pendingExit;
+        {
+            if (!GodotObject.IsInstanceValid(hole.Marker)) continue;
+            bool visible = Current == WorldLayer.Surface ||
+                hole == _pendingExit || (!_entryDeparted && hole == _lastEntry);
+            if (hole.Marker.Visible != visible)
+                hole.Marker.Visible = visible;
+        }
+
+        if (_hudTimer > 0) return;
+        _hudTimer = 0.2;
 
         if (Current == WorldLayer.Cave)
-        {
-            string exit = _pendingExit == null ? "Explore the connected network" :
-                $"Hole {_pendingExit.Id}: " +
-                (_exitReady ? "surface ready" : "preparing surface / checking landing");
-
             _status.Text =
                 $"CAVE | {Cave.Streaming.ReadyCount}/{Cave.Streaming.LoadedCount} chunks\n" +
-                exit + " | M map is surface-only";
-        }
+                (_pendingExit == null ? "Explore the connected network" :
+                    $"Hole {_pendingExit.Id}: {_exitStatus}") +
+                " | M map is surface-only";
         else
         {
             CaveHole nearest = Cave.NearestSurfaceHole(_player.GlobalPosition);
@@ -390,30 +522,24 @@ public partial class WorldLayerController : Node
 
     #region Movement
     // =========================================================
-    // Restrict cave travel to ready floor and hold an exit until its surface is ready.
+    // Restrict cave movement to available floor, allowing axis sliding.
     public Vector2 ConstrainVelocity(Vector2 position, Vector2 velocity, double delta)
     {
-        if (Current != WorldLayer.Cave || delta <= 0)
-            return velocity;
+        if (Current != WorldLayer.Cave || delta <= 0) return velocity;
 
         Vector2 motion = velocity * (float)delta;
         if (CanTravel(position, motion)) return velocity;
 
-        Vector2 horizontal = new(motion.X, 0f);
-        Vector2 vertical = new(0f, motion.Y);
-        bool canX = CanTravel(position, horizontal);
-        bool canY = CanTravel(position, vertical);
-
+        bool canX = CanTravel(position, new Vector2(motion.X, 0f));
+        bool canY = CanTravel(position, new Vector2(0f, motion.Y));
         if (canX && (!canY || Mathf.Abs(motion.X) >= Mathf.Abs(motion.Y)))
             return new Vector2(velocity.X, 0f);
-        if (canY)
-            return new Vector2(0f, velocity.Y);
-
+        if (canY) return new Vector2(0f, velocity.Y);
         return Vector2.Zero;
     }
 
     // =========================================================
-    // Check intermediate positions and the readiness boundary at every hole.
+    // Hold the outward boundary until the matching surface exit is ready.
     private bool CanTravel(Vector2 position, Vector2 motion)
     {
         int steps = Mathf.Max(1, Mathf.CeilToInt(motion.Length() / 12f));
@@ -434,14 +560,13 @@ public partial class WorldLayerController : Node
                     return false;
             }
         }
-
         return true;
     }
     #endregion
 
     #region Shared Queries
     // =========================================================
-    // Find the optional location service.
+    // Find the optional layer controller.
     public static WorldLayerController Find(Node context)
     {
         if (context == null || !context.IsInsideTree()) return null;
@@ -450,7 +575,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Select the correct height provider for artwork and aiming.
+    // Select the appropriate elevation provider.
     public static float HeightFor(Node owner, Vector2 point)
     {
         WorldLayerController controller = Find(owner);
@@ -463,7 +588,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Route player-created drops to the current layer.
+    // Route player-created drops into the active layer.
     public static Node2D DropRoot(Node context, Node2D surfaceRoot)
     {
         WorldLayerController controller = Find(context);
