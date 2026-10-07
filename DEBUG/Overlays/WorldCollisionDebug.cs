@@ -23,31 +23,37 @@ public partial class WorldCollisionDebug : Node2D
 	#endregion
 
 	#region Lifecycle
-	// =========================================================
-	// Keep world outlines above artwork and diagnostics above the normal HUD.
-	public override void _Ready()
+// =========================================================
+// Initialize collision diagnostics and the independent F3 enemy-range toggle.
+public override void _Ready()
+{
+	ZIndex = 4095;
+	ZAsRelative = false;
+	_objects = GetParent().GetNode("WorldObjects");
+
+	CanvasLayer hud = new() { Name = "DebugStatus", Layer = 20 };
+	AddChild(hud);
+
+	_status = new Label
 	{
-		ZIndex = 4095;
-		ZAsRelative = false;
-		_objects = GetParent().GetNode("WorldObjects");
+		Position = new Vector2(16, 170),
+		MouseFilter = Control.MouseFilterEnum.Ignore
+	};
+	_status.AddThemeColorOverride("font_color", OutlineColor);
+	_status.AddThemeColorOverride("font_shadow_color", Colors.Black);
+	_status.AddThemeConstantOverride("shadow_offset_x", 1);
+	_status.AddThemeConstantOverride("shadow_offset_y", 1);
+	hud.AddChild(_status);
 
-		CanvasLayer hud = new() { Name = "DebugStatus", Layer = 20 };
-		AddChild(hud);
-
-		_status = new Label
+	if (GetNodeOrNull<WorldEnemyRangesDebug>("EnemyRanges") == null)
+		AddChild(new WorldEnemyRangesDebug
 		{
-			Position = new Vector2(16, 170),
-			MouseFilter = Control.MouseFilterEnum.Ignore
-		};
-		_status.AddThemeColorOverride("font_color", OutlineColor);
-		_status.AddThemeColorOverride("font_shadow_color", Colors.Black);
-		_status.AddThemeConstantOverride("shadow_offset_x", 1);
-		_status.AddThemeConstantOverride("shadow_offset_y", 1);
-		hud.AddChild(_status);
+			Name = "EnemyRanges"
+		});
 
-		SetProcess(Enabled);
-		_status.Visible = Enabled;
-	}
+	SetProcess(Enabled);
+	_status.Visible = Enabled;
+}
 
 	// =========================================================
 	// Toggle without depending on an Input Map action.

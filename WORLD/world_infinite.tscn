@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://b2om0uo6j1tp2"]
 
 [ext_resource type="PackedScene" uid="uid://fqjv7dvfg82e" path="res://PLAYER/Player.tscn" id="1_player"]
-[ext_resource type="PackedScene" path="res://UI/Debug/WorldMapDebug.tscn" id="2_map"]
+[ext_resource type="PackedScene" path="res://DEBUG/Overlays/WorldMapDebug.tscn" id="2_map"]
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="3_chunks"]
 [ext_resource type="Script" uid="uid://7qiets80o66t" path="res://UI/FpsLabel.cs" id="4_fps"]
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="5_navigation"]
@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="10_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="11_generator"]
 [ext_resource type="Resource" uid="uid://htudqle6rjei" path="res://WORLD/Generation/Biomes/BiomeCatalog.tres" id="12_biomes"]
-[ext_resource type="Script" uid="uid://b4ssrp88221n3" path="res://UI/Debug/WorldCollisionDebug.cs" id="13_collision"]
+[ext_resource type="Script" uid="uid://b4ssrp88221n3" path="res://DEBUG/Overlays/WorldCollisionDebug.cs" id="13_collision"]
 [ext_resource type="PackedScene" path="res://WORLD/Contents/Vegetation/VegetationInteraction.tscn" id="14_vegetation"]
 [ext_resource type="PackedScene" path="res://SYSTEMS/Input/InputModes.tscn" id="15_input"]
 [ext_resource type="PackedScene" path="res://CONFIG/WorldConfig.tscn" id="16_config"]
