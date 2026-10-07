@@ -46,15 +46,15 @@ public partial class Projectile : Node2D
         SetPhysicsProcess(false);
     }
 
-    // =========================================================
-    // Dispose query resources when the world closes.
-    public override void _ExitTree()
-    {
-        _actorQuery.Dispose();
-        _worldQuery.Dispose();
-        _excluded.Dispose();
-        _worldExcluded.Dispose();
-    }
+// =========================================================
+// Dispose query wrappers and clear their reusable exclusion lists.
+public override void _ExitTree()
+{
+    _actorQuery.Dispose();
+    _worldQuery.Dispose();
+    _excluded.Clear();
+    _worldExcluded.Clear();
+}
 
     // =========================================================
     // Sweep cover and actor hits, resolving whichever occurs first.

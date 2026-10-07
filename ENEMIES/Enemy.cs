@@ -118,14 +118,14 @@ public override void _EnterTree()
     }
 
 // =========================================================
-// Remove subscriptions and dispose reusable awareness resources.
+// Remove subscriptions and release reusable awareness resources.
 public override void _ExitTree()
 {
     if (GodotObject.IsInstanceValid(Health))
         Health.Died -= OnDeath;
 
     _sightQuery.Dispose();
-    _sightExcluded.Dispose();
+    _sightExcluded.Clear();
     _rng.Dispose();
 }
 
