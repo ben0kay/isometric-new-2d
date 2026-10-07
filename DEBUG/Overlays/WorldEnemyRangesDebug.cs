@@ -17,33 +17,19 @@ public partial class WorldEnemyRangesDebug : Node
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Keep the toggle available while ordinary debug processing is disabled.
-    public override void _Ready()
-    {
-        SetProcessInput(true);
-        SetProcess(Enabled);
-    }
+// =========================================================
+// Use the shared F1 menu instead of a dedicated overlay hotkey.
+public override void _Ready()
+{
+    SetProcessInput(false);
+    SetEnabled(Enabled);
+}
 
-    // =========================================================
-    // Toggle every existing helper without rebuilding its circles.
-    public override void _Input(InputEvent input)
-    {
-        if (input is not InputEventKey key ||
-            !key.Pressed || key.Echo ||
-            key.PhysicalKeycode != Key.F3)
-            return;
-
-        Enabled = !Enabled;
-
-        foreach (EnemyRangeDebug helper in _helpers.Values)
-            if (GodotObject.IsInstanceValid(helper))
-                helper.SetEnabled(Enabled);
-
-        _timer = 0;
-        SetProcess(Enabled);
-        GetViewport().SetInputAsHandled();
-    }
+// =========================================================
+// Overlay hotkeys are handled centrally by the F1 menu.
+public override void _Input(InputEvent input)
+{
+}
 
     // =========================================================
     // Attach helpers to new enemies and check radius changes at a modest rate.
@@ -104,5 +90,20 @@ public partial class WorldEnemyRangesDebug : Node
         _helpers.Clear();
         _removed.Clear();
     }
+
+    // =========================================================
+// Toggle existing helpers without rebuilding their cached circles.
+public void SetEnabled(bool enabled)
+{
+    Enabled = enabled;
+
+    foreach (EnemyRangeDebug helper in _helpers.Values)
+        if (GodotObject.IsInstanceValid(helper) &&
+            !helper.IsQueuedForDeletion())
+            helper.SetEnabled(enabled);
+
+    _timer = 0;
+    SetProcess(enabled);
+}
     #endregion
 }

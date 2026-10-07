@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://bws780bju25ck" path="res://DEBUG/Overlays/WorldMapDebug.cs" id="1_map"]
+[ext_resource type="Script" uid="uid://bws780bju25ck" path="res://DEBUG/Map/WorldMapDebug.cs" id="1_map"]
 
 [node name="WorldMapDebug" type="CanvasLayer"]
 layer = 100

@@ -9,7 +9,8 @@ public enum PlayerInputMode
     Gameplay,
     Inventory,
     Container,
-    DebugMap
+    DebugMap,
+    DebugMenu
 }
 
 public partial class InputModes : Node

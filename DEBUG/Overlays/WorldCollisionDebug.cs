@@ -24,7 +24,7 @@ public partial class WorldCollisionDebug : Node2D
 
 	#region Lifecycle
 // =========================================================
-// Initialize collision diagnostics and the independent F3 enemy-range toggle.
+// Initialize collision diagnostics, enemy ranges and the shared F1 menu.
 public override void _Ready()
 {
 	ZIndex = 4095;
@@ -51,48 +51,61 @@ public override void _Ready()
 			Name = "EnemyRanges"
 		});
 
-	SetProcess(Enabled);
-	_status.Visible = Enabled;
+	if (GetNodeOrNull<DebugMenu>("DebugMenu") == null)
+		AddChild(new DebugMenu
+		{
+			Name = "DebugMenu"
+		});
+
+	SetProcessInput(false);
+	SetEnabled(Enabled);
 }
 
-	// =========================================================
-	// Toggle without depending on an Input Map action.
-	public override void _Input(InputEvent input)
-	{
-		if (input is not InputEventKey key ||
-			!key.Pressed || key.Echo || key.Keycode != Key.F2)
-			return;
+// =========================================================
+// Overlay hotkeys are handled centrally by the F1 menu.
+public override void _Input(InputEvent input)
+{
+}
 
-		Enabled = !Enabled;
-		_status.Visible = Enabled;
-		_scanTimer = _drawTimer = 0;
-		SetProcess(Enabled);
-		QueueRedraw();
-		GetViewport().SetInputAsHandled();
+// =========================================================
+// Discover streamed objects periodically and refresh collision drawings.
+public override void _Process(double delta)
+{
+	_scanTimer -= delta;
+	_drawTimer -= delta;
+
+	if (_scanTimer <= 0)
+	{
+		_scanTimer = 0.5;
+		_collisions.Clear();
+		Collect(_objects);
 	}
 
-	// =========================================================
-	// Discover streamed objects periodically and refresh moving footprints.
-	public override void _Process(double delta)
-	{
-		_scanTimer -= delta;
-		_drawTimer -= delta;
+	if (_drawTimer > 0) return;
+	_drawTimer = Math.Max(0.02, RefreshSeconds);
 
-		if (_scanTimer <= 0)
-		{
-			_scanTimer = 0.5;
-			_collisions.Clear();
-			Collect(_objects);
-		}
+	GroundResourceWorld resources = GroundResourceWorld.Find(this);
+	_status.Text = "Collision overlay · F1 debug menu\n" +
+		(resources?.GetDebugSummary() ??
+			"Ground-resource service not ready.");
 
-		if (_drawTimer > 0) return;
-		_drawTimer = Math.Max(0.02, RefreshSeconds);
+	QueueRedraw();
+}
 
-		GroundResourceWorld resources = GroundResourceWorld.Find(this);
-		_status.Text = "F8: collision debug\n" +
-			(resources?.GetDebugSummary() ?? "Ground-resource service not ready.");
-		QueueRedraw();
-	}
+// =========================================================
+// Toggle collision presentation independently from the shared debug menu.
+public void SetEnabled(bool enabled)
+{
+	Enabled = enabled;
+	Visible = enabled;
+	_scanTimer = _drawTimer = 0;
+	SetProcess(enabled);
+
+	if (GodotObject.IsInstanceValid(_status))
+		_status.Visible = enabled;
+
+	QueueRedraw();
+}
 	#endregion
 
 	#region Discovery
