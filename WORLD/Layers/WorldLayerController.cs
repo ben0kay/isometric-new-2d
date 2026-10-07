@@ -5,6 +5,13 @@ using System.Collections.Generic;
 
 public partial class WorldLayerController : Node
 {
+
+        #region Configuration
+    [ExportGroup("Exit Loading")]
+    [Export(PropertyHint.Range, "16,256,8")]
+    public float ExitPreloadDistanceTiles { get; set; } = 96f;
+    #endregion
+
     #region State
     public WorldLayer Current { get; private set; } = WorldLayer.Surface;
     public int Epoch { get; private set; }
@@ -103,7 +110,7 @@ public partial class WorldLayerController : Node
     }
 
     // =========================================================
-    // Detect entry, prepare an approached exit and update presentation.
+    // Preload nearby exits while exploring, then switch layers at the mouth.
     public override void _Process(double delta)
     {
         if (!GodotObject.IsInstanceValid(_player)) return;
@@ -138,15 +145,36 @@ public partial class WorldLayerController : Node
         {
             CaveHole approach = Cave.TransitionAt(tile);
 
-            // Descending through A does not immediately preload A again.
-            // Turning back toward its mouth still permits an early return.
-            if (!_entryDeparted)
+            // Avoid treating the initial descent as an exit request.
+            // Turning back immediately still allows returning to the surface.
+            if (!_entryDeparted && _lastEntry != null)
             {
                 float along = _lastEntry.Coordinates(tile).X;
                 if (approach != _lastEntry || along > 1f)
                     _entryDeparted = true;
                 else if (along >= -0.1f)
                     approach = null;
+            }
+
+            // Outside a ramp, start loading the nearest nearby exit.
+            // A ramp always takes priority over distance-based selection.
+            if (approach == null)
+            {
+                float radius = Mathf.Clamp(
+                    ExitPreloadDistanceTiles, 16f, 256f);
+                float nearestDistance = radius * radius;
+
+                foreach (CaveHole hole in Cave.Holes)
+                {
+                    if (!_entryDeparted && hole == _lastEntry)
+                        continue;
+
+                    float distance = tile.DistanceSquaredTo(hole.MouthTile);
+                    if (distance >= nearestDistance) continue;
+
+                    nearestDistance = distance;
+                    approach = hole;
+                }
             }
 
             if (approach != _pendingExit)
@@ -164,17 +192,21 @@ public partial class WorldLayerController : Node
                 {
                     _surfaceLoaded = _surfaceChunks.PrepareDestination(
                         _pendingExit.OutsidePosition(Cave.TileSize));
+
                     DrainAddedSurface();
 
                     if (!_surfaceLoaded)
                         _exitStatus = _surfaceChunks.GetMeta(
-                            "destination_preload_status", "loading surface").AsString();
+                            "destination_preload_status",
+                            "loading surface").AsString();
                 }
 
                 if (_surfaceLoaded && _landingTimer <= 0)
                 {
                     _landingTimer = 0.25;
-                    _exitReady = TrySurfaceLanding(_pendingExit, out _exitLanding);
+                    _exitReady = TrySurfaceLanding(
+                        _pendingExit, out _exitLanding);
+
                     _exitStatus = _exitReady
                         ? "surface ready"
                         : "surface loaded; no safe landing found";
@@ -187,7 +219,11 @@ public partial class WorldLayerController : Node
                 health.IsAlive && InputModes.For(_player).GameplayAllowed)
             {
                 Vector2 local = _pendingExit.Coordinates(tile);
-                if (local.X <= -0.45f && Mathf.Abs(local.Y) < 1.4f)
+
+                // Preloading from far away must never teleport the player.
+                // Switch only within the small apron at the actual mouth.
+                if (local.X >= -1.5f && local.X <= -0.45f &&
+                    Mathf.Abs(local.Y) < 1.4f)
                 {
                     string id = _pendingExit.Id;
                     RestoreSurface(_exitLanding);
