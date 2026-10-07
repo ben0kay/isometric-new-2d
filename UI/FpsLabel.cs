@@ -16,20 +16,29 @@ public partial class FpsLabel : Label
 
     #region Lifecycle
 // =========================================================
-// Initialize FPS and attach shared top-right diagnostic layout.
+// Initialize FPS and defer HUD layout setup until scene initialization finishes.
 public override void _Ready()
 {
     MouseFilter = MouseFilterEnum.Ignore;
     AddThemeColorOverride("font_color", NormalColor);
-
-    if (GetParent().GetNodeOrNull<WorldDebugHudLayout>(
-        "WorldDebugHudLayout") == null)
-        GetParent().AddChild(new WorldDebugHudLayout
-        {
-            Name = "WorldDebugHudLayout"
-        });
-
     UpdateDisplay();
+
+    Callable.From(() =>
+    {
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+        Node hud = GetParent();
+        if (!GodotObject.IsInstanceValid(hud) ||
+            hud.IsQueuedForDeletion())
+            return;
+
+        if (hud.GetNodeOrNull<WorldDebugHudLayout>(
+            "WorldDebugHudLayout") == null)
+            hud.AddChild(new WorldDebugHudLayout
+            {
+                Name = "WorldDebugHudLayout"
+            });
+    }).CallDeferred();
 }
 
     // =========================================================
