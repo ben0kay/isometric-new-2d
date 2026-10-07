@@ -1,12 +1,7 @@
-[gd_resource type="Resource" script_class="LiquidDefinition" format=3]
+[gd_resource type="Resource" script_class="LiquidDefinition" format=3 uid="uid://d1xmy3blys5ae"]
 
-[ext_resource type="Script" path="res://WORLD/Contents/Liquids/LiquidDefinition.cs" id="1_liquid"]
+[ext_resource type="Script" uid="uid://cu37khonl6enw" path="res://WORLD/Contents/Liquids/LiquidDefinition.cs" id="1_liquid"]
 
 [resource]
 script = ExtResource("1_liquid")
-Id = "water"
 SurfaceColour = Color(1, 1, 1, 1)
-WadingSpeedMultiplier = 0.65
-FullResistanceDepthPixels = 8.0
-DamagePerSecond = 0.0
-MinimumDamageDepthPixels = 0.5

@@ -11,6 +11,7 @@
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest/ForestBasins.tres" id="30_basins"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -70,4 +71,7 @@ PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry")])
+FeatureOverrides = Dictionary[String, Resource]({
+"basins": ExtResource("30_basins")
+})
 Enemies = ExtResource("20_enemies")

@@ -10,6 +10,7 @@
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/BasaltFlats/BasaltBasins.tres" id="30_basins"]
 
 [sub_resource type="Resource" id="SmallRockEntry"]
 script = ExtResource("3_entry")
@@ -58,4 +59,7 @@ RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+FeatureOverrides = Dictionary[String, Resource]({
+"basins": ExtResource("30_basins")
+})
 Enemies = ExtResource("20_enemies")

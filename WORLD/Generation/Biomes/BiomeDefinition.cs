@@ -92,7 +92,7 @@ public partial class BiomeDefinition : Resource
     }
 
 // =========================================================
-// Resolve an explicit override, biome-specific default, or shared default.
+// Resolve the biome's own feature reference or a shared default.
 public T GetFeature<T>(string id) where T : Resource
 {
     Resource profile = null;
@@ -106,14 +106,8 @@ public T GetFeature<T>(string id) where T : Resource
     else
     {
         BiomeDefaults defaults = BiomeDefaults.GetShared();
-
         if (defaults.Features != null)
-        {
-            defaults.Features.TryGetValue($"{Id}/{id}", out profile);
-
-            if (profile == null)
-                defaults.Features.TryGetValue(id, out profile);
-        }
+            defaults.Features.TryGetValue(id, out profile);
     }
 
     if (profile == null) return null;
@@ -122,6 +116,7 @@ public T GetFeature<T>(string id) where T : Resource
     throw new InvalidOperationException(
         $"Biome '{Id}': feature '{id}' requires {typeof(T).Name}.");
 }
+
     #endregion
 
     #region Terrain Factory

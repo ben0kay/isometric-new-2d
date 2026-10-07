@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="2_definition"]
 [ext_resource type="Resource" uid="uid://dynmwcmhxu4le" path="res://WORLD/Generation/Biomes/Definitions/CarbonForest/CarbonForest.tres" id="3_r5sg8"]
 [ext_resource type="Resource" uid="uid://c1hdjy6mcjswq" path="res://WORLD/Generation/Biomes/Definitions/RollingHills/RollingHills.tres" id="4_dh6ct"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/RockyMountains.tres" id="4_r5sg8"]
+[ext_resource type="Resource" uid="uid://c1dm1wu5o1bes" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/RockyMountains.tres" id="4_r5sg8"]
 [ext_resource type="Resource" uid="uid://c4igqtsq2v45v" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWilds.tres" id="5_iql3u"]
 
 [resource]

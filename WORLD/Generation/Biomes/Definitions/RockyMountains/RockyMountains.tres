@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="5_boulder"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="6_cliff"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="7_enemies"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/MountainsBasins.tres" id="30_basins"]
 
 [sub_resource type="Resource" id="SmallRock"]
 script = ExtResource("3_species")
@@ -40,4 +41,7 @@ PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 5
 Rocks = Array[ExtResource("3_species")]([SubResource("SmallRock"), SubResource("Boulder"), SubResource("CliffRock")])
+FeatureOverrides = Dictionary[String, Resource]({
+"basins": ExtResource("30_basins")
+})
 Enemies = ExtResource("7_enemies")

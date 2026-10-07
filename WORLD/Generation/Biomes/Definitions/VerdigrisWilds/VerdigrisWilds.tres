@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c4igqtsq2v45v"]
+[gd_resource type="Resource" script_class="VerdigrisWildsBiome" format=3 uid="uid://c4igqtsq2v45v"]
 
-[ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWildsBiome.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_entry"]
 [ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="4_placement"]
@@ -12,6 +12,7 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="10_medium"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="30_basins"]
 
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_entry")
@@ -81,10 +82,14 @@ MoistureRange = Vector2(0.55, 1)
 RollingHeight = 18.0
 RollingFeatureSize = 24.0
 PlateausEnabled = false
+FlatPatchCoverage = 0.8
+FlatPatchSizeTiles = 36.0
+FlatPatchBlendWidthTiles = 12.0
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
 Rocks = Array[ExtResource("3_entry")]([SubResource("RockEntry")])
 FeatureOverrides = Dictionary[String, Resource]({
-"ground": ExtResource("5_ground")
+"ground": ExtResource("5_ground"),
+"basins": ExtResource("30_basins")
 })
 Enemies = ExtResource("12_enemies")
