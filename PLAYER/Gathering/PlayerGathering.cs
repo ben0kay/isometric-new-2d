@@ -51,38 +51,44 @@ public partial class PlayerGathering : Node
     #endregion
 
     #region Gathering
-    // =========================================================
-    // Harvest one nearby plant per interval using the selected empty tool slot.
-    public override void _PhysicsProcess(double delta)
+// =========================================================
+// Gather nearby plants and report exertion only after successful harvesting.
+public override void _PhysicsProcess(double delta)
+{
+    _cooldown -= delta;
+    if (_cooldown > 0 || !_health.IsAlive ||
+        _equipment.CurrentTool != null || _hud.BlocksWorldAttack() ||
+        !InputModes.For(this).GameplayAllowed ||
+        !Input.IsMouseButtonPressed(MouseButton.Left))
+        return;
+
+    _cooldown = System.Math.Max(0.1, GatheringInterval);
+    _shape.Radius = Mathf.Max(8f, GatheringRange);
+    _query.Transform = new Transform2D(0f, _player.GlobalPosition);
+
+    var hits = _player.GetWorld2D().DirectSpaceState.IntersectShape(_query, 32);
+    ResourceHarvest best = null;
+    float bestDistance = float.PositiveInfinity;
+    Vector2 cursor = _player.GetGlobalMousePosition();
+
+    foreach (var hit in hits)
     {
-        _cooldown -= delta;
-        if (_cooldown > 0 || !_health.IsAlive ||
-            _equipment.CurrentTool != null || _hud.BlocksWorldAttack() ||
-            !Input.IsMouseButtonPressed(MouseButton.Left)) return;
+        if (hit["collider"].AsGodotObject() is not ResourceHarvest harvest ||
+            harvest.IsQueuedForDeletion() ||
+            harvest.GetParent().IsQueuedForDeletion())
+            continue;
 
-        _cooldown = System.Math.Max(0.1, GatheringInterval);
-        _shape.Radius = Mathf.Max(8f, GatheringRange);
-        _query.Transform = new Transform2D(0f, _player.GlobalPosition);
-        var hits = _player.GetWorld2D().DirectSpaceState.IntersectShape(_query, 32);
+        Node2D host = harvest.GetParent<Node2D>();
+        if (!WorldLayerMember.Same(_player, host)) continue;
 
-        ResourceHarvest best = null;
-        float bestDistance = float.PositiveInfinity;
-        Vector2 cursor = _player.GetGlobalMousePosition();
-
-        foreach (var hit in hits)
-        {
-            if (hit["collider"].AsGodotObject() is not ResourceHarvest harvest ||
-                harvest.IsQueuedForDeletion() ||
-                harvest.GetParent().IsQueuedForDeletion()) continue;
-
-            Node2D host = harvest.GetParent<Node2D>();
-            float distance = host.GlobalPosition.DistanceSquaredTo(cursor);
-            if (distance >= bestDistance) continue;
-            bestDistance = distance;
-            best = harvest;
-        }
-
-        best?.Gather(_player, GatheringRange);
+        float distance = host.GlobalPosition.DistanceSquaredTo(cursor);
+        if (distance >= bestDistance) continue;
+        bestDistance = distance;
+        best = harvest;
     }
+
+    if (best?.Gather(_player, GatheringRange) == true)
+        _player.ReportWork(_cooldown);
+}
     #endregion
 }

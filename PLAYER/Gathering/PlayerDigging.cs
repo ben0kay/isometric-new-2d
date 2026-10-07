@@ -35,7 +35,7 @@ public partial class PlayerDigging : Node
 
     #region Digging
 // =========================================================
-// Dig surface deposits only; cave excavation is a later feature.
+// Dig reachable surface deposits and report successful shovel work.
 public bool Dig(DiggingAttack attack)
 {
     if (WorldLayerMember.For(_player) != WorldLayer.Surface)
@@ -73,8 +73,13 @@ public bool Dig(DiggingAttack attack)
     if (_player.GetWorld2D().DirectSpaceState.IntersectRay(_query).Count > 0)
         return false;
 
-    return resources.Dig(
+    bool worked = resources.Dig(
         target, attack.ShovelStrength, attack.DiggingPower);
+
+    if (worked)
+        _player.ReportWork(System.Math.Max(0.03, attack.Cooldown));
+
+    return worked;
 }
     #endregion
 }

@@ -78,90 +78,90 @@ public override async void _Ready()
 // Report activity while the survival helper owns all reserve calculations.
 public override void _PhysicsProcess(double delta)
 {
-    _survival ??= GetNode<PlayerSurvival>("Systems/Survival");
-    _consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
-    _weapon.Tick(delta);
+	_survival ??= GetNode<PlayerSurvival>("Systems/Survival");
+	_consumption ??= GetNode<PlayerConsumption>("Systems/Consumption");
+	_weapon.Tick(delta);
 
-    bool gameplayAllowed = InputModes.For(this).GameplayAllowed;
-    bool attackBlocked = _inventoryHud.BlocksWorldAttack();
-    bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
-        gameplayAllowed;
+	bool gameplayAllowed = InputModes.For(this).GameplayAllowed;
+	bool attackBlocked = _inventoryHud.BlocksWorldAttack();
+	bool movementAllowed = !_inventoryHud.BlocksWorldMovement &&
+		gameplayAllowed;
 
-    bool jumped = _jump.Tick(delta,
-        movementAllowed && !attackBlocked, _health.IsAlive,
-        JumpPeakHeight, JumpDuration);
+	bool jumped = _jump.Tick(delta,
+		movementAllowed && !attackBlocked, _health.IsAlive,
+		JumpPeakHeight, JumpDuration);
 
-    if (jumped) _survival.OnJump();
+	if (jumped) _survival.OnJump();
 
-    if (!_health.IsAlive)
-    {
-        _survival.Tick(delta, false);
-        _consumption.Tick(delta, false);
-        Velocity = Vector2.Zero;
-        _visual.UpdateHeight();
-        _jump.UpdatePose(_visual);
-        return;
-    }
+	if (!_health.IsAlive)
+	{
+		_survival.Tick(delta, false);
+		_consumption.Tick(delta, false);
+		Velocity = Vector2.Zero;
+		_visual.UpdateHeight();
+		_jump.UpdatePose(_visual);
+		return;
+	}
 
-    _surfaceEffects.UpdateState(_visual);
+	_surfaceEffects.UpdateState(_visual);
 
-    Vector2 direction = movementAllowed
-        ? ReadMovement() : Vector2.Zero;
-    Vector2 beforeMovement = GlobalPosition;
+	Vector2 direction = movementAllowed
+		? ReadMovement() : Vector2.Zero;
+	Vector2 beforeMovement = GlobalPosition;
 
-    Velocity = direction.Normalized() *
-        _stats.Get(PlayerStat.MovementSpeed) *
-        _inventory.MovementFactor *
-        _surfaceEffects.MovementMultiplier;
+	Velocity = direction.Normalized() *
+		_stats.Get(PlayerStat.MovementSpeed) *
+		_inventory.MovementFactor *
+		_surfaceEffects.MovementMultiplier;
 
-    WorldLayerController layers = WorldLayerController.Find(this);
-    if (layers != null)
-        Velocity = layers.ConstrainVelocity(GlobalPosition, Velocity, delta);
+	WorldLayerController layers = WorldLayerController.Find(this);
+	if (layers != null)
+		Velocity = layers.ConstrainVelocity(GlobalPosition, Velocity, delta);
 
-    MoveAndSlide();
-    _visual.UpdateHeight();
-    _jump.UpdatePose(_visual);
-    _surfaceEffects.UpdateState(_visual);
-    _surfaceEffects.TickExposure(delta);
+	MoveAndSlide();
+	_visual.UpdateHeight();
+	_jump.UpdatePose(_visual);
+	_surfaceEffects.UpdateState(_visual);
+	_surfaceEffects.TickExposure(delta);
 
-    if (!_health.IsAlive)
-    {
-        _survival.Tick(delta, false);
-        _consumption.Tick(delta, false);
-        Velocity = Vector2.Zero;
-        _jump.Reset();
-        return;
-    }
+	if (!_health.IsAlive)
+	{
+		_survival.Tick(delta, false);
+		_consumption.Tick(delta, false);
+		Velocity = Vector2.Zero;
+		_jump.Reset();
+		return;
+	}
 
-    bool useHeld = gameplayAllowed && !attackBlocked &&
-        Input.IsMouseButtonPressed(MouseButton.Left);
+	bool useHeld = gameplayAllowed && !attackBlocked &&
+		Input.IsMouseButtonPressed(MouseButton.Left);
 
-    _consumption.Tick(delta, useHeld);
+	_consumption.Tick(delta, useHeld);
 
-    AttackDefinition attack = _weapon.Attack;
-    bool firing = useHeld && attack != null;
-    float horizontal = firing
-        ? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
+	AttackDefinition attack = _weapon.Attack;
+	bool firing = useHeld && attack != null;
+	float horizontal = firing
+		? GetGlobalMousePosition().X - GlobalPosition.X : direction.X;
 
-    if (Mathf.Abs(horizontal) > 0.001f)
-    {
-        float nextFacing = horizontal > 0f ? 1f : -1f;
-        if (nextFacing != _facing)
-        {
-            _facing = nextFacing;
-            _visual.Scale = new Vector2(_facing, 1f);
-        }
-    }
+	if (Mathf.Abs(horizontal) > 0.001f)
+	{
+		float nextFacing = horizontal > 0f ? 1f : -1f;
+		if (nextFacing != _facing)
+		{
+			_facing = nextFacing;
+			_visual.Scale = new Vector2(_facing, 1f);
+		}
+	}
 
-    if (firing && _weapon.TryFireAtCursor() &&
-        attack is ProjectileAttack)
-        ReportWork(System.Math.Max(0.03, attack.Cooldown));
+	if (firing && _weapon.TryFireAtCursor() &&
+		attack is ProjectileAttack)
+		ReportWork(System.Math.Max(0.03, attack.Cooldown));
 
-    bool walking = direction.LengthSquared() > 0f &&
-        !IsAirborne && !jumped &&
-        GlobalPosition.DistanceSquaredTo(beforeMovement) > 0.000001f;
+	bool walking = direction.LengthSquared() > 0f &&
+		!IsAirborne && !jumped &&
+		GlobalPosition.DistanceSquaredTo(beforeMovement) > 0.000001f;
 
-    _survival.Tick(delta, walking);
+	_survival.Tick(delta, walking);
 }
 
 // =========================================================

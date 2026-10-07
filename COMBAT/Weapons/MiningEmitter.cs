@@ -83,7 +83,7 @@ public override void _Ready()
 
     #region Mining
 // =========================================================
-// Check strength, apply extraction work and spawn rewards at the struck resource.
+// Apply extraction and report successful mining to player survival.
 public void Emit(MiningAttack attack, Vector2 direction)
 {
     if (direction.LengthSquared() < 0.0001f) return;
@@ -124,6 +124,9 @@ public void Emit(MiningAttack attack, Vector2 direction)
             if (harvest != null)
                 worked = harvest.Mine(attack.MiningStrength, power);
         }
+
+        if (worked && _source is Player player)
+            player.ReportWork(Math.Max(0.03, attack.Cooldown));
 
         if (!worked) color = new Color("#ffbd77");
     }
