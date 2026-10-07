@@ -10,16 +10,21 @@ public static class CombatCover
     #endregion
 
     #region Actor Height
-    // =========================================================
-    // Read player cover height without introducing an eye-height simulation.
-    public static float HeightFor(Node2D actor)
-    {
-        float height = actor is Player player
-            ? player.BodyHeight : DefaultHeight;
+// =========================================================
+// Include player jump height in the existing relative cover-height rules.
+public static float HeightFor(Node2D actor)
+{
+    float bodyHeight = actor is Player player
+        ? player.BodyHeight : DefaultHeight;
 
-        return float.IsFinite(height) && height > 0f
-            ? height : DefaultHeight;
-    }
+    if (!float.IsFinite(bodyHeight) || bodyHeight <= 0f)
+        bodyHeight = DefaultHeight;
+
+    float jumpHeight = actor is Player airborne
+        ? airborne.JumpHeight : 0f;
+
+    return bodyHeight + jumpHeight;
+}
     #endregion
 
     #region Queries

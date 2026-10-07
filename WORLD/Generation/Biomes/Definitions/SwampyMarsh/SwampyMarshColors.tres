@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="BiomeColourProfile" format=3]
+[gd_resource type="Resource" script_class="BiomeColourProfile" format=3 uid="uid://ckwkxcmb1wjle"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeColourProfile.cs" id="1_colours"]
+[ext_resource type="Script" uid="uid://btm4k7c8v2n6q" path="res://WORLD/Generation/Biomes/BiomeColourProfile.cs" id="1_colours"]
 
 [resource]
 script = ExtResource("1_colours")

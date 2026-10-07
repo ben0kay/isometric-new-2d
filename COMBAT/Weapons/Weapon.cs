@@ -194,11 +194,16 @@ public override void _ExitTree()
             height, WorldLayerMember.For(Source));
     }
 
-    // =========================================================
-	// Read terrain elevation from the shooter's current layer.
-	private float SourceHeight()
-	{
-		return WorldLayerController.HeightFor(Source, Source.GlobalPosition);
-	}
+// =========================================================
+// Include airborne height when aiming and launching projectiles.
+private float SourceHeight()
+{
+    float terrainHeight = WorldLayerController.HeightFor(
+        Source, Source.GlobalPosition);
+    float jumpHeight = Source is Player player
+        ? player.JumpHeight : 0f;
+
+    return terrainHeight + jumpHeight;
+}
 	#endregion
 }
