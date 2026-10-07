@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="BiomeBasinProfile" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeBasinProfile.cs" id="1_basins"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Water/Templates/RoundBasin.tres" id="2_round"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Water/Templates/LongBasin.tres" id="3_long"]
+
+[resource]
+script = ExtResource("1_basins")
+Enabled = true
+SpawnProbability = 0.9
+PlacementAttempts = 8
+MaximumHeightVariation = 2.5
+ElevationInfluenceEnabled = false
+Templates = Array[Resource]([ExtResource("2_round"), ExtResource("3_long")])
+SizeMultiplierRange = Vector2(0.8, 1.15)
+RandomRotation = true
+BasinDepth = 10.0
+ShoreWidthTiles = 2.2
+WaterSurfaceDrop = 3.0
+InitialFillRange = Vector2(0.95, 1)

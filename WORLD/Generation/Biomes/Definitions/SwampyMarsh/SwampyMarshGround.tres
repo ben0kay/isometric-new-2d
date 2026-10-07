@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BiomeGroundProfile" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeGroundProfile.cs" id="1_ground"]
+
+[resource]
+script = ExtResource("1_ground")
+DustAmount = 0.08
+MineralAmount = 0.05
+DetailStrength = 0.22
+GrassCoverage = 0.75
+GrassPatchScaleTiles = 18.0
+MudStrength = 0.85

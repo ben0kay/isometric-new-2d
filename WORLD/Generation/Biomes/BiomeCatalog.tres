@@ -7,7 +7,8 @@
 [ext_resource type="Resource" uid="uid://c1hdjy6mcjswq" path="res://WORLD/Generation/Biomes/Definitions/RollingHills/RollingHills.tres" id="4_dh6ct"]
 [ext_resource type="Resource" uid="uid://c1dm1wu5o1bes" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/RockyMountains.tres" id="4_r5sg8"]
 [ext_resource type="Resource" uid="uid://c4igqtsq2v45v" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisWilds.tres" id="6_dh6ct"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarsh.tres" id="6_iql3u"]
 
 [resource]
 script = ExtResource("1_catalog")
-Biomes = Array[ExtResource("2_definition")]([ExtResource("2_a0npy"), ExtResource("3_r5sg8"), ExtResource("4_r5sg8"), ExtResource("4_dh6ct"), ExtResource("6_dh6ct")])
+Biomes = Array[ExtResource("2_definition")]([ExtResource("2_a0npy"), ExtResource("3_r5sg8"), ExtResource("4_r5sg8"), ExtResource("4_dh6ct"), ExtResource("6_iql3u"), ExtResource("6_dh6ct")])

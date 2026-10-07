@@ -12,7 +12,7 @@
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
 [ext_resource type="Resource" uid="uid://dpq1akejv836b" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="30_basins"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisColours.tres" id="40_colours"]
+[ext_resource type="Resource" uid="uid://drges370200xw" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisColours.tres" id="40_colours"]
 
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_entry")
@@ -57,7 +57,7 @@ script = ExtResource("1_biome")
 Id = "verdigris_wilds"
 DisplayName = "Verdigris Wilds"
 SandboxOrder = 3
-Tags = PackedStringArray("Alien", "Lush", "Organic")
+Tags = PackedStringArray("Alien", "Lush", "Organic", "")
 MoistureRange = Vector2(0.55, 1)
 RollingHeight = 18.0
 RollingFeatureSize = 24.0

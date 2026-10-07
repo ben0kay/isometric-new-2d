@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BiomeColourProfile" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeColourProfile.cs" id="1_colours"]
+
+[resource]
+script = ExtResource("1_colours")
+TintGroundGrass = true
+GroundGrassShade = Color(0.035, 0.075, 0.045, 1)
+GroundGrassMain = Color(0.075, 0.16, 0.095, 1)
+TintGrass = true
+GrassTint = Color(0.24, 0.38, 0.22, 1)
+GrassTintStrength = 0.85
+TintWater = true
+WaterTint = Color(0.32, 0.35, 0.19, 1)
