@@ -293,39 +293,76 @@ private bool CanSee(Vector2 point, Player player = null)
 
     #region Decisions
 // =========================================================
-// Approach for melee; use preferred spacing and retreat only for ranged enemies.
+// Route movement decisions through shared melee or ranged behaviour.
 private void DecideMovement()
 {
     HasSight = HasTarget && CanSee(Target.GlobalPosition);
-    if (!HasTarget) { DecideWandering(); return; }
+
+    if (!HasTarget)
+    {
+        DecideWandering();
+        return;
+    }
+
+    if (!WorldLayerMember.Same(this, Target))
+    {
+        _motor.Stop();
+        return;
+    }
 
     Vector2 point = Target.GlobalPosition;
     EnemyCombatSettings combat = Definition.Combat;
 
     if (combat is MeleeCombatSettings)
     {
-        _motor.SetGoal(point, Definition.MoveSpeed, combat.StopDistance);
+        _motor.SetGoal(
+            point, Definition.MoveSpeed, combat.StopDistance);
         return;
     }
 
-    if (combat is not RangedCombatSettings ranged)
+    if (combat is RangedCombatSettings ranged)
     {
-        _motor.Stop();
+        DecideRangedMovement(point, ranged);
         return;
     }
 
-    float distance = GlobalPosition.DistanceTo(point);
+    _motor.Stop();
+}
+
+// =========================================================
+// Pursue around cover until sight returns, then maintain ranged spacing.
+private void DecideRangedMovement(
+    Vector2 targetPoint, RangedCombatSettings ranged)
+{
+    if (!HasSight)
+    {
+        _retreating = false;
+
+        // Keep approaching while blocked instead of stopping at firing distance.
+        // The motor uses navigation to route around solid obstacles.
+        _motor.SetGoal(targetPoint, Definition.MoveSpeed, 1f);
+        return;
+    }
+
+    float distance = GlobalPosition.DistanceTo(targetPoint);
+
     if (distance < ranged.BackAwayRange) _retreating = true;
     if (distance >= ranged.PreferredRange) _retreating = false;
 
-    if (_retreating) { DecideRetreat(point); return; }
-    if (HasSight && distance <= ranged.PreferredRange)
+    if (_retreating)
+    {
+        DecideRetreat(targetPoint);
+        return;
+    }
+
+    if (distance <= ranged.PreferredRange)
     {
         _motor.Stop();
         return;
     }
 
-    _motor.SetGoal(point, Definition.MoveSpeed, ranged.StopDistance);
+    _motor.SetGoal(
+        targetPoint, Definition.MoveSpeed, ranged.StopDistance);
 }
 
     // =========================================================
