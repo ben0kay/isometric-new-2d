@@ -13,6 +13,8 @@
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisBasins.tres" id="30_basins"]
 
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/VerdigrisColours.tres" id="40_colours"]
+
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_entry")
 Definition = ExtResource("11_rock")
@@ -55,6 +57,7 @@ Grass = Array[ExtResource("3_entry")]([SubResource("ShortEntry"), SubResource("M
 script = ExtResource("1_biome")
 Id = "verdigris_wilds"
 DisplayName = "Verdigris Wilds"
+ColourProfile = ExtResource("40_colours")
 SandboxOrder = 3
 Tags = PackedStringArray("Alien", "Lush", "Organic")
 MoistureRange = Vector2(0.55, 1)
@@ -69,3 +72,4 @@ FeatureOverrides = Dictionary[String, Resource]({
 "ground": ExtResource("5_ground")
 })
 Enemies = ExtResource("12_enemies")
+

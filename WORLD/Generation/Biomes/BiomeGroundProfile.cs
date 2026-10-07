@@ -1,5 +1,5 @@
-// Defines reusable ground blending and optional biome-coloured grass surfaces.
-// Grass ground coverage and actual grass-tuft tinting are independent settings.
+// Defines ground coverage and surface composition.
+// Colours are configured separately through BiomeDefinition.ColourProfile.
 using Godot;
 using System;
 
@@ -28,11 +28,6 @@ public partial class BiomeGroundProfile : Resource
     [Export(PropertyHint.Range, "4,128,1")]
     public float GrassPatchScaleTiles { get; set; } = 32f;
 
-    [Export] public Color GrassShadeTint { get; set; }
-        = new("#16372d");
-
-    [Export] public Color GrassMainTint { get; set; }
-        = new("#285449");
     #endregion
 
     #region Mud
@@ -40,15 +35,6 @@ public partial class BiomeGroundProfile : Resource
 
     [Export(PropertyHint.Range, "0,1,0.01")]
     public float MudStrength { get; set; }
-    #endregion
-
-    #region Grass Tufts
-    [ExportGroup("Grass Tufts")]
-
-    [Export] public bool TintGrassTufts { get; set; }
-
-    [Export] public Color GrassTuftTint { get; set; }
-        = new("#527b68");
     #endregion
 
     #region Validation
@@ -67,9 +53,6 @@ public partial class BiomeGroundProfile : Resource
             throw new InvalidOperationException(
                 "GrassPatchScaleTiles must be finite and at least 4.");
 
-        ValidateColour(GrassShadeTint, nameof(GrassShadeTint));
-        ValidateColour(GrassMainTint, nameof(GrassMainTint));
-        ValidateColour(GrassTuftTint, nameof(GrassTuftTint));
     }
 
     // =========================================================
@@ -81,15 +64,5 @@ public partial class BiomeGroundProfile : Resource
                 $"{label} must be between zero and one.");
     }
 
-    // =========================================================
-    // Require finite RGB values; tint alpha is not used.
-    private static void ValidateColour(Color value, string label)
-    {
-        if (!float.IsFinite(value.R) ||
-            !float.IsFinite(value.G) ||
-            !float.IsFinite(value.B))
-            throw new InvalidOperationException(
-                $"{label} must contain finite RGB values.");
-    }
     #endregion
 }

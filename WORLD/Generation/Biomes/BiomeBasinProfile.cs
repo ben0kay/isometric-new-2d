@@ -1,4 +1,4 @@
-// Defines biome-owned basin placement, geometry, fill and appearance.
+// Defines biome-owned basin placement, geometry and fill.
 // Optional elevation influence reduces frequency and size above lowlands.
 using Godot;
 using System;
@@ -50,10 +50,9 @@ public partial class BiomeBasinProfile : Resource
     [Export] public float WaterSurfaceDrop { get; set; } = 4f;
     #endregion
 
-    #region Fill And Appearance
-    [ExportGroup("FILL AND APPEARANCE")]
+    #region Fill
+    [ExportGroup("FILL")]
     [Export] public Vector2 InitialFillRange { get; set; } = Vector2.One;
-    [Export] public Color WaterTint { get; set; } = new(0.3f, 0.4f, 0.45f);
     #endregion
 
     #region Elevation Queries
@@ -107,9 +106,6 @@ public partial class BiomeBasinProfile : Resource
             !float.IsFinite(WaterSurfaceDrop) ||
             WaterSurfaceDrop < MaximumHeightVariation ||
             WaterSurfaceDrop >= BasinDepth ||
-            !float.IsFinite(WaterTint.R) ||
-            !float.IsFinite(WaterTint.G) ||
-            !float.IsFinite(WaterTint.B) ||
             Templates == null || Templates.Count == 0)
             throw new InvalidOperationException(
                 $"Biome '{biomeId}' has invalid basin settings.");
@@ -147,7 +143,6 @@ public partial class BiomeBasinProfile : Resource
         definition.BasinDepth = BasinDepth;
         definition.ShoreWidthTiles = ShoreWidthTiles * elevationSize;
         definition.WaterSurfaceDrop = WaterSurfaceDrop;
-        definition.SurfaceTint = WaterTint;
         return definition;
     }
 

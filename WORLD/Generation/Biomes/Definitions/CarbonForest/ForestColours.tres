@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BiomeColourProfile" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeColourProfile.cs" id="1_colours"]
+
+[resource]
+script = ExtResource("1_colours")
+TintWater = true
+WaterTint = Color(0.23, 0.32, 0.29, 1)
+
