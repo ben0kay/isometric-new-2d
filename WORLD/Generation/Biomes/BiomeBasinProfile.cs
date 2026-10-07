@@ -1,5 +1,5 @@
-// Defines a biome's basin probabilities, size, geometry, fill and water tint.
-// Shared templates are duplicated before applying per-instance settings.
+// Defines biome-owned basin placement, geometry, fill and appearance.
+// Optional elevation influence reduces frequency and size above lowlands.
 using Godot;
 using System;
 
@@ -17,6 +17,20 @@ public partial class BiomeBasinProfile : Resource
     public int PlacementAttempts { get; set; } = 8;
 
     [Export] public float MaximumHeightVariation { get; set; } = 2f;
+    #endregion
+
+    #region Elevation
+    [ExportGroup("ELEVATION")]
+    [Export] public bool ElevationInfluenceEnabled { get; set; }
+
+    // X: height where reduction starts. Y: height where it reaches its limit.
+    [Export] public Vector2 ElevationFadeRange { get; set; } = new(0f, 256f);
+
+    [Export(PropertyHint.Range, "0,1,0.01")]
+    public float HighElevationProbabilityMultiplier { get; set; } = 0.1f;
+
+    [Export(PropertyHint.Range, "0.1,1,0.01")]
+    public float HighElevationSizeMultiplier { get; set; } = 0.4f;
     #endregion
 
     #region Shapes
@@ -42,14 +56,46 @@ public partial class BiomeBasinProfile : Resource
     [Export] public Color WaterTint { get; set; } = new(0.3f, 0.4f, 0.45f);
     #endregion
 
+    #region Elevation Queries
+    // =========================================================
+    // Return frequency and footprint multipliers at the sampled surface height.
+    public void SampleElevation(
+        float height, out float probability, out float size)
+    {
+        probability = size = 1f;
+        if (!ElevationInfluenceEnabled) return;
+
+        float t = Mathf.Clamp(
+            (height - ElevationFadeRange.X) /
+            (ElevationFadeRange.Y - ElevationFadeRange.X), 0f, 1f);
+        t = t * t * (3f - 2f * t);
+
+        probability = Mathf.Lerp(
+            1f, HighElevationProbabilityMultiplier, t);
+        size = Mathf.Lerp(1f, HighElevationSizeMultiplier, t);
+    }
+    #endregion
+
     #region Validation And Creation
     // =========================================================
-    // Reject invalid profiles before starting world placement.
+    // Reject invalid settings and validate the smallest and largest geometry.
     public void Validate(string biomeId)
     {
         if (!Enabled) return;
 
-        if (!float.IsFinite(SpawnProbability) ||
+        bool invalidElevation = ElevationInfluenceEnabled &&
+            (!float.IsFinite(ElevationFadeRange.X) ||
+             !float.IsFinite(ElevationFadeRange.Y) ||
+             ElevationFadeRange.Y <= ElevationFadeRange.X ||
+             !float.IsFinite(HighElevationProbabilityMultiplier) ||
+             HighElevationProbabilityMultiplier < 0f ||
+             HighElevationProbabilityMultiplier > 1f ||
+             !float.IsFinite(HighElevationSizeMultiplier) ||
+             HighElevationSizeMultiplier < 0.1f ||
+             HighElevationSizeMultiplier > 1f);
+
+        if (invalidElevation ||
+            !float.IsFinite(SpawnProbability) ||
             SpawnProbability < 0f || SpawnProbability > 1f ||
             PlacementAttempts < 1 || PlacementAttempts > 16 ||
             !float.IsFinite(MaximumHeightVariation) ||
@@ -68,35 +114,38 @@ public partial class BiomeBasinProfile : Resource
             throw new InvalidOperationException(
                 $"Biome '{biomeId}' has invalid basin settings.");
 
+        float smallestElevationSize = ElevationInfluenceEnabled
+            ? HighElevationSizeMultiplier : 1f;
+
         foreach (WaterDefinition template in Templates)
         {
             if (template == null)
                 throw new InvalidOperationException(
                     $"Biome '{biomeId}' contains an empty basin template.");
 
-            WaterDefinition smallest =
-                CreateDefinition(template, SizeMultiplierRange.X, 0f);
-            WaterDefinition largest =
-                CreateDefinition(template, SizeMultiplierRange.Y, 0f);
+            CreateDefinition(
+                template, SizeMultiplierRange.X, 0f,
+                smallestElevationSize).Validate();
 
-            smallest.Validate();
-            largest.Validate();
+            CreateDefinition(
+                template, SizeMultiplierRange.Y, 0f).Validate();
         }
     }
 
     // =========================================================
-    // Create independent geometry without altering shared template resources.
+    // Duplicate templates and shrink banks alongside elevation-reduced footprints.
     public WaterDefinition CreateDefinition(
-        WaterDefinition template, float size, float rotation)
+        WaterDefinition template, float size, float rotation,
+        float elevationSize = 1f)
     {
         WaterDefinition definition =
             (WaterDefinition)template.Duplicate(false);
 
-        definition.RadiusTiles = template.RadiusTiles * size;
+        definition.RadiusTiles = template.RadiusTiles * size * elevationSize;
         definition.RotationDegrees = rotation;
         definition.MaximumHeightVariation = MaximumHeightVariation;
         definition.BasinDepth = BasinDepth;
-        definition.ShoreWidthTiles = ShoreWidthTiles;
+        definition.ShoreWidthTiles = ShoreWidthTiles * elevationSize;
         definition.WaterSurfaceDrop = WaterSurfaceDrop;
         definition.SurfaceTint = WaterTint;
         return definition;

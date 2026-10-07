@@ -107,7 +107,9 @@ public override void _Ready()
             throw new InvalidOperationException(
                 $"Biome '{biome.Id}' returned no terrain sampler.");
 
-        HeightRange = Mathf.Max(HeightRange, _terrain[i].HeightRange);
+                HeightRange = Mathf.Max(
+            HeightRange,
+            Mathf.Abs(biome.BaseElevation) + _terrain[i].HeightRange);
         MaxTrees = Mathf.Max(MaxTrees, biome.Vegetation.TreesPerChunk);
         MaxPlantPatches = Mathf.Max(
             MaxPlantPatches, biome.Vegetation.PlantPatches);
@@ -185,7 +187,7 @@ public float GetBaseHeight(Vector2 tile)
 }
 
     // =========================================================
-    // Blend every contributing biome so multi-way borders remain continuous.
+    // Blend biome base elevations and local terrain shapes together.
     private float SampleTerrain(
         Vector2 tile, out float plateauWeight, out int biomeIndex)
     {
@@ -199,9 +201,12 @@ public float GetBaseHeight(Vector2 tile)
             BiomeInfluence entry = blend.Get(i);
             float sample = _terrain[entry.Index].SampleHeight(
                 tile, out float plateau);
-            height += sample * entry.Weight;
+
+            height +=
+                (_biomes[entry.Index].BaseElevation + sample) * entry.Weight;
             plateauWeight += plateau * entry.Weight;
         }
+
         return height;
     }
 

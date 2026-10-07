@@ -15,8 +15,9 @@ public partial class CaveWorld : Node2D
     public CaveTerrainElevation Elevation { get; private set; }
     public Vector2 TileSize { get; private set; }
     public float RimHeight { get; private set; }
+        public float FloorElevation { get; private set; }
 
-    public float DepthPixels => Settings.DepthPixels;
+        public float DepthPixels => RimHeight - FloorElevation;
     public float TunnelLengthTiles => Settings.EntranceTunnelLengthTiles;
     public ShaderMaterial GroundMaterial { get; private set; }
     public ImageTexture WhiteTexture { get; private set; }
@@ -35,7 +36,7 @@ public partial class CaveWorld : Node2D
     }
 
     // =========================================================
-    // Create one shared cave network from preplanned entrance records.
+    // Build one shared cave network at the configured underground elevation.
     public void Build(
         Vector2 origin, Vector2 tileSize, float rimHeight,
         uint worldSeed, CaveGenerationSettings settings,
@@ -45,13 +46,26 @@ public partial class CaveWorld : Node2D
         Settings.Validate();
         TileSize = tileSize;
         RimHeight = rimHeight;
+        FloorElevation = WorldConfig.Find(this).CaveFloorElevation;
+
+        if (!float.IsFinite(FloorElevation) || FloorElevation >= 0f)
+            throw new System.InvalidOperationException(
+                "CaveFloorElevation must be finite and below zero.");
+
+        foreach (CaveHole hole in holes)
+        {
+            if (hole.RimHeight <= FloorElevation)
+                throw new System.InvalidOperationException(
+                    $"Cave floor must be below entrance '{hole.Id}'. " +
+                    "Lower CaveFloorElevation or raise that surface biome.");
+        }
 
         _holes.Clear();
         foreach (CaveHole hole in holes)
             _holes.Add(hole);
 
         Generator = new CaveGenerator(
-            Settings, worldSeed, _holes, rimHeight - Settings.DepthPixels);
+            Settings, worldSeed, _holes, FloorElevation);
 
         Root = new Node2D { Name = "CaveLayer" };
         AddChild(Root);

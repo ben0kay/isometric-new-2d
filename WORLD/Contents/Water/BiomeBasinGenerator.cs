@@ -8,7 +8,7 @@ public static class BiomeBasinGenerator
 {
     #region Generation
     // =========================================================
-    // Prepare basin records across the current finite world.
+    // Place biome-owned basins with optional elevation-based frequency and size.
     public static void Generate(
         WorldGenerator generator, ChunkController chunks, Node2D ground,
         Func<WaterDefinition, Vector2, float, float,
@@ -61,7 +61,9 @@ public static class BiomeBasinGenerator
 
             if (profile == null || !profile.Enabled) continue;
             if (validated.Add(profile)) profile.Validate(biome.Id);
-            if (rng.Randf() >= profile.SpawnProbability) continue;
+
+            float probabilityRoll = rng.Randf();
+            if (probabilityRoll >= profile.SpawnProbability) continue;
 
             selected.TryGetValue(biome.Id, out int count);
             selected[biome.Id] = count + 1;
@@ -72,23 +74,30 @@ public static class BiomeBasinGenerator
                 profile.SizeMultiplierRange.X, profile.SizeMultiplierRange.Y);
             float rotation = profile.RandomRotation
                 ? rng.RandfRange(0f, 360f) : template.RotationDegrees;
-
-            WaterDefinition definition =
-                profile.CreateDefinition(template, size, rotation);
-            definition.Validate();
-
             float fill = rng.RandfRange(
                 profile.InitialFillRange.X, profile.InitialFillRange.Y);
             float phase = rng.RandfRange(0f, Mathf.Tau);
-            float extent = Mathf.Max(
-                definition.RadiusTiles.X, definition.RadiusTiles.Y) * 1.1f;
-            float reservation = extent + definition.ClearanceTiles;
 
             for (int attempt = 0; attempt < profile.PlacementAttempts; attempt++)
             {
                 Vector2 centre = attempt == 0 ? anchor : new Vector2(
                     rng.RandfRange(left, right),
                     rng.RandfRange(top, bottom));
+
+                if (generator.GetBiome(centre).Id != biome.Id) continue;
+
+                float height = profile.ElevationInfluenceEnabled
+                    ? generator.GetBaseHeight(centre) : 0f;
+                profile.SampleElevation(
+                    height, out float probability, out float elevationSize);
+
+                if (probabilityRoll >= profile.SpawnProbability * probability)
+                    continue;
+
+                float extent = Mathf.Max(
+                    template.RadiusTiles.X, template.RadiusTiles.Y) *
+                    size * elevationSize * 1.1f;
+                float reservation = extent + template.ClearanceTiles;
 
                 if (centre.X - reservation < minimum ||
                     centre.Y - reservation < minimum ||
@@ -100,6 +109,10 @@ public static class BiomeBasinGenerator
 
                 if (!FitsBiome(generator, centre, reservation, biome.Id))
                     continue;
+
+                WaterDefinition definition = profile.CreateDefinition(
+                    template, size, rotation, elevationSize);
+                definition.Validate();
 
                 WaterBasinWorld.Basin basin =
                     register(definition, centre, phase, fill);

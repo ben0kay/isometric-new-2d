@@ -21,6 +21,8 @@ public partial class GlobalConfig : Node
     #region Caves
     [ExportGroup("CAVES")]
     [Export] public bool GenerateCaves { get; set; } = true;
+        // Absolute terrain elevation of the main underground network.
+    [Export] public float CaveFloorElevation { get; set; } = -160f;
 
     // Minimum logical tile distance between surface entrance mouths.
     // Large tunnel profiles may require a greater safety distance.

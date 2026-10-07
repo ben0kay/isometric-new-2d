@@ -24,6 +24,7 @@ public partial class BiomeDefinition : Resource
 
     #region Terrain
     [ExportGroup("Terrain")]
+        [Export] public float BaseElevation { get; set; } = 0f;
 
     [ExportSubgroup("Rolling")]
     [Export] public float RollingHeight { get; set; } = 64f;
@@ -144,11 +145,15 @@ public T GetFeature<T>(string id) where T : Resource
     }
 
     // =========================================================
-    // Validate climate and the resolved rock placement profile.
+    // Validate climate, base elevation and shared rock placement.
     public void ValidateClimate()
     {
         ValidateRange(TemperatureRange, "Temperature");
         ValidateRange(MoistureRange, "Moisture");
+
+        if (!float.IsFinite(BaseElevation))
+            throw new InvalidOperationException(
+                $"Biome '{Id}' requires a finite BaseElevation.");
 
         if (!float.IsFinite(SelectionWeight) || SelectionWeight < 0f)
             throw new InvalidOperationException(
