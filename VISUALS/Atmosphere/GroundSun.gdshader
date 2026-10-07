@@ -1,5 +1,5 @@
-// Blends shared ground surfaces using cached biome settings.
-// Mountain rock and paths retain existing terrain coordinates and lighting.
+// Blends biome ground, mountain paths and global steep-rock faces.
+// Cached slope cells match the world's terrain collision classification.
 shader_type canvas_item;
 render_mode unshaded, blend_premul_alpha;
 
@@ -7,8 +7,8 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/DustSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/MineralSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/GrassSurface.gdshaderinc"
-#include "res://VISUALS/Drawings/Ground/GreyRockSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/StonyPathSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/SteepRockSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/GroundResource.gdshaderinc"
 
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
@@ -24,6 +24,10 @@ uniform sampler2D biome_mountain_map : repeat_disable, filter_linear;
 uniform vec2 biome_map_origin = vec2(0.0);
 uniform vec2 biome_map_size = vec2(1.0);
 
+uniform sampler2D terrain_slope_map : repeat_disable, filter_linear;
+uniform vec2 terrain_slope_origin = vec2(0.0);
+uniform vec2 terrain_slope_size = vec2(1.0);
+
 uniform sampler2D mist_texture : repeat_enable, filter_linear;
 uniform vec2 sun_direction = vec2(-1.0, -0.7);
 uniform vec4 sun_color : source_color = vec4(1.0, 0.96, 0.87, 1.0);
@@ -34,7 +38,7 @@ varying vec2 world_position;
 varying vec4 surface_color;
 
 // =========================================================
-// Preserve terrain coordinates and existing height shading.
+// Preserve absolute ground coordinates and slope-lighting vertex colours.
 void vertex() {
     terrain_position = UV;
     world_position = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
@@ -42,7 +46,7 @@ void vertex() {
 }
 
 // =========================================================
-// Blend shared ground surfaces without changing terrain geometry.
+// Apply shared surfaces, then retain resource overlays and atmosphere.
 void fragment() {
     vec2 p = terrain_position;
 
@@ -50,7 +54,9 @@ void fragment() {
         dust_amount, mineral_amount, detail_strength, 0.0);
     vec4 shade = vec4(0.0, 0.0, 0.0, 32.0);
     vec4 main_tint = vec4(0.0);
-    vec2 mountain_masks = vec2(0.0);
+    float path_mask = 0.0;
+    float steep_mask = 0.0;
+    vec2 slope_gradient = vec2(0.0);
 
     if (biome_ground_enabled) {
         vec2 map_uv = (
@@ -59,7 +65,19 @@ void fragment() {
         settings = texture(biome_settings_map, map_uv);
         shade = texture(biome_shade_map, map_uv);
         main_tint = texture(biome_main_map, map_uv);
-        mountain_masks = texture(biome_mountain_map, map_uv).rg;
+        path_mask = texture(biome_mountain_map, map_uv).g;
+
+        vec2 slope_uv = (
+            p - terrain_slope_origin) / terrain_slope_size;
+        vec2 pixels = terrain_slope_size * 2.0;
+
+        // Sample the exact collision cell and a filtered cosmetic border.
+        vec2 cell_uv = (floor(slope_uv * pixels) + vec2(0.5)) / pixels;
+        vec4 cell_slope = texture(terrain_slope_map, cell_uv);
+        vec4 soft_slope = texture(terrain_slope_map, slope_uv);
+
+        steep_mask = max(cell_slope.a, soft_slope.a * 0.35);
+        slope_gradient = soft_slope.gb;
     }
 
     float dust_field = texture(
@@ -106,9 +124,11 @@ void fragment() {
         grass_mask = mix(
             grass_mask, 1.0, smoothstep(0.90, 1.0, settings.a));
 
-        vec3 grass = grass_surface(
-            strata, detail, grain, shade.rgb, main_tint.rgb);
-        ground = mix(ground, grass, grass_mask);
+        ground = mix(
+            ground,
+            grass_surface(
+                strata, detail, grain, shade.rgb, main_tint.rgb),
+            grass_mask);
     }
 
     if (main_tint.a > 0.0001) {
@@ -131,19 +151,19 @@ void fragment() {
             vec3(0.035, 0.036, 0.032),
             vec3(0.078, 0.071, 0.056), strata);
         mud += vec3((grain - 0.5) * 0.007);
-
         ground = mix(ground, mud, mud_mask);
     }
 
     ground = mix(
-        ground,
-        grey_rock_surface(strata, detail, grain),
-        clamp(mountain_masks.r, 0.0, 1.0));
+        ground, stony_path_surface(strata, detail, grain),
+        clamp(path_mask, 0.0, 1.0));
 
-    ground = mix(
-        ground,
-        stony_path_surface(strata, detail, grain),
-        clamp(mountain_masks.g, 0.0, 1.0));
+    if (steep_mask > 0.001) {
+        ground = mix(
+            ground,
+            steep_rock_surface(p, slope_gradient, detail, grain),
+            clamp(steep_mask, 0.0, 1.0));
+    }
 
     ground = ground_resources(ground, p, detail, grain);
 

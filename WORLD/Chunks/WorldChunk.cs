@@ -262,53 +262,67 @@ private Vector2 GetSurfacePoint(Vector2 localTile, Vector2 chunkOrigin)
 	return point;
 }
 
-
 // =========================================================
-// Merge consecutive void tiles into solid row polygons matching the ravine.
+// Build staged collision for chasms and globally classified steep terrain.
 private IEnumerable<ChunkBuildStage> CreateTerrainCollisionSteps()
 {
-	int originX = Coordinate.X * ChunkSize;
-	int originY = Coordinate.Y * ChunkSize;
+	TerrainSlopeWorld slopes = TerrainSlopeWorld.Ensure(this);
+	int resolution = ChunkSize * 2;
+	int firstX = Coordinate.X * resolution;
+	int firstY = Coordinate.Y * resolution;
+
+	bool[] blocked = new bool[resolution];
 	Node helpers = null;
 	StaticBody2D body = null;
 	int shapeCount = 0;
 
-	for (int y = 0; y < ChunkSize; y++)
+	for (int y = 0; y < resolution; y++)
 	{
-		yield return ChunkBuildStage.TerrainCollision;
-		int x = 0;
-		while (x < ChunkSize)
+		for (int x = 0; x < resolution; x++)
 		{
-			if (!ChasmFeature.IsVoidTile(originX + x, originY + y))
+			yield return ChunkBuildStage.TerrainCollision;
+			Vector2I cell = new(firstX + x, firstY + y);
+			Vector2 centre = TerrainSlopeWorld.CellCentre(cell);
+
+			blocked[x] = ChasmFeature.IsVoidTile(
+				Mathf.FloorToInt(centre.X + 0.5f),
+				Mathf.FloorToInt(centre.Y + 0.5f)) ||
+				slopes.SampleCell(cell).Blocked;
+		}
+
+		int column = 0;
+		while (column < resolution)
+		{
+			if (!blocked[column])
 			{
-				x++;
+				column++;
 				continue;
 			}
 
-			int first = x;
-			while (x < ChunkSize &&
-				ChasmFeature.IsVoidTile(originX + x, originY + y))
-				x++;
+			int first = column;
+			while (column < resolution && blocked[column])
+				column++;
 
-			// Create helpers only for chunks containing void terrain.
 			if (body == null)
 			{
 				helpers = new Node { Name = "TerrainCollision" };
 				AddChild(helpers);
+
 				body = new StaticBody2D
 				{
-					Name = "Ravine",
+					Name = "BlockedTerrain",
 					CollisionLayer = ChasmFeature.CollisionLayer,
 					CollisionMask = 0
 				};
 				helpers.AddChild(body);
-
-				// Plain Node helpers interrupt transform inheritance.
 				body.GlobalTransform = GlobalTransform;
 			}
 
-			float left = first - 0.5f, right = x - 0.5f;
-			float top = y - 0.5f, bottom = y + 0.5f;
+			float left = first * 0.5f - 0.5f;
+			float right = column * 0.5f - 0.5f;
+			float top = y * 0.5f - 0.5f;
+			float bottom = top + 0.5f;
+
 			yield return ChunkBuildStage.TerrainCollision;
 			body.AddChild(new CollisionPolygon2D
 			{

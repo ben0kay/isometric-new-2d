@@ -1,51 +1,75 @@
-// Holds shared world settings exposed through the world's CONFIG node.
-// Generated loot uses one global frequency multiplier across container types.
+// Holds global loot frequency and terrain slope rules.
+// Slope settings are shared by terrain appearance, collision and navigation.
 using Godot;
 using System;
 
 public partial class WorldConfig : Node
 {
-    #region Configuration
+    #region Defaults
+    public const float DefaultSlopeAngle = 30f;
+    public const float DefaultSlopeHeightScale = 1f;
+    #endregion
+
+    #region Loot
     [ExportGroup("LOOT")]
     [Export(PropertyHint.Range, "0,10,0.05")]
     public float SpawnFrequencyMultiplier { get; set; } = 1f;
     #endregion
 
+    #region Terrain Slopes
+    [ExportGroup("TERRAIN SLOPES")]
+    [Export] public bool TerrainSlopesEnabled { get; set; } = true;
+
+    [Export(PropertyHint.Range, "5,85,1")]
+    public float MaxWalkableSlopeAngle { get; set; }
+        = DefaultSlopeAngle;
+
+    [Export(PropertyHint.Range, "0.1,8,0.1")]
+    public float SlopeHeightScale { get; set; }
+        = DefaultSlopeHeightScale;
+    #endregion
+
     #region Lookup
     // =========================================================
-    // Find CONFIG in this world's hierarchy without relying on ready order.
-    public static WorldConfig Find(Node context)
+    // Locate optional CONFIG without relying on scene ready order.
+    public static WorldConfig TryFind(Node context)
     {
         for (Node ancestor = context; ancestor != null;
              ancestor = ancestor.GetParent())
         {
             WorldConfig config =
                 ancestor.GetNodeOrNull<WorldConfig>("CONFIG");
-
             if (config != null) return config;
         }
 
-        throw new InvalidOperationException(
+        return null;
+    }
+
+    // =========================================================
+    // Require CONFIG for systems that depend on explicit world configuration.
+    public static WorldConfig Find(Node context)
+    {
+        return TryFind(context) ?? throw new InvalidOperationException(
             "World requires a CONFIG node using WorldConfig.cs.");
     }
     #endregion
 
     #region Loot Frequency
     // =========================================================
-    // Scale placement attempts with stable rounding for fractional frequencies.
+    // Scale placement attempts with deterministic fractional rounding.
     public int GetLootSpawnAttempts(int baseline, ulong seed)
     {
         float multiplier = SpawnFrequencyMultiplier;
 
         if (!float.IsFinite(multiplier) || multiplier < 0f)
             throw new InvalidOperationException(
-                "Loot spawn frequency must be a finite, non-negative number.");
+                "Loot spawn frequency must be finite and non-negative.");
 
         double desired = Math.Max(0, baseline) * (double)multiplier;
 
         if (desired > int.MaxValue - 1)
             throw new InvalidOperationException(
-                "Loot spawn frequency produces too many placement attempts.");
+                "Loot spawn frequency produces too many attempts.");
 
         int count = (int)Math.Floor(desired);
         double fraction = desired - count;
@@ -54,7 +78,6 @@ public partial class WorldConfig : Node
         {
             using RandomNumberGenerator rng = new();
             rng.Seed = seed;
-
             if (rng.Randf() < fraction) count++;
         }
 

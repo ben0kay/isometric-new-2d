@@ -437,18 +437,34 @@ private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 	#endregion
 
 	#region Navigation And Boundary
-	// =========================================================
-	// Expose complete chunks only; prepared terrain is not yet navigable.
-	public bool IsNavigationPointAvailable(Vector2 globalPoint, float clearance = 0f)
-	{
-		if (_groundRoot == null || !WorldReady) return false;
-		Vector2 local = _groundRoot.ToLocal(globalPoint), tile = IsoGrid.WorldToTile(local, TileSize);
-		float low = _worldMin * ChunkSize - 0.5f, high = (_worldMax + 1) * ChunkSize - 0.5f;
-		if (tile.X < low || tile.Y < low || tile.X >= high || tile.Y >= high) return false;
-		if (!ChasmFeature.HasGroundClearance(local, TileSize, clearance)) return false;
-		return _chunks.TryGetValue(IsoGrid.WorldToChunk(local, TileSize, ChunkSize), out ChunkRecord chunk)
-			&& chunk.Ready && !chunk.Retiring;
-	}
+// =========================================================
+// Expose loaded ground with chasm and steep-terrain clearance checks.
+public bool IsNavigationPointAvailable(
+	Vector2 globalPoint, float clearance = 0f)
+{
+	if (_groundRoot == null || !WorldReady) return false;
+
+	Vector2 local = _groundRoot.ToLocal(globalPoint);
+	Vector2 tile = IsoGrid.WorldToTile(local, TileSize);
+	float low = _worldMin * ChunkSize - 0.5f;
+	float high = (_worldMax + 1) * ChunkSize - 0.5f;
+
+	if (tile.X < low || tile.Y < low ||
+		tile.X >= high || tile.Y >= high)
+		return false;
+
+	if (!_chunks.TryGetValue(
+			IsoGrid.WorldToChunk(local, TileSize, ChunkSize),
+			out ChunkRecord chunk) ||
+		!chunk.Ready || chunk.Retiring)
+		return false;
+
+	if (!ChasmFeature.HasGroundClearance(local, TileSize, clearance))
+		return false;
+
+	return TerrainSlopeWorld.Ensure(this)
+		.HasClearance(globalPoint, clearance);
+}
 
 	// =========================================================
 	// Preserve the finite world's four collision edges; streaming does not change world size.
@@ -466,23 +482,45 @@ private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
 	#endregion
 
 	#region Debug
-	// =========================================================
-	// Show preparation, activation, retirement and the slowest scheduled step since startup.
-	private void UpdateDebug()
+
+// =========================================================
+// Show world diagnostics and the terrain classification beneath the player.
+private void UpdateDebug()
+{
+	int ready = 0, prepared = 0;
+	foreach (ChunkRecord chunk in _chunks.Values)
 	{
-		int ready = 0, prepared = 0;
-		foreach (ChunkRecord chunk in _chunks.Values)
-		{
-			if (chunk.Ready) ready++;
-			else if (chunk.Prepared && !chunk.Retiring) prepared++;
-		}
-		Vector2 tile = IsoGrid.WorldToTile(_groundRoot.ToLocal(_player.GlobalPosition), TileSize);
-		string stage = _building == null ? "Idle" : _building.Stage.ToString();
-		_debug.Text = $"{(WorldReady ? "WORLD READY" : "PREPARING START AREA")} | {_generator.GetBiome(tile).DisplayName}\n"
-			+ $"READY {ready} | PREPARED {prepared} | RECORDS {_chunks.Count}\n"
-			+ $"BUILD {stage} | RETIRE {(_retiring == null ? "Idle" : _retiring.Coordinate.ToString())}\n"
-			+ $"WORK {_lastWorkMs:F2} ms | PEAK STEP {_peakStepMs:F2} ms ({_peakStage})\n"
-			+ $"NAV {(_navigation.IsBuilding ? "Building" : "Idle")} | PEAK NAV STEP {_navigation.PeakStepMs:F2} ms";
+		if (chunk.Ready) ready++;
+		else if (chunk.Prepared && !chunk.Retiring) prepared++;
 	}
+
+	Vector2 position = _player.GlobalPosition;
+	Vector2 tile = IsoGrid.WorldToTile(
+		_groundRoot.ToLocal(position), TileSize);
+
+	TerrainElevation elevation =
+		GetNode<TerrainElevation>("../TerrainElevation");
+	TerrainSlopeWorld slopes = TerrainSlopeWorld.Ensure(this);
+	TerrainSlopeWorld.SlopeSample sample = slopes.AtWorld(position);
+
+	float height = elevation.SampleWorldHeight(position);
+	string stage = _building == null
+		? "Idle" : _building.Stage.ToString();
+
+	_debug.Text =
+		$"{(WorldReady ? "WORLD READY" : "PREPARING START AREA")} | " +
+		$"{_generator.GetBiome(tile).DisplayName}\n" +
+		$"HEIGHT {height:F1} | SIM SLOPE {sample.Angle:F1}° | " +
+		$"{(sample.Blocked ? "TOO STEEP" : "WALKABLE")} " +
+		$"(LIMIT {slopes.MaximumAngle:F0}°)\n" +
+		$"READY {ready} | PREPARED {prepared} | RECORDS {_chunks.Count}\n" +
+		$"BUILD {stage} | RETIRE " +
+		$"{(_retiring == null ? "Idle" : _retiring.Coordinate.ToString())}\n" +
+		$"WORK {_lastWorkMs:F2} ms | PEAK STEP {_peakStepMs:F2} ms " +
+		$"({_peakStage})\n" +
+		$"NAV {(_navigation.IsBuilding ? "Building" : "Idle")} | " +
+		$"PEAK NAV STEP {_navigation.PeakStepMs:F2} ms";
+}
+
 	#endregion
 }

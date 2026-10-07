@@ -136,37 +136,48 @@ public static class DebugBiomeSpawnSearch
     #endregion
 
     #region Checks
-    // =========================================================
-    // Reject biome borders, chasms, basin footprints and world edges.
-    private static bool IsSafeSample(
-        WorldGenerator generator, WaterBasinWorld basins, Vector2 point,
-        string biomeId, float minimum, float maximum)
+// =========================================================
+// Reject biome borders, chasms, steep terrain, basins and world edges.
+private static bool IsSafeSample(
+    WorldGenerator generator, WaterBasinWorld basins, Vector2 point,
+    string biomeId, float minimum, float maximum)
+{
+    if (point.X < minimum || point.Y < minimum ||
+        point.X >= maximum || point.Y >= maximum)
+        return false;
+
+    if (generator.GetBiome(point).Id != biomeId)
+        return false;
+
+    if (ChasmFeature.IsVoidTile(
+        Mathf.FloorToInt(point.X + 0.5f),
+        Mathf.FloorToInt(point.Y + 0.5f)))
+        return false;
+
+    Node2D ground = generator.GetNode<Node2D>("../../GroundChunks");
+    ChunkController chunks =
+        generator.GetNode<ChunkController>("../ChunkController");
+
+    Vector2 globalPoint = ground.ToGlobal(
+        IsoGrid.TileToWorld(point, chunks.TileSize));
+
+    if (!TerrainSlopeWorld.Ensure(generator)
+        .HasClearance(globalPoint, 12f))
+        return false;
+
+    if (basins != null)
     {
-        if (point.X < minimum || point.Y < minimum ||
-            point.X >= maximum || point.Y >= maximum)
-            return false;
-
-        if (generator.GetBiome(point).Id != biomeId)
-            return false;
-
-        if (ChasmFeature.IsVoidTile(
-            Mathf.FloorToInt(point.X + 0.5f),
-            Mathf.FloorToInt(point.Y + 0.5f)))
-            return false;
-
-        if (basins != null)
+        foreach (WaterBasinWorld.Basin basin in basins.Basins)
         {
-            foreach (WaterBasinWorld.Basin basin in basins.Basins)
-            {
-                float clearance = basin.Extent + 1f;
-                if (point.DistanceSquaredTo(basin.Centre) <
-                    clearance * clearance)
-                    return false;
-            }
+            float clearance = basin.Extent + 1f;
+            if (point.DistanceSquaredTo(basin.Centre) <
+                clearance * clearance)
+                return false;
         }
-
-        return true;
     }
+
+    return true;
+}
 
     // =========================================================
     // Measure the shared search budget without allocating a stopwatch.

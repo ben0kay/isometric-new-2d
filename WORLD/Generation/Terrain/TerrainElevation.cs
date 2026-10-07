@@ -36,17 +36,18 @@ public partial class TerrainElevation : Node
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Resolve generation and register the visual elevation service.
-    public override void _Ready()
-    {
-        _chunks = GetNode<ChunkController>("../ChunkController");
-        _ground = GetNode<Node2D>("../../GroundChunks");
-        _generator = GetNode<WorldGenerator>("../WorldGenerator");
+// =========================================================
+// Register elevation and initialize the shared terrain slope service.
+public override void _Ready()
+{
+    _chunks = GetNode<ChunkController>("../ChunkController");
+    _ground = GetNode<Node2D>("../../GroundChunks");
+    _generator = GetNode<WorldGenerator>("../WorldGenerator");
 
-        AddToGroup("terrain_elevation");
-        SetProcess(false);
-    }
+    AddToGroup("terrain_elevation");
+    TerrainSlopeWorld.Ensure(this);
+    SetProcess(false);
+}
     #endregion
 
     #region Height Sampling
