@@ -13,6 +13,8 @@ public partial class WaterBasinWorld : Node
         public float Phase, RimHeight, Fill = 1f;
         public WaterPatch Patch;
 
+                public bool Resident = true;
+
         public float SmallestRadius =>
             Mathf.Min(Definition.RadiusTiles.X, Definition.RadiusTiles.Y);
         public float Extent =>
@@ -63,11 +65,19 @@ public partial class WaterBasinWorld : Node
     #endregion
 
     #region State
+    private const int CacheLimit = 1024;
+
     private readonly List<Basin> _basins = new();
-    private readonly Dictionary<Vector2I, List<Basin>> _index = new();
+    private readonly Dictionary<Vector2I, Basin> _cells = new();
+    private readonly Queue<Vector2I> _order = new();
+
     private WorldGenerator _generator;
     private ChunkController _chunks;
     private Node2D _ground;
+    private Vector2 _spawnTile;
+    private float _spacing;
+    private bool _enabled;
+
     public IReadOnlyList<Basin> Basins => _basins;
     public float MaximumDepth { get; private set; }
     #endregion
@@ -89,164 +99,170 @@ public partial class WaterBasinWorld : Node
             as WaterBasinWorld;
     }
 
-// =========================================================
-// Register explicit sandbox markers, then generate biome-owned basins.
-public void Initialize(
-    WorldGenerator generator, ChunkController chunks, Node2D ground)
-{
-    _generator = generator;
-    _chunks = chunks;
-    _ground = ground;
-
-    foreach (Node node in GetTree().GetNodesInGroup("water_placements"))
+    // =========================================================
+    // Snapshot generation settings without scanning the world.
+    public void Initialize(
+        WorldGenerator generator, ChunkController chunks, Node2D ground)
     {
-        if (node is not WaterPlacement marker ||
-            marker.Definition == null) continue;
+        _generator = generator;
+        _chunks = chunks;
+        _ground = ground;
 
-        Vector2 centre = IsoGrid.WorldToTile(
-            _ground.ToLocal(marker.GlobalPosition), _chunks.TileSize);
+        WorldConfig config = WorldConfig.Find(generator);
+        _enabled = config.GenerateBiomeBasins;
+        _spacing = config.BasinCandidateSpacingTiles;
 
-        Basin basin = TryRegister(
-            marker.Definition, centre,
-            marker.ShapePhase, marker.InitialFill);
+        if (!float.IsFinite(_spacing) || _spacing < 16f)
+            throw new System.InvalidOperationException(
+                "BasinCandidateSpacingTiles must be finite and at least 16.");
 
-        if (basin == null)
-            GD.PushWarning(
-                $"Basin '{marker.Name}' rejected at tile {centre}.");
-        else
-            GD.Print(
-                $"Basin '{marker.Name}' registered at tile {centre}.");
+        Player player = generator.GetNode<Player>(
+            "../../WorldObjects/Player");
+        _spawnTile = IsoGrid.WorldToTile(
+            ground.ToLocal(player.GlobalPosition), chunks.TileSize);
+
+        if (!_enabled) return;
+
+        HashSet<BiomeBasinProfile> validated = new();
+        foreach (BiomeDefinition biome in generator.Catalog.GetEnabledBiomes())
+        {
+            BiomeBasinProfile profile =
+                biome.GetFeature<BiomeBasinProfile>("basins");
+            if (profile == null || !profile.Enabled) continue;
+
+            if (validated.Add(profile)) profile.Validate(biome.Id);
+            MaximumDepth = Mathf.Max(MaximumDepth, profile.BasinDepth);
+
+            foreach (WaterDefinition template in profile.Templates)
+            {
+                float largest = Mathf.Max(
+                    template.RadiusTiles.X, template.RadiusTiles.Y) *
+                    profile.SizeMultiplierRange.Y * 1.1f +
+                    template.ClearanceTiles;
+
+                if (largest > _spacing * 0.4f)
+                    throw new System.InvalidOperationException(
+                        $"Biome '{biome.Id}' needs larger basin cells. " +
+                        "Increase BasinCandidateSpacingTiles or reduce basin size.");
+            }
+        }
     }
-
-    BiomeBasinGenerator.Generate(
-        generator, chunks, ground, TryRegister);
-}
     #endregion
 
-    #region Placement
+        #region Local Planning
     // =========================================================
-    // Validate original terrain, bounds, chasms and separation before carving.
-    private Basin TryRegister(
-        WaterDefinition definition, Vector2 centre, float phase, float fill)
+    // Prepare all basin cells affecting a requested tile-space area.
+    public IEnumerable<int> PrepareArea(Rect2 area)
     {
-        definition.Validate();
-        float extent = Mathf.Max(
-            definition.RadiusTiles.X, definition.RadiusTiles.Y) * 1.1f;
-        float checkedRadius = extent + definition.ClearanceTiles;
-        float minimum = -(_chunks.WorldChunksPerAxis / 2) *
-            _chunks.ChunkSize - 0.5f;
-        float maximum = minimum +
-            _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
+        if (!_enabled) yield break;
 
-        if (centre.X - checkedRadius < minimum ||
-            centre.Y - checkedRadius < minimum ||
-            centre.X + checkedRadius > maximum ||
-            centre.Y + checkedRadius > maximum)
-            return null;
+        Vector2I first = CellAt(area.Position);
+        Vector2I last = CellAt(area.End);
 
-        foreach (Basin existing in _basins)
-        {
-            float separation = checkedRadius + existing.Extent +
-                existing.Definition.ClearanceTiles;
-            if (centre.DistanceSquaredTo(existing.Centre) <
-                separation * separation)
-                return null;
-        }
-
-        int left = Mathf.FloorToInt((centre.X - checkedRadius) * 2f);
-        int right = Mathf.CeilToInt((centre.X + checkedRadius) * 2f);
-        int top = Mathf.FloorToInt((centre.Y - checkedRadius) * 2f);
-        int bottom = Mathf.CeilToInt((centre.Y + checkedRadius) * 2f);
-        float lowest = float.PositiveInfinity;
-        float highest = float.NegativeInfinity;
-
-        for (int y = top; y <= bottom; y++)
-        for (int x = left; x <= right; x++)
-        {
-            Vector2 tile = new(x * 0.5f, y * 0.5f);
-            if (ChasmFeature.IsVoidTile(
-                Mathf.FloorToInt(tile.X + 0.5f),
-                Mathf.FloorToInt(tile.Y + 0.5f)))
-                return null;
-
-            float height = _generator.GetBaseHeight(tile);
-            lowest = Mathf.Min(lowest, height);
-            highest = Mathf.Max(highest, height);
-            if (highest - lowest > definition.MaximumHeightVariation)
-                return null;
-        }
-
-        Basin basin = new()
-        {
-            Definition = definition,
-            Centre = centre,
-            Phase = phase,
-            RimHeight = lowest,
-            Fill = Mathf.Clamp(fill, 0f, 1f)
-        };
-        _basins.Add(basin);
-        MaximumDepth = Mathf.Max(MaximumDepth, definition.BasinDepth);
-
-        Vector2I first = ChunkAt(centre - Vector2.One * extent);
-        Vector2I last = ChunkAt(centre + Vector2.One * extent);
         for (int y = first.Y; y <= last.Y; y++)
         for (int x = first.X; x <= last.X; x++)
+            foreach (int step in PrepareCell(new Vector2I(x, y)))
+                yield return step;
+    }
+
+    // =========================================================
+    // Cache completed decisions, including cells with no basin.
+    private IEnumerable<int> PrepareCell(Vector2I cell)
+    {
+        if (_cells.ContainsKey(cell)) yield break;
+
+        Basin result = null;
+        foreach (int step in BiomeBasinGenerator.PrepareCell(
+            _generator, _chunks, _spawnTile, _spacing, cell,
+            basin => result = basin))
+            yield return step;
+
+        // Another query may have finished this cell while this iterator yielded.
+        if (_cells.ContainsKey(cell)) yield break;
+
+        while (_cells.Count >= CacheLimit)
         {
-            Vector2I key = new(x, y);
-            if (!_index.TryGetValue(key, out List<Basin> entries))
-                _index.Add(key, entries = new());
-            entries.Add(basin);
+            Vector2I old = _order.Dequeue();
+            Basin departing = _cells[old];
+            _cells.Remove(old);
+
+            if (departing == null) continue;
+            departing.Resident = false;
+            _basins.Remove(departing);
+
+            if (GodotObject.IsInstanceValid(departing.Patch))
+                departing.Patch.QueueFree();
         }
+
+        _cells.Add(cell, result);
+        _order.Enqueue(cell);
+        if (result != null) _basins.Add(result);
+    }
+
+    // =========================================================
+    // Use floor division on both sides of the world origin.
+    private Vector2I CellAt(Vector2 tile)
+    {
+        return new Vector2I(
+            Mathf.FloorToInt(tile.X / _spacing),
+            Mathf.FloorToInt(tile.Y / _spacing));
+    }
+
+    // =========================================================
+    // Complete cold data queries so terrain never caches an incomplete height.
+    private Basin ReadCell(Vector2I cell)
+    {
+        if (!_enabled) return null;
+
+        if (!_cells.TryGetValue(cell, out Basin basin))
+        {
+            foreach (int step in PrepareCell(cell)) { }
+            basin = _cells[cell];
+        }
+
         return basin;
     }
     #endregion
 
-    #region Terrain Queries
-    // =========================================================
-    // Match the world's existing chunk-coordinate convention.
-    private Vector2I ChunkAt(Vector2 tile)
-    {
-        return new Vector2I(
-            Mathf.FloorToInt((tile.X + 0.5f) / _chunks.ChunkSize),
-            Mathf.FloorToInt((tile.Y + 0.5f) / _chunks.ChunkSize));
-    }
 
     // =========================================================
-    // Carve only indexed basin footprints, independently from water fill.
+    // Carve the deterministic basin belonging to this coordinate's cell.
     public float ApplyHeight(Vector2 tile, float originalHeight)
     {
-        if (!_index.TryGetValue(ChunkAt(tile), out List<Basin> entries))
-            return originalHeight;
-
-        foreach (Basin basin in entries)
-            originalHeight -= basin.DepthAt(tile);
-        return originalHeight;
+        Basin basin = ReadCell(CellAt(tile));
+        return basin == null
+            ? originalHeight : originalHeight - basin.DepthAt(tile);
     }
 
     // =========================================================
-    // Keep diggable ground deposits out of basin reservations, including drained ones.
+    // Query basin geometry without loading surface artwork.
+    public Basin GetBasinAt(Vector2 tile)
+    {
+        Basin basin = ReadCell(CellAt(tile));
+        return basin != null && basin.InwardDistance(tile) > 0f
+            ? basin : null;
+    }
+
+    // =========================================================
+    // Check only cells intersecting the requested footprint.
     public bool Overlaps(Vector2 centre, float radius)
     {
-        foreach (Basin basin in _basins)
+        Vector2I first = CellAt(centre - Vector2.One * radius);
+        Vector2I last = CellAt(centre + Vector2.One * radius);
+
+        for (int y = first.Y; y <= last.Y; y++)
+        for (int x = first.X; x <= last.X; x++)
         {
+            Basin basin = ReadCell(new Vector2I(x, y));
+            if (basin == null) continue;
+
             float separation = basin.Extent + radius;
             if (centre.DistanceSquaredTo(basin.Centre) <
                 separation * separation)
                 return true;
         }
-        return false;
-    }
-    #endregion
-        // =========================================================
-    // Query prepared basin records without loading any world chunks.
-    public Basin GetBasinAt(Vector2 tile)
-    {
-        if (!_index.TryGetValue(ChunkAt(tile), out List<Basin> entries))
-            return null;
 
-        foreach (Basin basin in entries)
-            if (basin.InwardDistance(tile) > 0f) return basin;
-        return null;
+        return false;
     }
 
     // =========================================================

@@ -33,6 +33,7 @@ public sealed class BiomeSampler
     private readonly int _singleIndex;
     private readonly float _biomeSize, _transition, _warp;
     private readonly float _bandWidth, _bandBlend;
+        private readonly Queue<Vector2I> _siteOrder = new();
 
     public WorldClimate Climate { get; }
     #endregion
@@ -52,7 +53,7 @@ public sealed class BiomeSampler
         _singleIndex = singleIndex;
         _biomeSize = Mathf.Max(8f, biomeSize);
         _transition = Mathf.Clamp(transition, 0f, _biomeSize * 0.2f);
-        _warp = Mathf.Clamp(warpFraction, 0f, 0.2f) * _biomeSize;
+                _warp = Mathf.Clamp(warpFraction, 0f, 1f) * _biomeSize;
         _bandWidth = Mathf.Max(1f, bandWidth);
         _bandBlend = Mathf.Clamp(bandBlend, 0f, _bandWidth * 0.45f);
         Climate = new WorldClimate(
@@ -78,49 +79,50 @@ public sealed class BiomeSampler
     }
 
     // =========================================================
-    // Blend nearby biome centres while preserving large single-biome interiors.
+    // Use layered boundary warping and a complete nearby-site search.
     private BiomeBlend SampleNatural(Vector2 tile)
     {
         Vector2 point = tile;
+
         if (_warp > 0f)
-        {
-            float featureSize = _biomeSize * 0.75f;
             point += new Vector2(
-                RollingLayer.Sample(tile, _seed ^ 0x519u, 1f, featureSize) - 0.5f,
-                RollingLayer.Sample(tile, _seed ^ 0xA27u, 1f, featureSize) - 0.5f)
-                * (_warp * 2f);
-        }
+                WarpNoise(tile, _seed ^ 0x519u),
+                WarpNoise(tile, _seed ^ 0xA27u)) * (_warp * 2f);
 
         int cellX = Mathf.FloorToInt(point.X / _biomeSize);
         int cellY = Mathf.FloorToInt(point.Y / _biomeSize);
-        Span<Site> sites = stackalloc Site[9];
-        Span<float> distances = stackalloc float[9];
+
+        Span<Site> sites = stackalloc Site[25];
+        Span<float> distances = stackalloc float[25];
+
         float nearest = float.MaxValue;
         int nearestSlot = 0, slot = 0;
 
-        for (int y = cellY - 1; y <= cellY + 1; y++)
-        for (int x = cellX - 1; x <= cellX + 1; x++)
+        for (int y = cellY - 2; y <= cellY + 2; y++)
+        for (int x = cellX - 2; x <= cellX + 2; x++)
         {
             Site site = GetSite(new Vector2I(x, y));
             float distance = point.DistanceTo(site.Centre);
+
             sites[slot] = site;
             distances[slot] = distance;
+
             if (distance < nearest)
             {
                 nearest = distance;
                 nearestSlot = slot;
             }
+
             slot++;
         }
 
         BiomeBlend blend = new();
+
         if (_transition <= 0f)
-        {
             blend.Add(sites[nearestSlot].BiomeIndex, 1f);
-        }
         else
         {
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < 25; i++)
             {
                 float weight = 1f - Mathf.SmoothStep(
                     0f, _transition, distances[i] - nearest);
@@ -130,6 +132,18 @@ public sealed class BiomeSampler
 
         blend.Normalize();
         return blend;
+    }
+
+    // =========================================================
+    // Combine broad bends with smaller irregularities using absolute coordinates.
+    private float WarpNoise(Vector2 tile, uint seed)
+    {
+        float broad = RollingLayer.Sample(
+            tile, seed, 1f, _biomeSize * 1.1f) - 0.5f;
+        float detail = RollingLayer.Sample(
+            tile, seed ^ 0x971u, 1f, _biomeSize * 0.3f) - 0.5f;
+
+        return broad * 0.65f + detail * 0.35f;
     }
 
     // =========================================================
@@ -160,23 +174,28 @@ public sealed class BiomeSampler
 
     #region Site Generation
     // =========================================================
-    // Cache coordinate-derived sites while keeping memory use bounded.
+    // Scatter seeded centres within each cell and evict old cache entries gradually.
     private Site GetSite(Vector2I cell)
     {
         if (_sites.TryGetValue(cell, out Site site)) return site;
 
         Vector2 centre = new(
-            (cell.X + 0.5f
-                + (Unit(IsoGrid.Hash(cell.X, cell.Y, _seed ^ 0x331u)) - 0.5f) * 0.3f)
+            (cell.X + 0.5f +
+                (Unit(IsoGrid.Hash(
+                    cell.X, cell.Y, _seed ^ 0x331u)) - 0.5f) * 0.8f)
                 * _biomeSize,
-            (cell.Y + 0.5f
-                + (Unit(IsoGrid.Hash(cell.X, cell.Y, _seed ^ 0x771u)) - 0.5f) * 0.3f)
+            (cell.Y + 0.5f +
+                (Unit(IsoGrid.Hash(
+                    cell.X, cell.Y, _seed ^ 0x771u)) - 0.5f) * 0.8f)
                 * _biomeSize);
 
-        int index = SelectBiome(cell, Climate.Sample(centre));
-        site = new Site(centre, index);
-        if (_sites.Count >= CacheLimit) _sites.Clear();
+        site = new Site(centre, SelectBiome(cell, Climate.Sample(centre)));
+
+        while (_sites.Count >= CacheLimit)
+            _sites.Remove(_siteOrder.Dequeue());
+
         _sites.Add(cell, site);
+        _siteOrder.Enqueue(cell);
         return site;
     }
 

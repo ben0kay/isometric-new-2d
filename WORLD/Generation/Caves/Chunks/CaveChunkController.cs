@@ -45,39 +45,40 @@ public partial class CaveChunkController : Node
         _player = player;
     }
 
-// =========================================================
-// Stream around the cave player or preload the nearest surface hole.
-public override void _Process(double delta)
-{
-    if (_world == null || _failed) return;
-
-    try
+    // =========================================================
+    // Stream around the cave player or prepare the nearest discovered entrance.
+    public override void _Process(double delta)
     {
-        Vector2 tile = Vector2.Zero;
+        if (_world == null || _failed ||
+            !GodotObject.IsInstanceValid(_player))
+            return;
 
-        if (GodotObject.IsInstanceValid(_player))
+        try
         {
+            Vector2 tile;
+
             if (_active)
                 tile = _world.WorldToTile(_player.GlobalPosition);
             else
             {
-                CaveHole hole = _world.NearestSurfaceHole(_player.GlobalPosition);
-                if (hole != null) tile = hole.MouthTile;
+                CaveHole hole =
+                    _world.NearestSurfaceHole(_player.GlobalPosition);
+                if (hole == null) return;
+                tile = hole.MouthTile;
             }
-        }
 
-        _focus = CoordinateAt(tile);
-        RunBuildBudget();
-        RetireDistant();
+            _focus = CoordinateAt(tile);
+            RunBuildBudget();
+            RetireDistant();
+        }
+        catch (Exception error)
+        {
+            _failed = true;
+            _work?.Dispose();
+            _work = null;
+            GD.PushError($"[Caves] Streaming failed: {error}");
+        }
     }
-    catch (Exception error)
-    {
-        _failed = true;
-        _work?.Dispose();
-        _work = null;
-        GD.PushError($"[Caves] Streaming failed: {error}");
-    }
-}
 
     // =========================================================
     // Dispose unfinished CPU work when the cave feature is removed.
@@ -98,23 +99,22 @@ public override void _Process(double delta)
             chunk.SetActive(active);
     }
 
-// =========================================================
-// Require the buffer around the requested mouth rather than always around hole A.
-public bool EntryReady(CaveHole hole = null)
-{
-    if (_failed) return false;
+    // =========================================================
+    // Require a completed buffer around an actual registered mouth.
+    public bool EntryReady(CaveHole hole = null)
+    {
+        if (_failed || hole == null) return false;
 
-    Vector2 tile = hole?.MouthTile ?? Vector2.Zero;
-    Vector2I centre = CoordinateAt(tile);
+        Vector2I centre = CoordinateAt(hole.MouthTile);
 
-    for (int x = centre.X - 1; x <= centre.X + 1; x++)
-    for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
-        if (!_chunks.TryGetValue(new Vector2I(x, y), out CaveChunk chunk) ||
-            !chunk.Ready)
-            return false;
+        for (int x = centre.X - 1; x <= centre.X + 1; x++)
+        for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
+            if (!_chunks.TryGetValue(new Vector2I(x, y), out CaveChunk chunk) ||
+                !chunk.Ready)
+                return false;
 
-    return true;
-}
+        return true;
+    }
 
     // =========================================================
     // Test the player's footprint against ready floor, including chunk edges.

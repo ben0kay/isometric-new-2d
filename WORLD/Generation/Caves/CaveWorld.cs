@@ -25,6 +25,7 @@ public partial class CaveWorld : Node2D
     private readonly List<CaveHole> _holes = new();
     public IReadOnlyList<CaveHole> Holes => _holes;
     public CaveEntrance Entrance => _holes.Count > 0 ? _holes[0].Marker : null;
+        public CaveEntrancePlanner Planner { get; set; }
     #endregion
 
     #region Construction
@@ -64,8 +65,8 @@ public partial class CaveWorld : Node2D
         foreach (CaveHole hole in holes)
             _holes.Add(hole);
 
-        Generator = new CaveGenerator(
-            Settings, worldSeed, _holes, FloorElevation);
+                Generator = new CaveGenerator(
+            Settings, worldSeed, this, FloorElevation);
 
         Root = new Node2D { Name = "CaveLayer" };
         AddChild(Root);
@@ -227,5 +228,47 @@ public static bool IsHoleReserved(
 
     return false;
 }
+    #endregion
+
+        #region Streamed Entrances
+    // =========================================================
+    // Register one prepared entrance before nearby terrain and objects generate.
+    public void AddHole(CaveHole hole)
+    {
+        if (_holes.Contains(hole)) return;
+        _holes.Add(hole);
+
+        PackedScene scene = GD.Load<PackedScene>(
+            "res://WORLD/Generation/Caves/CaveEntrance.tscn");
+
+        CaveEntrance marker = scene.Instantiate<CaveEntrance>();
+        marker.Name = $"Hole_{hole.Id}";
+        marker.World = this;
+        marker.Hole = hole;
+        hole.Marker = marker;
+
+        AddChild(marker);
+        marker.GlobalPosition = hole.SurfacePosition;
+        marker.QueueRedraw();
+    }
+
+    // =========================================================
+    // Release distant cached entrance artwork; its seed can recreate it later.
+    public void RemoveHole(CaveHole hole)
+    {
+        _holes.Remove(hole);
+
+        if (GodotObject.IsInstanceValid(hole.Marker))
+            hole.Marker.QueueFree();
+
+        hole.Marker = null;
+    }
+
+    // =========================================================
+    // Restrict terrain sampling to mouths near the requested cave coordinate.
+    public IEnumerable<CaveHole> NearbyHoles(Vector2 tile)
+    {
+        return Planner.Nearby(tile);
+    }
     #endregion
 }

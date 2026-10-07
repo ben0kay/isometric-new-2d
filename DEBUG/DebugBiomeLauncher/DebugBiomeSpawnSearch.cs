@@ -1,5 +1,5 @@
-// Finds a requested biome's starting area without spawning world chunks.
-// Checks biome identity, world bounds, chasms and permanent water basins.
+// Searches a configurable area for a requested biome without finite world bounds.
+// Metadata preparation and safety checks share the existing search frame budget.
 using Godot;
 using System;
 using System.Diagnostics;
@@ -9,7 +9,7 @@ public static class DebugBiomeSpawnSearch
 {
     #region Search
     // =========================================================
-    // Search deterministic candidate positions under a small frame budget.
+    // Search seeded positions within a debug search radius, not a world boundary.
     public static async Task<Vector2?> Find(
         DebugBiomeWorld world, ChunkController chunks)
     {
@@ -24,28 +24,14 @@ public static class DebugBiomeSpawnSearch
             throw new InvalidOperationException(
                 $"Biome '{world.RequestedBiomeId}' is missing or disabled.");
 
-        float span = chunks.WorldChunksPerAxis * chunks.ChunkSize;
-        float minimum = -(chunks.WorldChunksPerAxis / 2)
-            * chunks.ChunkSize - 0.5f;
-        float maximum = minimum + span;
+        float radius = WorldConfig.Find(world).DebugBiomeSearchRadiusTiles;
+        if (!float.IsFinite(radius) || radius < 128f)
+            throw new InvalidOperationException(
+                "DebugBiomeSearchRadiusTiles must be at least 128.");
 
-        // Convert the spawn-clear radius to a conservative tile-space margin.
-        float gradient = Mathf.Sqrt(
-            1f / (chunks.TileSize.X * chunks.TileSize.X) +
-            1f / (chunks.TileSize.Y * chunks.TileSize.Y));
-
-        int reach = Mathf.Max(2, Mathf.CeilToInt(
-            chunks.SpawnClearRadius * gradient) + 1);
-
-        float margin = reach + 1f;
-        float usable = span - margin * 2f;
-        if (usable <= 0f) return null;
-
-        int side = Mathf.Clamp(
-            Mathf.CeilToInt(usable /
-                Mathf.Max(2f, world.SearchSpacingTiles)), 1, 256);
+        int side = Mathf.Clamp(Mathf.CeilToInt(
+            radius * 2f / Mathf.Max(2f, world.SearchSpacingTiles)), 1, 256);
         int count = side * side;
-
         int[] order = new int[count];
         for (int i = 0; i < count; i++) order[i] = i;
 
@@ -58,77 +44,68 @@ public static class DebugBiomeSpawnSearch
             (order[i], order[j]) = (order[j], order[i]);
         }
 
+        float gradient = Mathf.Sqrt(
+            1f / (chunks.TileSize.X * chunks.TileSize.X) +
+            1f / (chunks.TileSize.Y * chunks.TileSize.Y));
+        int reach = Mathf.Max(2,
+            Mathf.CeilToInt(chunks.SpawnClearRadius * gradient) + 1);
+
         WaterBasinWorld basins = WaterBasinWorld.Find(world);
+        InfiniteWorldGeneration generation =
+            InfiniteWorldGeneration.Find(world);
         Label status = world.GetNode<Label>("HUD/ChunkInfo");
 
         double budget = Math.Clamp(world.SearchBudgetMs, 0.2, 5.0);
         long started = Stopwatch.GetTimestamp();
 
-        for (int i = 0; i < count; i++)
+        // =========================================================
+        // Yield the shared search budget and stop if the scene has departed.
+        async Task<bool> ContinueSearch(int checkedCount)
         {
             if (!world.IsInsideTree() || world.IsQueuedForDeletion())
-                return null;
+                return false;
+            if (ElapsedMs(started) < budget) return true;
+
+            status.Text =
+                $"Finding spawn in {world.RequestedBiomeId}...\n" +
+                $"Seed {chunks.WorldSeed} | Checked {checkedCount}/{count}";
+
+            await world.ToSignal(
+                world.GetTree(), SceneTree.SignalName.ProcessFrame);
+            started = Stopwatch.GetTimestamp();
+
+            return world.IsInsideTree() && !world.IsQueuedForDeletion();
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (!await ContinueSearch(i + 1)) return null;
 
             int cell = order[i];
             Vector2 tile = new(
-                minimum + margin + ((cell % side) + 0.5f) / side * usable,
-                minimum + margin + ((cell / side) + 0.5f) / side * usable);
+                -radius + ((cell % side) + 0.5f) / side * radius * 2f,
+                -radius + ((cell / side) + 0.5f) / side * radius * 2f);
 
-            if (generator.GetBiome(tile).Id == world.RequestedBiomeId)
+            if (generator.GetBiome(tile).Id != world.RequestedBiomeId)
+                continue;
+
+            if (generation != null)
+                foreach (int step in generation.PrepareArea(new Rect2(
+                    tile - Vector2.One * reach,
+                    Vector2.One * (reach * 2f))))
+                    if (!await ContinueSearch(i + 1)) return null;
+
+            bool valid = true;
+            for (int y = -reach; y <= reach && valid; y++)
+            for (int x = -reach; x <= reach && valid; x++)
             {
-                bool valid = true;
-
-                for (int y = -reach; y <= reach && valid; y++)
-                for (int x = -reach; x <= reach && valid; x++)
-                {
-                    Vector2 point = tile + new Vector2(x, y);
-
-                    if (!IsSafeSample(
-                        generator, basins, point,
-                        world.RequestedBiomeId, minimum, maximum))
-                        valid = false;
-
-                    if (ElapsedMs(started) >= budget)
-                    {
-                        status.Text =
-                            $"Finding spawn in {world.RequestedBiomeId}...\n" +
-                            $"Seed {chunks.WorldSeed} | Checked {i + 1}/{count}";
-
-                        await world.ToSignal(
-                            world.GetTree(), SceneTree.SignalName.ProcessFrame);
-
-                        if (!world.IsInsideTree() ||
-                            world.IsQueuedForDeletion())
-                            return null;
-
-                        started = Stopwatch.GetTimestamp();
-                    }
-                }
-
-                if (valid)
-                {
-                    GD.Print(
-                        $"[BiomeTest] Seed {chunks.WorldSeed}; " +
-                        $"{world.RequestedBiomeId}; spawn tile {tile}");
-
-                    return tile;
-                }
+                valid = IsSafeSample(
+                    generator, basins, tile + new Vector2(x, y),
+                    world.RequestedBiomeId);
+                if (!await ContinueSearch(i + 1)) return null;
             }
 
-            if (ElapsedMs(started) >= budget)
-            {
-                status.Text =
-                    $"Finding spawn in {world.RequestedBiomeId}...\n" +
-                    $"Seed {chunks.WorldSeed} | Checked {i + 1}/{count}";
-
-                await world.ToSignal(
-                    world.GetTree(), SceneTree.SignalName.ProcessFrame);
-
-                if (!world.IsInsideTree() || world.IsQueuedForDeletion())
-                    return null;
-
-                started = Stopwatch.GetTimestamp();
-            }
+            if (valid) return tile;
         }
 
         return null;
@@ -136,55 +113,36 @@ public static class DebugBiomeSpawnSearch
     #endregion
 
     #region Checks
-// =========================================================
-// Reject biome borders, chasms, steep terrain, basins and world edges.
-private static bool IsSafeSample(
-    WorldGenerator generator, WaterBasinWorld basins, Vector2 point,
-    string biomeId, float minimum, float maximum)
-{
-    if (point.X < minimum || point.Y < minimum ||
-        point.X >= maximum || point.Y >= maximum)
-        return false;
-
-    if (generator.GetBiome(point).Id != biomeId)
-        return false;
-
-    if (ChasmFeature.IsVoidTile(
-        Mathf.FloorToInt(point.X + 0.5f),
-        Mathf.FloorToInt(point.Y + 0.5f)))
-        return false;
-
-    Node2D ground = generator.GetNode<Node2D>("../../GroundChunks");
-    ChunkController chunks =
-        generator.GetNode<ChunkController>("../ChunkController");
-
-    Vector2 globalPoint = ground.ToGlobal(
-        IsoGrid.TileToWorld(point, chunks.TileSize));
-
-    if (!TerrainSlopeWorld.Ensure(generator)
-        .HasClearance(globalPoint, 12f))
-        return false;
-
-    if (basins != null)
+    // =========================================================
+    // Reject biome borders, chasms, slopes, basin reservations and cave mouths.
+    private static bool IsSafeSample(
+        WorldGenerator generator, WaterBasinWorld basins,
+        Vector2 tile, string biomeId)
     {
-        foreach (WaterBasinWorld.Basin basin in basins.Basins)
-        {
-            float clearance = basin.Extent + 1f;
-            if (point.DistanceSquaredTo(basin.Centre) <
-                clearance * clearance)
-                return false;
-        }
+        if (generator.GetBiome(tile).Id != biomeId ||
+            ChasmFeature.IsVoidTile(
+                Mathf.FloorToInt(tile.X + 0.5f),
+                Mathf.FloorToInt(tile.Y + 0.5f)) ||
+            (basins != null && basins.Overlaps(tile, 1f)))
+            return false;
+
+        Node2D ground = generator.GetNode<Node2D>("../../GroundChunks");
+        ChunkController chunks =
+            generator.GetNode<ChunkController>("../ChunkController");
+        Vector2 point = ground.ToGlobal(
+            IsoGrid.TileToWorld(tile, chunks.TileSize));
+
+        return TerrainSlopeWorld.Ensure(generator).HasClearance(point, 12f) &&
+            !CaveWorld.IsHoleReserved(
+                generator, point, Vector2.One * 24f, Vector2.Zero);
     }
 
-    return true;
-}
-
     // =========================================================
-    // Measure the shared search budget without allocating a stopwatch.
+    // Measure elapsed work without allocating stopwatch instances.
     private static double ElapsedMs(long started)
     {
-        return (Stopwatch.GetTimestamp() - started) * 1000.0 /
-            Stopwatch.Frequency;
+        return (Stopwatch.GetTimestamp() - started) *
+            1000.0 / Stopwatch.Frequency;
     }
     #endregion
 }

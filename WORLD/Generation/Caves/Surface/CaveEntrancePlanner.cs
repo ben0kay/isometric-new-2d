@@ -1,150 +1,192 @@
-// Plans stable entrance records for the finite world's shared cave network.
-// Uses generation data only, before surface props or cave geometry are built.
+// Plans shared surface/cave entrances from absolute seeded coordinates.
+// Sparse candidate spacing guarantees separation independently of discovery order.
 using Godot;
 using System;
 using System.Collections.Generic;
 
 public sealed class CaveEntrancePlanner
 {
-    #region Results
-    public CaveGenerationSettings Settings { get; }
-    public Vector2 Origin { get; private set; }
-    public float RimHeight { get; private set; }
-    public List<CaveHole> Holes { get; } = new();
-    #endregion
-
     #region State
+    private const int CacheLimit = 1024;
+
     private readonly Node _world;
     private readonly ChunkController _chunks;
     private readonly WorldConfig _config;
+    private readonly Node2D _ground;
+    private readonly WaterBasinWorld _basins;
+    private readonly CaveSurfaceSampler _sampler;
+
+    private readonly Dictionary<Vector2I, CaveHole> _cells = new();
+    private readonly Queue<Vector2I> _order = new();
+
+    private readonly int _offset, _stride;
+    private readonly float _pitch, _reach, _clearTiles;
+    private readonly Vector2 _spawn;
+
+    public CaveGenerationSettings Settings { get; }
+    public float HubX => Settings.EntranceTunnelLengthTiles + 8f;
     #endregion
 
     #region Construction
     // =========================================================
-    // Copy generation settings so shared resource files remain unchanged.
+    // Snapshot a globally consistent chamber lattice and sparse entrance lattice.
     public CaveEntrancePlanner(
-        Node world, ChunkController chunks,
-        CaveGenerationSettings settings)
+        Node world, ChunkController chunks, CaveGenerationSettings settings)
     {
         _world = world;
         _chunks = chunks;
         _config = WorldConfig.Find(world);
+        _ground = world.GetNode<Node2D>("GroundChunks");
+        _basins = WaterBasinWorld.Find(world);
+        _sampler = new CaveSurfaceSampler(world, chunks);
+        _spawn = world.GetNode<Player>("WorldObjects/Player").GlobalPosition;
+
         Settings = (CaveGenerationSettings)settings.Duplicate();
         Settings.Validate();
+
+        float minimum = _config.MinimumCaveHoleDistanceTiles;
+        if (!float.IsFinite(minimum) || minimum < 64f)
+            throw new InvalidOperationException(
+                "Minimum cave-hole distance must be at least 64 tiles.");
+
+        _offset = Mathf.CeilToInt(
+            Settings.ChamberRadiusRange.Y +
+            Settings.TunnelWidthTiles * 0.5f + 4f);
+
+        Settings.CellSpacingTiles = Mathf.Max(
+            Settings.CellSpacingTiles,
+            Settings.EntranceTunnelLengthTiles + _offset +
+            Mathf.CeilToInt(Settings.TunnelWidthTiles * 0.5f) + 6);
+        Settings.Validate();
+
+        _reach = new Vector2(
+            _offset, Settings.EntranceTunnelLengthTiles + _offset).Length();
+
+        _stride = Mathf.CeilToInt(
+            (minimum + _reach * 2f) / Settings.CellSpacingTiles);
+        _pitch = _stride * Settings.CellSpacingTiles;
+
+        float maximumClearance = 0f;
+        WorldGenerator generator =
+            world.GetNode<WorldGenerator>("Systems/WorldGenerator");
+
+        foreach (BiomeDefinition biome in generator.Catalog.GetEnabledBiomes())
+        {
+            CaveHoleProfile profile =
+                biome.GetFeature<CaveHoleProfile>("cave_holes");
+            if (profile == null || !profile.Enabled) continue;
+            profile.Validate();
+            maximumClearance = Mathf.Max(maximumClearance, profile.ClearRadius);
+        }
+
+        _clearTiles = maximumClearance * Mathf.Sqrt(
+            1f / (chunks.TileSize.X * chunks.TileSize.X) +
+            1f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
     }
     #endregion
 
     #region Planning
     // =========================================================
-    // Establish a fixed network and evaluate entrance candidates in stable order.
-    public IEnumerable<int> Prepare()
+    // Prepare entrances around either surface or underground construction.
+    public IEnumerable<int> PrepareArea(Rect2 area, CaveWorld cave)
     {
-        float configuredDistance = _config.MinimumCaveHoleDistanceTiles;
-        if (!float.IsFinite(configuredDistance) || configuredDistance < 64f)
-            throw new InvalidOperationException(
-                "Minimum cave-hole distance must be finite and at least 64 tiles.");
+        Rect2 nearby = area.Grow(
+            _config.CaveDiscoveryRadiusTiles + _reach);
 
-        Node2D ground = _world.GetNode<Node2D>("GroundChunks");
-        TerrainElevation elevation =
-            _world.GetNode<TerrainElevation>("Systems/TerrainElevation");
-        CaveSurfaceSampler sampler = new(_world, _chunks);
+        int firstX = Mathf.FloorToInt((nearby.Position.X - HubX) / _pitch);
+        int lastX = Mathf.CeilToInt((nearby.End.X - HubX) / _pitch);
+        int firstY = Mathf.FloorToInt(nearby.Position.Y / _pitch);
+        int lastY = Mathf.CeilToInt(nearby.End.Y / _pitch);
 
-        // Put ramps beside the connecting routes, keeping those routes intact.
-        int offset = Mathf.CeilToInt(
-            Settings.ChamberRadiusRange.Y +
-            Settings.TunnelWidthTiles * 0.5f + 4f);
-
-        int spacing = Mathf.Max(
-            Settings.CellSpacingTiles,
-            Settings.EntranceTunnelLengthTiles + offset +
-            Mathf.CeilToInt(Settings.TunnelWidthTiles * 0.5f) + 6);
-
-        Settings.CellSpacingTiles = spacing;
-
-        int worldTiles = _chunks.WorldChunksPerAxis * _chunks.ChunkSize;
-        int low = -(_chunks.WorldChunksPerAxis / 2) * _chunks.ChunkSize;
-        float centreY = low + worldTiles * 0.5f;
-        float hub = Settings.EntranceTunnelLengthTiles + 8f;
-
-        // Keep the chamber grid one cell inside the finite surface boundary.
-        if (worldTiles < spacing * 2)
+        for (int y = firstY; y <= lastY; y++)
+        for (int x = firstX; x <= lastX; x++)
         {
-            GD.PushWarning("[Caves] World is too small for this cave profile.");
-            yield break;
-        }
-
-        Settings.CellsAcross =
-            Mathf.FloorToInt((worldTiles - spacing * 2f) / spacing) + 1;
-        Settings.CellsEitherSide =
-            Mathf.FloorToInt((worldTiles * 0.5f - spacing) / spacing);
-        Settings.Validate();
-
-        Vector2 originTile = new(low + spacing - hub, centreY);
-        Origin = ground.ToGlobal(
-            IsoGrid.TileToWorld(originTile, _chunks.TileSize));
-
-        Vector2 surfaceCentre = ground.ToGlobal(
-            IsoGrid.TileToWorld(
-                new Vector2(low + worldTiles * 0.5f, centreY),
-                _chunks.TileSize));
-        RimHeight = elevation.SampleWorldHeight(surfaceCentre);
-
-        float minimum = Mathf.Max(
-            configuredDistance,
-            2f * (Settings.EntranceTunnelLengthTiles + offset) + 8f);
-        float minimumSquared = minimum * minimum;
-
-        for (int y = -Settings.CellsEitherSide;
-            y <= Settings.CellsEitherSide; y++)
-        for (int x = 0; x < Settings.CellsAcross; x++)
-        {
+            Vector2I cell = new(x, y);
+            if (_cells.ContainsKey(cell)) continue;
             yield return 0;
+
+            Vector2I anchor = cell * _stride;
+            Vector2 room = new(
+                HubX + anchor.X * Settings.CellSpacingTiles,
+                anchor.Y * Settings.CellSpacingTiles);
 
             uint hash = IsoGrid.Hash(
                 x, y, _chunks.WorldSeed ^ Settings.SeedOffset ^ 0xCA7E021u);
 
             float sideX = (hash & 1u) == 0 ? -1f : 1f;
             float sideY = (hash & 2u) == 0 ? -1f : 1f;
-
-            Vector2 room = new(hub + x * spacing, y * spacing);
             Vector2 mouth = room + new Vector2(
-                sideX * offset,
-                sideY * (Settings.EntranceTunnelLengthTiles + offset));
+                sideX * _offset,
+                sideY * (Settings.EntranceTunnelLengthTiles + _offset));
             Vector2 direction = sideY > 0f ? Vector2.Up : Vector2.Down;
 
-            bool tooClose = false;
-            foreach (CaveHole existing in Holes)
+            Vector2 point = _ground.ToGlobal(
+                IsoGrid.TileToWorld(mouth, _chunks.TileSize));
+
+            CaveHole hole = null;
+
+            if (point.DistanceSquaredTo(_spawn) >
+                _chunks.SpawnClearRadius * _chunks.SpawnClearRadius)
             {
-                if (mouth.DistanceSquaredTo(existing.MouthTile) >= minimumSquared)
-                    continue;
-                tooClose = true;
-                break;
+                // Water decisions must exist before validating this mouth.
+                foreach (int step in _basins.PrepareArea(new Rect2(
+                    mouth - Vector2.One * _clearTiles,
+                    Vector2.One * (_clearTiles * 2f))))
+                    yield return step;
+
+                CaveSurfaceSampler.Result result = new();
+                foreach (int step in _sampler.Evaluate(
+                    point, direction, false, result))
+                    yield return step;
+
+                if (result.Accepted &&
+                    result.RimHeight > _config.CaveFloorElevation + 32f)
+                {
+                    hole = new CaveHole(
+                        $"C_{x}_{y}", mouth, direction, point,
+                        result.RimHeight, Settings.EntranceTunnelLengthTiles,
+                        anchor)
+                    {
+                        SurfaceClearRadius = result.ClearRadius
+                    };
+                }
             }
-            if (tooClose) continue;
 
-            Vector2 surfaceTile = originTile + mouth;
-            Vector2 point = ground.ToGlobal(
-                IsoGrid.TileToWorld(surfaceTile, _chunks.TileSize));
+            if (_cells.ContainsKey(cell)) continue;
 
-            CaveSurfaceSampler.Result result = new();
-            foreach (int step in sampler.Evaluate(
-                point, direction, false, result))
-                yield return step;
-
-            if (!result.Accepted) continue;
-
-            Holes.Add(new CaveHole(
-                $"C_{x}_{y}",
-                mouth, direction, point, result.RimHeight,
-                Settings.EntranceTunnelLengthTiles,
-                new Vector2I(x, y))
+            while (_cells.Count >= CacheLimit)
             {
-                SurfaceClearRadius = result.ClearRadius
-            });
+                Vector2I old = _order.Dequeue();
+                CaveHole departing = _cells[old];
+                _cells.Remove(old);
+                if (departing != null) cave.RemoveHole(departing);
+            }
 
-            GD.Print(
-                $"[Caves] C_{x}_{y}: {point}; surface biome: {result.BiomeId}.");
+            _cells.Add(cell, hole);
+            _order.Enqueue(cell);
+
+            if (hole != null)
+            {
+                cave.AddHole(hole);
+                GD.Print($"[Caves] {hole.Id}: {hole.SurfacePosition}");
+            }
         }
+    }
+
+    // =========================================================
+    // Supply only nearby registered mouths to floor and elevation sampling.
+    public IEnumerable<CaveHole> Nearby(Vector2 tile)
+    {
+        int firstX = Mathf.FloorToInt((tile.X - HubX - _reach - 4f) / _pitch);
+        int lastX = Mathf.CeilToInt((tile.X - HubX + _reach + 4f) / _pitch);
+        int firstY = Mathf.FloorToInt((tile.Y - _reach - 4f) / _pitch);
+        int lastY = Mathf.CeilToInt((tile.Y + _reach + 4f) / _pitch);
+
+        for (int y = firstY; y <= lastY; y++)
+        for (int x = firstX; x <= lastX; x++)
+            if (_cells.TryGetValue(new Vector2I(x, y), out CaveHole hole) &&
+                hole != null)
+                yield return hole;
     }
     #endregion
 }

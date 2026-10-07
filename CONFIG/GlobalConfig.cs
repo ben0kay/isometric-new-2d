@@ -40,4 +40,19 @@ public partial class GlobalConfig : Node
     [Export(PropertyHint.Range, "0.05,2,0.05")]
     public float ObstructionFadeSeconds { get; set; } = 0.2f;
     #endregion
+
+        #region Debug Map
+    [ExportGroup("DEBUG MAP")]
+    [Export(PropertyHint.Range, "16,2048,16")]
+    public float DebugMapRadiusTiles { get; set; } = 128f;
+
+    [Export(PropertyHint.Range, "128,4096,128")]
+    public float DebugBiomeSearchRadiusTiles { get; set; } = 1024f;
+    #endregion
+
+    #region Cave Discovery
+    [ExportGroup("CAVE DISCOVERY")]
+    [Export(PropertyHint.Range, "128,512,16")]
+    public float CaveDiscoveryRadiusTiles { get; set; } = 128f;
+    #endregion
 }

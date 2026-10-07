@@ -1,5 +1,5 @@
-// Places seeded basin candidates using the local biome's resource profile.
-// Runs before terrain caching and object placement.
+// Plans one deterministic basin cell without loading terrain or artwork.
+// Reservations stay inside their owning cell, preventing order-dependent overlaps.
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -8,153 +8,125 @@ public static class BiomeBasinGenerator
 {
     #region Generation
     // =========================================================
-    // Place biome-owned basins with optional elevation-based frequency and size.
-    public static void Generate(
-        WorldGenerator generator, ChunkController chunks, Node2D ground,
-        Func<WaterDefinition, Vector2, float, float,
-            WaterBasinWorld.Basin> register)
+    // Evaluate one seeded cell under the caller's existing work budget.
+    public static IEnumerable<int> PrepareCell(
+        WorldGenerator generator, ChunkController chunks,
+        Vector2 spawnTile, float spacing, Vector2I cell,
+        Action<WaterBasinWorld.Basin> complete)
     {
-        WorldConfig config = WorldConfig.Find(generator);
-        if (!config.GenerateBiomeBasins) return;
-
-        float spacing = config.BasinCandidateSpacingTiles;
-        if (!float.IsFinite(spacing) || spacing < 16f)
-            throw new InvalidOperationException(
-                "BasinCandidateSpacingTiles must be finite and at least 16.");
-
-        float minimum = -(chunks.WorldChunksPerAxis / 2) *
-            chunks.ChunkSize - 0.5f;
-        float maximum = minimum +
-            chunks.WorldChunksPerAxis * chunks.ChunkSize;
-
-        int first = Mathf.FloorToInt(minimum / spacing);
-        int last = Mathf.CeilToInt(maximum / spacing) - 1;
-
-        Player player = generator.GetNode<Player>(
-            "../../WorldObjects/Player");
-        Vector2 spawn = IsoGrid.WorldToTile(
-            ground.ToLocal(player.GlobalPosition), chunks.TileSize);
-
-        HashSet<BiomeBasinProfile> validated = new();
-        Dictionary<string, int> selected = new();
-        Dictionary<string, int> accepted = new();
-
         using RandomNumberGenerator rng = new();
+        rng.Seed = IsoGrid.Hash(cell.X, cell.Y, chunks.WorldSeed ^ 0xBA51u);
 
-        for (int y = first; y <= last; y++)
-        for (int x = first; x <= last; x++)
+        Vector2 middle = new(
+            (cell.X + 0.5f) * spacing,
+            (cell.Y + 0.5f) * spacing);
+
+        BiomeDefinition biome = generator.GetBiome(middle);
+        BiomeBasinProfile profile =
+            biome.GetFeature<BiomeBasinProfile>("basins");
+
+        if (profile == null || !profile.Enabled)
         {
-            float left = Mathf.Max(minimum, x * spacing);
-            float right = Mathf.Min(maximum, (x + 1) * spacing);
-            float top = Mathf.Max(minimum, y * spacing);
-            float bottom = Mathf.Min(maximum, (y + 1) * spacing);
-            if (right <= left || bottom <= top) continue;
+            complete(null);
+            yield break;
+        }
 
-            rng.Seed = IsoGrid.Hash(x, y, chunks.WorldSeed ^ 0xBA51u);
-            Vector2 anchor = new(
-                rng.RandfRange(left, right),
-                rng.RandfRange(top, bottom));
+        float roll = rng.Randf();
+        if (roll >= profile.SpawnProbability)
+        {
+            complete(null);
+            yield break;
+        }
 
-            BiomeDefinition biome = generator.GetBiome(anchor);
-            BiomeBasinProfile profile =
-                biome.GetFeature<BiomeBasinProfile>("basins");
+        WaterDefinition template =
+            profile.Templates[rng.RandiRange(0, profile.Templates.Count - 1)];
 
-            if (profile == null || !profile.Enabled) continue;
-            if (validated.Add(profile)) profile.Validate(biome.Id);
+        float size = rng.RandfRange(
+            profile.SizeMultiplierRange.X, profile.SizeMultiplierRange.Y);
+        float rotation = profile.RandomRotation
+            ? rng.RandfRange(0f, 360f) : template.RotationDegrees;
+        float fill = rng.RandfRange(
+            profile.InitialFillRange.X, profile.InitialFillRange.Y);
+        float phase = rng.RandfRange(0f, Mathf.Tau);
 
-            float probabilityRoll = rng.Randf();
-            if (probabilityRoll >= profile.SpawnProbability) continue;
+        for (int attempt = 0; attempt < profile.PlacementAttempts; attempt++)
+        {
+            yield return 0;
 
-            selected.TryGetValue(biome.Id, out int count);
-            selected[biome.Id] = count + 1;
+            // Leave at least 40% of the cell width around its centre.
+            Vector2 centre = middle + new Vector2(
+                rng.RandfRange(-0.1f, 0.1f),
+                rng.RandfRange(-0.1f, 0.1f)) * spacing;
 
-            int index = rng.RandiRange(0, profile.Templates.Count - 1);
-            WaterDefinition template = profile.Templates[index];
-            float size = rng.RandfRange(
-                profile.SizeMultiplierRange.X, profile.SizeMultiplierRange.Y);
-            float rotation = profile.RandomRotation
-                ? rng.RandfRange(0f, 360f) : template.RotationDegrees;
-            float fill = rng.RandfRange(
-                profile.InitialFillRange.X, profile.InitialFillRange.Y);
-            float phase = rng.RandfRange(0f, Mathf.Tau);
+            if (generator.GetBiome(centre).Id != biome.Id) continue;
 
-            for (int attempt = 0; attempt < profile.PlacementAttempts; attempt++)
+            profile.SampleElevation(
+                generator.GetBaseHeight(centre),
+                out float probability, out float elevationSize);
+
+            if (roll >= profile.SpawnProbability * probability) continue;
+
+            WaterDefinition definition = profile.CreateDefinition(
+                template, size, rotation, elevationSize);
+            definition.Validate();
+
+            float extent = Mathf.Max(
+                definition.RadiusTiles.X, definition.RadiusTiles.Y) * 1.1f;
+            float reservation = extent + definition.ClearanceTiles;
+
+            if (reservation > spacing * 0.4f)
+                throw new InvalidOperationException(
+                    $"Biome '{biome.Id}' has a basin too large for its cell. " +
+                    "Increase BasinCandidateSpacingTiles or reduce basin size.");
+
+            if (centre.DistanceSquaredTo(spawnTile) <
+                (extent + 6f) * (extent + 6f))
+                continue;
+
+            int left = Mathf.FloorToInt((centre.X - reservation) * 2f);
+            int right = Mathf.CeilToInt((centre.X + reservation) * 2f);
+            int top = Mathf.FloorToInt((centre.Y - reservation) * 2f);
+            int bottom = Mathf.CeilToInt((centre.Y + reservation) * 2f);
+
+            float lowest = float.PositiveInfinity;
+            float highest = float.NegativeInfinity;
+            bool valid = true;
+
+            for (int y = top; y <= bottom && valid; y++)
+            for (int x = left; x <= right && valid; x++)
             {
-                Vector2 centre = attempt == 0 ? anchor : new Vector2(
-                    rng.RandfRange(left, right),
-                    rng.RandfRange(top, bottom));
+                yield return 0;
+                Vector2 tile = new(x * 0.5f, y * 0.5f);
 
-                if (generator.GetBiome(centre).Id != biome.Id) continue;
-
-                float height = profile.ElevationInfluenceEnabled
-                    ? generator.GetBaseHeight(centre) : 0f;
-                profile.SampleElevation(
-                    height, out float probability, out float elevationSize);
-
-                if (probabilityRoll >= profile.SpawnProbability * probability)
+                if (generator.GetBiome(tile).Id != biome.Id ||
+                    ChasmFeature.IsVoidTile(
+                        Mathf.FloorToInt(tile.X + 0.5f),
+                        Mathf.FloorToInt(tile.Y + 0.5f)))
+                {
+                    valid = false;
                     continue;
+                }
 
-                float extent = Mathf.Max(
-                    template.RadiusTiles.X, template.RadiusTiles.Y) *
-                    size * elevationSize * 1.1f;
-                float reservation = extent + template.ClearanceTiles;
-
-                if (centre.X - reservation < minimum ||
-                    centre.Y - reservation < minimum ||
-                    centre.X + reservation > maximum ||
-                    centre.Y + reservation > maximum ||
-                    centre.DistanceSquaredTo(spawn) <
-                        (extent + 6f) * (extent + 6f))
-                    continue;
-
-                if (!FitsBiome(generator, centre, reservation, biome.Id))
-                    continue;
-
-                WaterDefinition definition = profile.CreateDefinition(
-                    template, size, rotation, elevationSize);
-                definition.Validate();
-
-                WaterBasinWorld.Basin basin =
-                    register(definition, centre, phase, fill);
-                if (basin == null) continue;
-
-                accepted.TryGetValue(biome.Id, out int total);
-                accepted[biome.Id] = total + 1;
-                break;
+                float height = generator.GetBaseHeight(tile);
+                lowest = Mathf.Min(lowest, height);
+                highest = Mathf.Max(highest, height);
+                valid = highest - lowest <= definition.MaximumHeightVariation;
             }
+
+            if (!valid) continue;
+
+            complete(new WaterBasinWorld.Basin
+            {
+                Definition = definition,
+                Centre = centre,
+                Phase = phase,
+                RimHeight = lowest,
+                Fill = fill
+            });
+            yield break;
         }
 
-        foreach (var pair in selected)
-        {
-            accepted.TryGetValue(pair.Key, out int total);
-            GD.Print(
-                $"[Basins] {pair.Key}: {pair.Value} selected cells, " +
-                $"{total} accepted basins.");
-        }
-
-        if (selected.Count == 0)
-            GD.Print("[Basins] No candidate cells passed biome probability rolls.");
-    }
-    #endregion
-
-    #region Eligibility
-    // =========================================================
-    // Require the reserved footprint to remain inside its owning biome.
-    private static bool FitsBiome(
-        WorldGenerator generator, Vector2 centre, float radius, string biomeId)
-    {
-        int left = Mathf.FloorToInt((centre.X - radius) * 2f);
-        int right = Mathf.CeilToInt((centre.X + radius) * 2f);
-        int top = Mathf.FloorToInt((centre.Y - radius) * 2f);
-        int bottom = Mathf.CeilToInt((centre.Y + radius) * 2f);
-
-        for (int y = top; y <= bottom; y++)
-        for (int x = left; x <= right; x++)
-            if (generator.GetBiome(new Vector2(x * 0.5f, y * 0.5f)).Id
-                != biomeId)
-                return false;
-
-        return true;
+        complete(null);
     }
     #endregion
 }

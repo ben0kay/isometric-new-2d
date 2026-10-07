@@ -19,8 +19,8 @@ public partial class WorldGenerator : Node
     [Export] public float RegionSizeTiles { get; set; } = 256f;
     [Export] public float BiomeSizeTiles { get; set; } = 96f;
     [Export] public float TransitionWidthTiles { get; set; } = 8f;
-    [Export(PropertyHint.Range, "0,0.2,0.01")]
-    public float BorderWarpFraction { get; set; } = 0.12f;
+    [Export(PropertyHint.Range, "0,1,0.05")]
+    public float BorderWarpFraction { get; set; } = 0.55f;
 
     [ExportGroup("Comparison")]
     [Export] public float BiomeBandWidth { get; set; } = 24f;

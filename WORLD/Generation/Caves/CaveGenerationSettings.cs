@@ -1,5 +1,5 @@
-// Defines the cave network and its streaming budgets.
-// Cave-specific tuning lives here rather than in the surface generator.
+// Defines an unbounded cave chamber lattice and local streaming budgets.
+// Entrance placement is shared with surface generation.
 using Godot;
 using System;
 
@@ -11,15 +11,13 @@ public partial class CaveGenerationSettings : Resource
     [Export] public uint SeedOffset { get; set; } = 73129;
 
     [ExportGroup("Entrance")]
-    [Export] public float DepthPixels { get; set; } = 160f;
     [Export] public int EntranceTunnelLengthTiles { get; set; } = 14;
 
     [ExportGroup("Network")]
-    [Export] public int CellsAcross { get; set; } = 8;
-    [Export] public int CellsEitherSide { get; set; } = 4;
     [Export] public int CellSpacingTiles { get; set; } = 32;
     [Export] public Vector2 ChamberRadiusRange { get; set; } = new(4, 8);
     [Export] public float TunnelWidthTiles { get; set; } = 3f;
+
     [Export(PropertyHint.Range, "0,1,0.01")]
     public float ExtraConnectionChance { get; set; } = 0.25f;
     #endregion
@@ -35,14 +33,13 @@ public partial class CaveGenerationSettings : Resource
 
     #region Validation
     // =========================================================
-    // Reject settings that could create disconnected or impractical geometry.
+    // Reject settings that cannot support connected rooms and entrance ramps.
     public void Validate()
     {
-        if (!float.IsFinite(DepthPixels) || DepthPixels < 32f ||
-            EntranceTunnelLengthTiles < 6 ||
-            CellsAcross < 1 || CellsAcross > 128 ||
-            CellsEitherSide < 0 || CellsEitherSide > 128 ||
+        if (EntranceTunnelLengthTiles < 6 ||
             CellSpacingTiles < 24 ||
+            !float.IsFinite(ChamberRadiusRange.X) ||
+            !float.IsFinite(ChamberRadiusRange.Y) ||
             ChamberRadiusRange.X < 3f ||
             ChamberRadiusRange.Y < ChamberRadiusRange.X ||
             ChamberRadiusRange.Y > CellSpacingTiles * 0.25f ||
@@ -58,7 +55,7 @@ public partial class CaveGenerationSettings : Resource
             !double.IsFinite(BuildBudgetMs) ||
             BuildBudgetMs <= 0 || RetireChunksPerFrame < 1)
             throw new InvalidOperationException(
-                "Invalid cave generation settings. Check sizes, widths and streaming distances.");
+                "Invalid cave generation settings.");
     }
     #endregion
 }

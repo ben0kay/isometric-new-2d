@@ -11,7 +11,7 @@ public sealed class CaveGenerator
 
     private readonly uint _seed;
     private readonly float _baseHeight;
-    private readonly IReadOnlyList<CaveHole> _holes;
+        private readonly CaveWorld _world;
 
     private readonly struct Room
     {
@@ -26,15 +26,15 @@ public sealed class CaveGenerator
 
     #region Construction
     // =========================================================
-    // Keep network randomness separate from surface generation.
+    // Use one shared entrance planner and an unbounded chamber coordinate system.
     public CaveGenerator(
         CaveGenerationSettings settings, uint worldSeed,
-        IReadOnlyList<CaveHole> holes, float baseHeight)
+        CaveWorld world, float baseHeight)
     {
         settings.Validate();
         Settings = settings;
         _seed = worldSeed ^ settings.SeedOffset;
-        _holes = holes;
+        _world = world;
         _baseHeight = baseHeight;
         HubX = settings.EntranceTunnelLengthTiles + 8f;
     }
@@ -42,23 +42,21 @@ public sealed class CaveGenerator
 
     #region Floor Sampling
     // =========================================================
-    // Sample registered entrance corridors before the surrounding network.
+    // Connect every chamber row, with recurring vertical spines joining all rows.
     public bool IsFloor(Vector2I tile)
     {
         Vector2 point = new(tile.X, tile.Y);
 
-        foreach (CaveHole hole in _holes)
+        foreach (CaveHole hole in _world.NearbyHoles(point))
         {
             Vector2 local = hole.Coordinates(point);
 
-            // Reserve the ramp corridor so nearby network geometry
-            // cannot accidentally create another opening through its sides.
             if (local.X >= -2f && local.X <= hole.TunnelLength &&
                 Mathf.Abs(local.Y) <= 3f)
                 return local.X >= 0f && Mathf.Abs(local.Y) <= 1f;
         }
 
-        foreach (CaveHole hole in _holes)
+        foreach (CaveHole hole in _world.NearbyHoles(point))
         {
             Vector2 end = hole.TileAt(hole.TunnelLength);
             Vector2 room = GetRoom(
@@ -68,8 +66,6 @@ public sealed class CaveGenerator
                 return true;
         }
 
-        if (tile.X < 0) return false;
-
         int spacing = Settings.CellSpacingTiles;
         int cx = Mathf.FloorToInt((point.X - HubX) / spacing + 0.5f);
         int cy = Mathf.FloorToInt(point.Y / spacing + 0.5f);
@@ -77,25 +73,23 @@ public sealed class CaveGenerator
         for (int x = cx - 1; x <= cx + 1; x++)
         for (int y = cy - 1; y <= cy + 1; y++)
         {
-            if (!ValidCell(x, y)) continue;
-
             Room room = GetRoom(x, y);
             Vector2 normalized = (point - room.Centre) / room.Radius;
+
             if (normalized.LengthSquared() <= 1f)
                 return true;
 
-            if (x > 0 &&
-                InConnection(point, room.Centre,
-                    GetRoom(x - 1, y).Centre, Random(x, y, 5) < 0.5f))
+            if (InConnection(
+                point, room.Centre, GetRoom(x - 1, y).Centre,
+                Random(x, y, 5) < 0.5f))
                 return true;
 
-            bool vertical = y > -Settings.CellsEitherSide &&
-                (x == 0 ||
-                    Random(x, y, 6) < Settings.ExtraConnectionChance);
+            bool vertical = x % 4 == 0 ||
+                Random(x, y, 6) < Settings.ExtraConnectionChance;
 
-            if (vertical &&
-                InConnection(point, room.Centre,
-                    GetRoom(x, y - 1).Centre, Random(x, y, 7) < 0.5f))
+            if (vertical && InConnection(
+                point, room.Centre, GetRoom(x, y - 1).Centre,
+                Random(x, y, 7) < 0.5f))
                 return true;
         }
 
@@ -103,13 +97,13 @@ public sealed class CaveGenerator
     }
 
     // =========================================================
-    // Leave the outward edge of every registered mouth physically open.
+    // Leave the outside edge of nearby entrance mouths physically open.
     public bool IsMouthEdge(Vector2I tile, Vector2I neighbour)
     {
         Vector2 a = new(tile.X, tile.Y);
         Vector2 b = new(neighbour.X, neighbour.Y);
 
-        foreach (CaveHole hole in _holes)
+        foreach (CaveHole hole in _world.NearbyHoles(a))
         {
             Vector2 localA = hole.Coordinates(a);
             Vector2 localB = hole.Coordinates(b);
@@ -126,10 +120,10 @@ public sealed class CaveGenerator
 
     #region Heights
     // =========================================================
-    // Ease each entrance from its own surface height to one underground baseline.
+    // Join each entrance's surface elevation to the shared underground floor.
     public float VertexHeight(Vector2 tile)
     {
-        foreach (CaveHole hole in _holes)
+        foreach (CaveHole hole in _world.NearbyHoles(tile))
         {
             Vector2 local = hole.Coordinates(tile);
             if (local.X < -2f || local.X > hole.TunnelLength ||
@@ -167,14 +161,7 @@ public sealed class CaveGenerator
     #endregion
 
     #region Layout Helpers
-    // =========================================================
-    // Keep chamber coordinates within the configured network.
-    private bool ValidCell(int x, int y)
-    {
-        return x >= 0 && x < Settings.CellsAcross &&
-            y >= -Settings.CellsEitherSide &&
-            y <= Settings.CellsEitherSide;
-    }
+
 
     // =========================================================
     // Keep connecting routes fixed while varying chamber dimensions by seed.

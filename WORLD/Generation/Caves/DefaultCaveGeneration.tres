@@ -5,10 +5,7 @@
 [resource]
 script = ExtResource("1_settings")
 SeedOffset = 73129
-DepthPixels = 160.0
 EntranceTunnelLengthTiles = 14
-CellsAcross = 8
-CellsEitherSide = 4
 CellSpacingTiles = 32
 ChamberRadiusRange = Vector2(4, 8)
 TunnelWidthTiles = 3.0

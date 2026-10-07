@@ -114,6 +114,8 @@ public partial class WorldLayerController : Node
     public override void _Process(double delta)
     {
         if (!GodotObject.IsInstanceValid(_player)) return;
+                if (Current == WorldLayer.Cave)
+            _surfaceChunks.RetireUnusedChunks();
 
         _landingTimer -= delta;
         _hudTimer -= delta;
@@ -538,6 +540,7 @@ public partial class WorldLayerController : Node
         }
 
         if (_hudTimer > 0) return;
+                PruneRetiredSurface();
         _hudTimer = 0.2;
 
         if (Current == WorldLayer.Cave)
@@ -632,4 +635,24 @@ public partial class WorldLayerController : Node
             ? controller.Cave.Objects : surfaceRoot;
     }
     #endregion
+
+        // =========================================================
+    // Remove retired surface registrations during long underground journeys.
+    private void PruneRetiredSurface()
+    {
+        List<Node> remove = new();
+
+        foreach (var pair in _roots)
+            if (!GodotObject.IsInstanceValid(pair.Key) ||
+                !GodotObject.IsInstanceValid(pair.Value))
+                remove.Add(pair.Key);
+
+        foreach (Node node in remove)
+        {
+            WorldLayerMember member = _roots[node];
+            _roots.Remove(node);
+            _surface.Remove(member);
+            _inheritedFade.Remove(member);
+        }
+    }
 }

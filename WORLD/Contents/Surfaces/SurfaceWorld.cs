@@ -55,15 +55,66 @@ public partial class SurfaceWorld : Node
         SetProcess(_basins != null);
     }
 
-    // =========================================================
-    // Create liquid artwork without changing already-built terrain.
+// =========================================================
+    // Retire distant liquid artwork while keeping procedural data independent.
     public override void _Process(double delta)
     {
-        if (!_chunks.WorldReady) return;
-        SetProcess(false);
+        if (!_chunks.WorldReady || _basins == null) return;
 
+        Player player = GetNode<Player>("../../WorldObjects/Player");
+        Vector2 centre = WorldToTile(player.GlobalPosition);
+
+        Transform2D inverse =
+            GetViewport().GetCanvasTransform().AffineInverse();
+        Vector2 viewport = GetViewport().GetVisibleRect().Size;
+        float radius = _chunks.ChunkSize * 3f;
+
+        for (int i = 0; i < 4; i++)
+        {
+            Vector2 corner = new(
+                (i == 1 || i == 2) ? viewport.X : 0f,
+                i >= 2 ? viewport.Y : 0f);
+
+            radius = Mathf.Max(radius,
+                WorldToTile(inverse * corner).DistanceTo(centre) +
+                _chunks.ChunkSize * 2f);
+        }
+
+        // Remove at most one distant water patch per frame.
         foreach (WaterBasinWorld.Basin basin in _basins.Basins)
+        {
+            if (!GodotObject.IsInstanceValid(basin.Patch) ||
+                basin.Patch.IsQueuedForDeletion())
+                continue;
+
+            float retain = radius + basin.Extent;
+            if (basin.Centre.DistanceSquaredTo(centre) <= retain * retain)
+                continue;
+
+            basin.Patch.QueueFree();
+            basin.Patch = null;
+            break;
+        }
+    }
+
+    // =========================================================
+    // Present water only for nearby activated surface chunks.
+    public IEnumerable<int> PrepareFills(Rect2 area)
+    {
+        if (_basins == null) yield break;
+
+        // Other streamers can update the cache between yielded frames.
+        List<WaterBasinWorld.Basin> snapshot = new(_basins.Basins);
+
+        foreach (WaterBasinWorld.Basin basin in snapshot)
+        {
+            if (!basin.Resident ||
+                !area.Grow(basin.Extent).HasPoint(basin.Centre))
+                continue;
+
             CreateFill(basin);
+            yield return 0;
+        }
     }
 
     // =========================================================

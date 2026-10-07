@@ -33,6 +33,9 @@ public partial class CaveChunk : Node2D
 // Build floor and exposed walls while leaving every registered mouth open.
 public IEnumerable<int> BuildSteps()
 {
+
+        foreach (int step in PrepareMetadata())
+        yield return step;
     List<Vector3> floorVertices = new();
     List<Vector2> floorUV = new();
     List<Vector3> wallVertices = new();
@@ -206,4 +209,24 @@ public IEnumerable<int> BuildSteps()
         return mesh;
     }
     #endregion
+
+        // =========================================================
+    // Register nearby entrances before any cave floor or wall is sampled.
+    private IEnumerable<int> PrepareMetadata()
+    {
+        InfiniteWorldGeneration generation =
+            InfiniteWorldGeneration.Find(this);
+
+        if (generation == null)
+            throw new System.InvalidOperationException(
+                "Cave chunks require InfiniteWorldGeneration.");
+
+        Rect2 area = new(
+            new Vector2(Coordinate.X * _size - 0.5f,
+                Coordinate.Y * _size - 0.5f),
+            Vector2.One * _size);
+
+        foreach (int step in generation.PrepareArea(area))
+            yield return step;
+    }
 }
