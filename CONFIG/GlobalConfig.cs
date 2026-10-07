@@ -71,6 +71,31 @@ public partial class GlobalConfig : Node
     public double NavigationFailedRetrySeconds { get; set; } = 1.0;
     #endregion
 
+    #region Enemy Updates
+[ExportGroup("ENEMY UPDATES")]
+
+[ExportSubgroup("Scheduling")]
+[Export(PropertyHint.Range, "1,12,1")]
+public int EnemyOnScreenStaggerTicks { get; set; } = 3;
+
+[Export(PropertyHint.Range, "3,60,1")]
+public int EnemyOffScreenStaggerTicks { get; set; } = 12;
+
+[ExportSubgroup("Off Screen")]
+[Export(PropertyHint.Range, "0.1,3,0.05")]
+public double EnemyOffScreenTargetInterval { get; set; } = 0.75;
+
+[Export(PropertyHint.Range, "0.1,2,0.05")]
+public double EnemyOffScreenDecisionInterval { get; set; } = 0.4;
+
+[ExportSubgroup("Screen Checks")]
+[Export(PropertyHint.Range, "1,60,1")]
+public int EnemyScreenCheckTicks { get; set; } = 12;
+
+[Export(PropertyHint.Range, "0,512,16")]
+public float EnemyScreenMarginPixels { get; set; } = 128f;
+#endregion
+
     #region Visibility
     [ExportGroup("VISIBILITY")]
     [Export] public bool ObstructionFadingEnabled { get; set; } = true;

@@ -27,7 +27,7 @@ public partial class EnemyCombat : Node
 
     #region Combat
 // =========================================================
-// Require a same-layer target before starting any attack or sequence.
+// Stagger attack eligibility while keeping cooldowns and final checks accurate.
 public void Tick(double delta)
 {
     if (!_actor.Initialized || !_actor.IsActivated ||
@@ -37,7 +37,11 @@ public void Tick(double delta)
 
     _weapon.Tick(delta);
     _timer -= delta;
-    if (_sequence.IsRunning || _timer > 0.0) return;
+
+    if (_sequence.IsRunning || _timer > 0.0 ||
+        !StaggeredUpdate.Due(_actor, _actor.AiStaggerTicks, 13))
+        return;
+
     _timer = 0.1;
 
     if (!_actor.HasTarget || !_actor.HasSight ||

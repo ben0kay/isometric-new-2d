@@ -38,6 +38,18 @@ private EnemySequence _sequence;
 private float? _chosenRangedDistance;
 #endregion
 
+#region AI Scheduling
+private GlobalConfig _aiConfig;
+private bool _screenSampled, _onScreen;
+
+public bool IsOnScreenForAI => _onScreen;
+
+// Attack eligibility shares the same staggered scheduling as awareness.
+public int AiStaggerTicks => Mathf.Max(1, _onScreen
+    ? (_aiConfig?.EnemyOnScreenStaggerTicks ?? 3)
+    : (_aiConfig?.EnemyOffScreenStaggerTicks ?? 12));
+#endregion
+
     #region Lifecycle
 // =========================================================
 // Apply shared stats and the selected ranged attack before children initialize.
@@ -143,7 +155,7 @@ public override void _ExitTree()
     }
 
 // =========================================================
-// Advance awareness, layer-aware decisions, combat and physical movement.
+// Stagger awareness and decisions while retaining smooth movement and sequences.
 public override void _PhysicsProcess(double delta)
 {
     if (!Initialized || !IsActivated || SpawnPending ||
@@ -154,10 +166,12 @@ public override void _PhysicsProcess(double delta)
         return;
     }
 
+    UpdateScreenState();
+
     _navigation = WorldNavigation.For(this);
     if (_navigation == null) return;
 
-    // Sequences cannot keep attacking or dodging toward another layer.
+    // Cancel actions immediately when their target changes world layer.
     if (HasTarget && !WorldLayerMember.Same(this, Target))
     {
         _sequence.Cancel();
@@ -168,15 +182,27 @@ public override void _PhysicsProcess(double delta)
     _decisionTimer -= delta;
     _wanderTimer -= delta;
 
-    if (_targetTimer <= 0.0)
+    int stagger = AiStaggerTicks;
+
+    if (_targetTimer <= 0.0 &&
+        StaggeredUpdate.Due(this, stagger, 11))
     {
-        _targetTimer = Definition.TargetInterval;
+        _targetTimer = _onScreen
+            ? Definition.TargetInterval
+            : Math.Max(Definition.TargetInterval,
+                _aiConfig.EnemyOffScreenTargetInterval);
+
         SelectTarget();
     }
 
-    if (_decisionTimer <= 0.0)
+    if (_decisionTimer <= 0.0 &&
+        StaggeredUpdate.Due(this, stagger, 12))
     {
-        _decisionTimer = Definition.DecisionInterval;
+        _decisionTimer = _onScreen
+            ? Definition.DecisionInterval
+            : Math.Max(Definition.DecisionInterval,
+                _aiConfig.EnemyOffScreenDecisionInterval);
+
         if (_sequence.IsRunning)
             HasSight = HasTarget && CanSee(Target.GlobalPosition);
         else
@@ -184,9 +210,12 @@ public override void _PhysicsProcess(double delta)
     }
 
     _combat.Tick(delta);
+
     bool wasRunning = _sequence.IsRunning;
     _sequence.Tick(delta);
-    if (wasRunning && !_sequence.IsRunning) _decisionTimer = 0.0;
+
+    if (wasRunning && !_sequence.IsRunning)
+        _decisionTimer = 0.0;
 
     _motor.Tick(delta);
 }
@@ -476,4 +505,27 @@ public void CrossWorldLayer(WorldLayer layer, Vector2 position)
     _targetTimer = 0.0;
 }
     #endregion
+
+    // =========================================================
+// Cache screen visibility on staggered ticks and refresh decisions on entry.
+private void UpdateScreenState()
+{
+    _aiConfig ??= WorldConfig.Find(this);
+
+    if (_screenSampled && !StaggeredUpdate.Due(
+        this, _aiConfig.EnemyScreenCheckTicks, 10))
+        return;
+
+    bool wasOnScreen = _onScreen;
+    _onScreen = ScreenVisibility.Intersects(
+        this, Definition.SpawnVisualBounds,
+        Definition.VisualScale, _aiConfig.EnemyScreenMarginPixels);
+    _screenSampled = true;
+
+    if (_onScreen && !wasOnScreen)
+    {
+        _targetTimer = 0.0;
+        _decisionTimer = 0.0;
+    }
+}
 }
