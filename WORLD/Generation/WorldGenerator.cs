@@ -307,5 +307,53 @@ public WorldSample SampleTile(Vector2 tile)
         result.A = 1f;
         return result;
     }
+
+    // =========================================================
+// Cache mountain rock and path coverage using the existing biome blend.
+public Color SampleMountainGround(Vector2 tile)
+{
+    BiomeBlend blend = _sampler.Sample(tile);
+    float rock = 0f, path = 0f;
+    float slope = -1f;
+
+    for (int i = 0; i < blend.Count; i++)
+    {
+        BiomeInfluence entry = blend.Get(i);
+
+        if (_biomes[entry.Index] is not RockyMountainsBiome biome ||
+            _terrain[entry.Index] is not MountainTerrainGenerator terrain)
+            continue;
+
+        if (slope < 0f)
+        {
+            float alongX = GetHeight(tile + new Vector2(0.5f, 0f)) -
+                GetHeight(tile - new Vector2(0.5f, 0f));
+            float alongY = GetHeight(tile + new Vector2(0f, 0.5f)) -
+                GetHeight(tile - new Vector2(0f, 0.5f));
+
+            Vector2 gradient = new(
+                (alongX - alongY) / Mathf.Max(1f, _chunks.TileSize.X),
+                (alongX + alongY) / Mathf.Max(1f, _chunks.TileSize.Y));
+
+            slope = gradient.Length();
+        }
+
+        float steep = Mathf.Clamp(
+            (slope - biome.RockSlopeStart) /
+            (biome.RockSlopeFull - biome.RockSlopeStart), 0f, 1f);
+        steep = steep * steep * (3f - 2f * steep);
+
+        float localPath = terrain.SamplePathSurface(tile);
+
+        float localRock = Mathf.Lerp(
+            biome.BaseRockCoverage, biome.SteepRockCoverage, steep);
+
+        rock += localRock * (1f - localPath) * entry.Weight;
+        path += localPath * biome.PathSurfaceStrength * entry.Weight;
+    }
+
+    // Red stores rock coverage; green stores path coverage.
+    return new Color(rock, path, 0f, 1f);
+}
     #endregion
 }

@@ -1,5 +1,5 @@
-// Blends existing stone surfaces with optional biome-coloured grass ground.
-// Retains continuous terrain coordinates, resource overlays and sunlight.
+// Blends shared ground surfaces using cached biome settings.
+// Mountain rock and paths retain existing terrain coordinates and lighting.
 shader_type canvas_item;
 render_mode unshaded, blend_premul_alpha;
 
@@ -7,6 +7,8 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/DustSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/MineralSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/GrassSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/GreyRockSurface.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/StonyPathSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/GroundResource.gdshaderinc"
 
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
@@ -18,6 +20,7 @@ uniform bool biome_ground_enabled = false;
 uniform sampler2D biome_settings_map : repeat_disable, filter_linear;
 uniform sampler2D biome_shade_map : repeat_disable, filter_linear;
 uniform sampler2D biome_main_map : repeat_disable, filter_linear;
+uniform sampler2D biome_mountain_map : repeat_disable, filter_linear;
 uniform vec2 biome_map_origin = vec2(0.0);
 uniform vec2 biome_map_size = vec2(1.0);
 
@@ -39,7 +42,7 @@ void vertex() {
 }
 
 // =========================================================
-// Blend ground surfaces without changing terrain geometry.
+// Blend shared ground surfaces without changing terrain geometry.
 void fragment() {
     vec2 p = terrain_position;
 
@@ -47,6 +50,7 @@ void fragment() {
         dust_amount, mineral_amount, detail_strength, 0.0);
     vec4 shade = vec4(0.0, 0.0, 0.0, 32.0);
     vec4 main_tint = vec4(0.0);
+    vec2 mountain_masks = vec2(0.0);
 
     if (biome_ground_enabled) {
         vec2 map_uv = (
@@ -55,6 +59,7 @@ void fragment() {
         settings = texture(biome_settings_map, map_uv);
         shade = texture(biome_shade_map, map_uv);
         main_tint = texture(biome_main_map, map_uv);
+        mountain_masks = texture(biome_mountain_map, map_uv).rg;
     }
 
     float dust_field = texture(
@@ -129,6 +134,16 @@ void fragment() {
 
         ground = mix(ground, mud, mud_mask);
     }
+
+    ground = mix(
+        ground,
+        grey_rock_surface(strata, detail, grain),
+        clamp(mountain_masks.r, 0.0, 1.0));
+
+    ground = mix(
+        ground,
+        stony_path_surface(strata, detail, grain),
+        clamp(mountain_masks.g, 0.0, 1.0));
 
     ground = ground_resources(ground, p, detail, grain);
 
