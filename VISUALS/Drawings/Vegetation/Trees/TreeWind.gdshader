@@ -1,14 +1,17 @@
-// Adds gentle wind to baked tree crowns while anchoring the lower trunk.
-// Animation runs on the GPU with one shared material.
+// Adds gentle canopy wind and supports fading premultiplied baked artwork.
 shader_type canvas_item;
 render_mode blend_premul_alpha;
 
 uniform float wind_strength : hint_range(0.0, 12.0) = 4.0;
 uniform float wind_speed : hint_range(0.0, 4.0) = 0.85;
 
+varying float sprite_opacity;
+
 // =========================================================
-// Bend upper branches with a position-dependent phase and shared gusts.
+// Bend upper branches while retaining the sprite's modulation opacity.
 void vertex() {
+    sprite_opacity = COLOR.a;
+
     float phase = dot(MODEL_MATRIX[3].xy, vec2(0.017, 0.011));
     float time = TIME * wind_speed;
     float gust = 0.75 + 0.25 * sin(time * 0.37);
@@ -17,4 +20,10 @@ void vertex() {
 
     float crown_weight = smoothstep(85.0, 330.0, -VERTEX.y);
     VERTEX.x += sway * gust * wind_strength * crown_weight;
+}
+
+// =========================================================
+// Scale premultiplied colour alongside the modulated alpha.
+void fragment() {
+    COLOR.rgb *= sprite_opacity;
 }

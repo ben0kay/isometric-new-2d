@@ -1,9 +1,9 @@
-// Holds global loot frequency and terrain slope rules.
-// Slope settings are shared by terrain appearance, collision and navigation.
+// Holds world-wide loot frequency and terrain slope rules.
+// Inherits shared visibility settings from GlobalConfig.
 using Godot;
 using System;
 
-public partial class WorldConfig : Node
+public partial class WorldConfig : GlobalConfig
 {
     #region Defaults
     public const float DefaultSlopeAngle = 30f;
@@ -21,12 +21,10 @@ public partial class WorldConfig : Node
     [Export] public bool TerrainSlopesEnabled { get; set; } = true;
 
     [Export(PropertyHint.Range, "5,85,1")]
-    public float MaxWalkableSlopeAngle { get; set; }
-        = DefaultSlopeAngle;
+    public float MaxWalkableSlopeAngle { get; set; } = DefaultSlopeAngle;
 
     [Export(PropertyHint.Range, "0.1,8,0.1")]
-    public float SlopeHeightScale { get; set; }
-        = DefaultSlopeHeightScale;
+    public float SlopeHeightScale { get; set; } = DefaultSlopeHeightScale;
     #endregion
 
     #region Lookup
@@ -41,12 +39,11 @@ public partial class WorldConfig : Node
                 ancestor.GetNodeOrNull<WorldConfig>("CONFIG");
             if (config != null) return config;
         }
-
         return null;
     }
 
     // =========================================================
-    // Require CONFIG for systems that depend on explicit world configuration.
+    // Require CONFIG for systems using explicit world configuration.
     public static WorldConfig Find(Node context)
     {
         return TryFind(context) ?? throw new InvalidOperationException(
@@ -80,7 +77,6 @@ public partial class WorldConfig : Node
             rng.Seed = seed;
             if (rng.Randf() < fraction) count++;
         }
-
         return count;
     }
     #endregion

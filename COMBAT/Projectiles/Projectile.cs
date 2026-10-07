@@ -48,14 +48,14 @@ public partial class Projectile : Node2D
         SetPhysicsProcess(false);
     }
 
-    // =========================================================
-    // Release reusable query wrappers when the world is destroyed.
-    public override void _ExitTree()
-    {
-        _actorQuery.Dispose();
-        _worldQuery.Dispose();
-        _excluded.Dispose();
-    }
+// =========================================================
+// Release reusable query wrappers when the world is destroyed.
+public override void _ExitTree()
+{
+    _actorQuery.Dispose();
+    _worldQuery.Dispose();
+    _excluded.Clear();
+}
 
     // =========================================================
     // Compare actor and world impacts along the same projectile travel interval.

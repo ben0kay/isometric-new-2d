@@ -4,23 +4,23 @@ using Godot;
 
 public partial class Weapon : Node
 {
-    #region Configuration
-    [Export] public AttackDefinition Attack { get; set; }
-    [Export] public CombatTeam Team { get; set; } = CombatTeam.Player;
-    #endregion
+	#region Configuration
+	[Export] public AttackDefinition Attack { get; set; }
+	[Export] public CombatTeam Team { get; set; } = CombatTeam.Player;
+	#endregion
 
-    #region State
-    public CharacterBody2D Source { get; private set; }
-    private Health _health;
-    private TerrainElevation _elevation;
-    private ProjectilePool _pool;
-    private double _cooldown;
-    public event System.Action<AttackDefinition> AttackFired;
-    #endregion
+	#region State
+	public CharacterBody2D Source { get; private set; }
+	private Health _health;
+	private TerrainElevation _elevation;
+	private ProjectilePool _pool;
+	private double _cooldown;
+	public event System.Action<AttackDefinition> AttackFired;
+	#endregion
 
-    #region Lifecycle
-    // =========================================================
-    // Resolve this actor's components without a world-specific scene path.
+	#region Lifecycle
+	// =========================================================
+	// Resolve this actor's components without a world-specific scene path.
     public override void _Ready()
     {
         Source = GetParent().GetParent<CharacterBody2D>();
@@ -73,90 +73,90 @@ public partial class Weapon : Node
     }
 
     // =========================================================
-    // Translate a visible body aiming point onto this projectile's launch plane.
-    public bool TryFireAtActor(Node2D target)
-    {
-        if (Attack == null || target == null ||
-            !_health.IsAlive || _cooldown > 0.0)
-            return false;
+	// Translate a visible body aiming point onto this projectile's launch plane.
+	public bool TryFireAtActor(Node2D target)
+	{
+		if (Attack == null || target == null ||
+			!_health.IsAlive || _cooldown > 0.0)
+			return false;
 
-        if (Attack is not ProjectileAttack)
-            return TryFireAt(target.GlobalPosition);
+		if (Attack is not ProjectileAttack)
+			return TryFireAt(target.GlobalPosition);
 
-        CombatHitbox hitbox = CombatHitbox.Find(target);
-        if (hitbox == null) return TryFireAt(target.GlobalPosition);
+		CombatHitbox hitbox = CombatHitbox.Find(target);
+		if (hitbox == null) return TryFireAt(target.GlobalPosition);
 
-        hitbox.Refresh();
-        if (!hitbox.CanReceiveProjectile) return false;
+		hitbox.Refresh();
+		if (!hitbox.CanReceiveProjectile) return false;
 
-        Vector2 logicalTarget = hitbox.AimWorldPosition +
-            Vector2.Down * (SourceHeight() + Attack.VisualHeight);
+		Vector2 logicalTarget = hitbox.AimWorldPosition +
+			Vector2.Down * (SourceHeight() + Attack.VisualHeight);
 
-        return TryFireAt(logicalTarget);
-    }
+		return TryFireAt(logicalTarget);
+	}
 
-    // =========================================================
-    // Deliver a configured attack and notify presentation.
-    public bool TryFireAt(Vector2 groundTarget)
-    {
-        if (Attack == null || !_health.IsAlive || _cooldown > 0.0)
-            return false;
+	// =========================================================
+	// Deliver a configured attack and notify presentation.
+	public bool TryFireAt(Vector2 groundTarget)
+	{
+		if (Attack == null || !_health.IsAlive || _cooldown > 0.0)
+			return false;
 
-        Vector2 difference = groundTarget - Source.GlobalPosition;
-        if (difference.LengthSquared() < 0.0001f) return false;
+		Vector2 difference = groundTarget - Source.GlobalPosition;
+		if (difference.LengthSquared() < 0.0001f) return false;
 
-        AttackDefinition attack = Attack;
-        Vector2 direction = difference.Normalized();
-        float angle = direction.Angle();
-        _cooldown = System.Math.Max(0.03, attack.Cooldown);
+		AttackDefinition attack = Attack;
+		Vector2 direction = difference.Normalized();
+		float angle = direction.Angle();
+		_cooldown = System.Math.Max(0.03, attack.Cooldown);
 
-        if (attack.MuzzleOffsets == null || attack.MuzzleOffsets.Count == 0)
-            attack.Deliver(this, Source.GlobalPosition, direction);
-        else
-        {
-            foreach (Vector2 muzzle in attack.MuzzleOffsets)
-                attack.Deliver(
-                    this, Source.GlobalPosition + muzzle.Rotated(angle),
-                    direction);
-        }
+		if (attack.MuzzleOffsets == null || attack.MuzzleOffsets.Count == 0)
+			attack.Deliver(this, Source.GlobalPosition, direction);
+		else
+		{
+			foreach (Vector2 muzzle in attack.MuzzleOffsets)
+				attack.Deliver(
+					this, Source.GlobalPosition + muzzle.Rotated(angle),
+					direction);
+		}
 
-        AttackFired?.Invoke(attack);
-        return true;
-    }
-    #endregion
+		AttackFired?.Invoke(attack);
+		return true;
+	}
+	#endregion
 
-    #region Projectiles
-    // =========================================================
-    // Target opposing combat areas independently from movement-body layers.
-    public void EmitProjectile(
-        Vector2 origin, Vector2 direction, ProjectileAttack attack)
-    {
-        _pool ??= GetTree().GetFirstNodeInGroup(
-            "projectile_pool") as ProjectilePool;
+	#region Projectiles
+	// =========================================================
+	// Target opposing combat areas independently from movement-body layers.
+	public void EmitProjectile(
+		Vector2 origin, Vector2 direction, ProjectileAttack attack)
+	{
+		_pool ??= GetTree().GetFirstNodeInGroup(
+			"projectile_pool") as ProjectilePool;
 
-        if (_pool == null)
-        {
-            GD.PushError("Weapon requires ProjectilePool.");
-            return;
-        }
+		if (_pool == null)
+		{
+			GD.PushError("Weapon requires ProjectilePool.");
+			return;
+		}
 
-        uint mask = Team == CombatTeam.Player
-            ? CombatHitbox.EnemyLayer
-            : CombatHitbox.PlayerLayer;
+		uint mask = Team == CombatTeam.Player
+			? CombatHitbox.EnemyLayer
+			: CombatHitbox.PlayerLayer;
 
-        _pool.Fire(origin, direction, attack, mask, SourceHeight());
-    }
+		_pool.Fire(origin, direction, attack, mask, SourceHeight());
+	}
 
-    // =========================================================
-    // Resolve terrain elevation lazily for actors created before world startup.
-    private void ResolveElevation()
-    {
-        _elevation ??= GetTree().GetFirstNodeInGroup(
-            "terrain_elevation") as TerrainElevation;
-    }
+	// =========================================================
+	// Resolve terrain elevation lazily for actors created before world startup.
+	private void ResolveElevation()
+	{
+		_elevation ??= GetTree().GetFirstNodeInGroup(
+			"terrain_elevation") as TerrainElevation;
+	}
 
-    // =========================================================
-    // Read the shooter's current launch elevation.
+	// =========================================================
+	// Read the shooter's current launch elevation.
     private float SourceHeight()
     {
         ResolveElevation();

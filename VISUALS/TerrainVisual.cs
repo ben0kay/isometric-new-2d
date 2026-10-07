@@ -14,7 +14,7 @@ public partial class TerrainVisual : Node2D
 
     #region Creation
 // =========================================================
-// Attach selected artwork and a separate combat silhouette for living actors.
+// Attach artwork, actor hitboxes and shared player-obstruction fading.
 public static TerrainVisual Attach(
     Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
     bool followMovement, VisualDefinition definition = null,
@@ -51,6 +51,7 @@ public static TerrainVisual Attach(
 
     host.AddChild(visual);
     CombatHitbox.Attach(host, visual);
+    PlayerObstructionFade.Attach(host, visual);
     return visual;
 }
 
