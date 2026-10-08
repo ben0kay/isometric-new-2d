@@ -62,7 +62,7 @@ public override void _Ready()
     ShadowMaterial = new ShaderMaterial
     {
         Shader = GD.Load<Shader>(
-            "res://VISUALS/Atmosphere/SunShadow.gdshader")
+            "res://VISUALS/Shadows/SunShadow.gdshader")
     };
 
     _copy = new BackBufferCopy
