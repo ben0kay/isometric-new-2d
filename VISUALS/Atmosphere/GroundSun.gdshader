@@ -10,6 +10,7 @@ render_mode unshaded, blend_premul_alpha;
 #include "res://VISUALS/Drawings/Ground/StonyPathSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/SteepRockSurface.gdshaderinc"
 #include "res://VISUALS/Drawings/Ground/GroundResource.gdshaderinc"
+#include "res://VISUALS/Drawings/Ground/MudSurface.gdshaderinc"
 
 uniform sampler2D ground_noise : repeat_enable, filter_linear_mipmap;
 uniform float dust_amount : hint_range(0.0, 1.0) = 0.55;
@@ -131,28 +132,14 @@ void fragment() {
             grass_mask);
     }
 
-    if (main_tint.a > 0.0001) {
-        vec2 warp = vec2(
-            texture(
-                ground_noise, patch_uv * 0.7 + vec2(0.13, 0.39)).r,
-            texture(
-                ground_noise, patch_uv * 0.7 + vec2(0.71, 0.17)).r
-        ) - vec2(0.5);
-
-        float channel = texture(
-            ground_noise,
-            patch_uv * 0.8 + warp * 0.16 + vec2(0.61, 0.28)).r;
-
-        float mud_mask = 1.0 - smoothstep(
-            0.035, 0.060, abs(channel - 0.5));
-        mud_mask *= main_tint.a;
-
-        vec3 mud = mix(
-            vec3(0.035, 0.036, 0.032),
-            vec3(0.078, 0.071, 0.056), strata);
-        mud += vec3((grain - 0.5) * 0.007);
-        ground = mix(ground, mud, mud_mask);
-    }
+        ground = mud_surface(
+        ground,
+        ground_noise,
+        patch_uv,
+        main_tint.a,
+        strata,
+        grain
+    );
 
     ground = mix(
         ground, stony_path_surface(strata, detail, grain),
