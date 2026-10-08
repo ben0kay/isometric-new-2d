@@ -52,7 +52,7 @@ float helmet_light(vec2 world_position) {
 }
 
 // =========================================================
-// Convert screen pixels back into stable world coordinates before shading.
+// Apply global eclipse timing while keeping the helmet beam world-positioned.
 void fragment() {
     vec2 screen_pixel = SCREEN_UV / SCREEN_PIXEL_SIZE;
     vec2 world_position =
@@ -61,11 +61,17 @@ void fragment() {
         screen_to_world_y * screen_pixel.y;
 
     vec4 original = texture(world_screen, SCREEN_UV);
-    float darkness = eclipse_darkness(world_position);
+    float darkness = eclipse_darkness(SCREEN_UV.y);
 
     vec3 eclipse_tint = vec3(0.06, 0.085, 0.12);
-    vec3 shaded = original.rgb * mix(vec3(1.0), eclipse_tint, darkness);
-    shaded = mix(shaded, original.rgb, helmet_light(world_position));
+    vec3 shaded = original.rgb *
+        mix(vec3(1.0), eclipse_tint, darkness);
+
+    shaded = mix(
+        shaded,
+        original.rgb,
+        helmet_light(world_position)
+    );
 
     COLOR = vec4(shaded, original.a);
 }

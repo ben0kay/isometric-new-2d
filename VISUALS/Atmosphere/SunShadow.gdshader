@@ -1,23 +1,21 @@
-// Fades the existing fixed sun-shadow polygons beneath the eclipse.
-// Shape and direction remain unchanged.
+// Fades fixed sun shadows using the same global eclipse and screen sweep.
+// Shadow polygons retain their existing shape and direction.
 shader_type canvas_item;
 render_mode unshaded;
 
 #include "res://VISUALS/Lighting/WorldLighting.gdshaderinc"
 
-varying vec2 shadow_world_position;
 varying vec4 shadow_colour;
 
 // =========================================================
-// Preserve the generated polygon colours and projected world position.
+// Preserve the generated polygon's vertex colours.
 void vertex() {
-    shadow_world_position = (MODEL_MATRIX * vec4(VERTEX, 0.0, 1.0)).xy;
     shadow_colour = COLOR;
 }
 
 // =========================================================
-// Remove direct-sun shadows as the eclipse blocks sunlight.
+// Fade sunlight shadows in step with the visible eclipse transition.
 void fragment() {
-    float sunlight = 1.0 - eclipse_darkness(shadow_world_position);
+    float sunlight = 1.0 - eclipse_darkness(SCREEN_UV.y);
     COLOR = vec4(shadow_colour.rgb, shadow_colour.a * sunlight);
 }

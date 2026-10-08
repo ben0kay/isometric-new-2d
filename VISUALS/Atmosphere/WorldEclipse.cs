@@ -4,11 +4,7 @@ using Godot;
 
 public partial class WorldEclipse : CanvasLayer
 {
-    #region Configuration
-    [ExportGroup("Eclipse Movement")]
-    [Export] public float WorldSpan { get; set; } = 240000f;
-    [Export] public float EdgeWidth { get; set; } = 3000f;
-    #endregion
+
 
     #region State
     public ShaderMaterial ShadowMaterial { get; private set; }
@@ -151,19 +147,28 @@ public partial class WorldEclipse : CanvasLayer
     #endregion
 
     #region Shared Lighting
-    // =========================================================
-    // Keep shadow fading and the screen compositor on the same eclipse phase.
-    private void UpdateEclipseUniforms(ShaderMaterial material, bool enabled)
-    {
-        material.SetShaderParameter("eclipse_enabled", enabled);
-        material.SetShaderParameter("eclipse_phase", _clock.Phase);
-        material.SetShaderParameter("eclipse_fraction", _clock.EclipseFraction);
-        material.SetShaderParameter("eclipse_world_span",
-            Mathf.Max(1f, WorldSpan));
-        material.SetShaderParameter("eclipse_edge_width",
-            Mathf.Clamp(EdgeWidth, 1f, Mathf.Max(1f, WorldSpan) * 0.1f));
-        material.SetShaderParameter("eclipse_darkness_multiplier",
-            Mathf.Max(0f, _config.EclipseDarknessMultiplier));
-    }
+// =========================================================
+// Share global timing and brief screen transitions across both materials.
+private void UpdateEclipseUniforms(ShaderMaterial material, bool enabled)
+{
+    double eclipseSeconds =
+        _clock.CycleSeconds * _clock.EclipseFraction;
+
+    double transitionSeconds =
+        System.Math.Min(30.0, eclipseSeconds * 0.1);
+
+    float transitionFraction = (float)(
+        transitionSeconds /
+        System.Math.Max(0.001, _clock.CycleSeconds));
+
+    material.SetShaderParameter("eclipse_enabled", enabled);
+    material.SetShaderParameter("eclipse_phase", _clock.Phase);
+    material.SetShaderParameter("eclipse_fraction", _clock.EclipseFraction);
+    material.SetShaderParameter(
+        "eclipse_transition_fraction", transitionFraction);
+    material.SetShaderParameter(
+        "eclipse_darkness_multiplier",
+        Mathf.Max(0f, _config.EclipseDarknessMultiplier));
+}
     #endregion
 }
