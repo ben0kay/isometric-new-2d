@@ -72,9 +72,9 @@ public partial class VegetationAtlas : Node2D
         try
         {
             ShaderMaterial wind = ArtworkBaker.LoadMaterial(
-                "res://VISUALS/Drawings/Vegetation/VegetationWind.gdshader");
+                "res://VISUALS/Vegetation/VegetationWind.gdshader");
             ShaderMaterial grassWind = ArtworkBaker.LoadMaterial(
-                "res://VISUALS/Drawings/Vegetation/GrassWind.gdshader");
+                "res://VISUALS/Vegetation/GrassWind.gdshader");
 
             string key = $"plants-and-grass-{artworkRevision}"
                 + $"|variants={VariantsPerKind}|origin={Origin}"
@@ -86,7 +86,7 @@ public partial class VegetationAtlas : Node2D
                 () => new VegetationAtlas
                 {
                     Material = ArtworkBaker.LoadMaterial(
-                        "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
+                        "res://VISUALS/Vegetation/VegetationBake.gdshader")
                 });
             WindMaterial = wind;
             GrassWindMaterial = grassWind;

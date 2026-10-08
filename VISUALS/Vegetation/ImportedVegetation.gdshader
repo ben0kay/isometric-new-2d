@@ -3,7 +3,7 @@
 shader_type canvas_item;
 render_mode unshaded, blend_mix;
 
-#include "res://VISUALS/Drawings/Vegetation/VegetationBrush.gdshaderinc"
+#include "res://VISUALS/Vegetation/VegetationBrush.gdshaderinc"
 
 uniform bool lighting_enabled = true;
 uniform bool normal_enabled = false;

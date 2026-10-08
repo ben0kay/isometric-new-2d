@@ -47,7 +47,7 @@ public partial class TreeAtlas : Node2D
         try
         {
             ShaderMaterial wind = ArtworkBaker.LoadMaterial(
-                "res://VISUALS/Drawings/Vegetation/TreeWind.gdshader");
+                "res://VISUALS/Vegetation/TreeWind.gdshader");
 
             int rows = (CarbonTreeDrawing.VariantCount + Columns - 1) / Columns;
             string key = $"trees-{artworkRevision}"
@@ -59,7 +59,7 @@ public partial class TreeAtlas : Node2D
                 () => new TreeAtlas
                 {
                     Material = ArtworkBaker.LoadMaterial(
-                        "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
+                        "res://VISUALS/Vegetation/VegetationBake.gdshader")
                 });
 
             WindMaterial = wind;

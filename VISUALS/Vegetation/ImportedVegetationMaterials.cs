@@ -125,7 +125,7 @@ public partial class ImportedVegetationMaterials : Node
         if (!_entries.TryGetValue(definition, out Entry entry))
         {
             _shader ??= GD.Load<Shader>(
-                "res://VISUALS/Drawings/Vegetation/ImportedVegetation.gdshader");
+                "res://VISUALS/Vegetation/ImportedVegetation.gdshader");
 
             entry = new Entry
             {

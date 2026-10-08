@@ -3,7 +3,7 @@
 shader_type canvas_item;
 render_mode blend_premul_alpha;
 
-#include "res://VISUALS/Drawings/Vegetation/VegetationBrush.gdshaderinc"
+#include "res://VISUALS/Vegetation/VegetationBrush.gdshaderinc"
 
 uniform float wind_strength : hint_range(0.0, 8.0) = 2.8;
 uniform float wind_speed : hint_range(0.0, 4.0) = 1.4;
