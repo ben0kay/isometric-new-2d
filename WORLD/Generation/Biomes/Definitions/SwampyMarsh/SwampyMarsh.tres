@@ -1,14 +1,10 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c3gvdm3m8q0kn"]
 
-[ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
-[ext_resource type="Resource" uid="uid://ckwkxcmb1wjle" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="2_colors"]
-[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="2_colors"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshGround.tres" id="3_ground"]
-[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_species"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshBasins.tres" id="4_basins"]
-
-[sub_resource type="Resource" id="Resource_s4iuf"]
-script = ExtResource("2_vegetation")
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshContent.tres" id="5_content"]
 
 [resource]
 script = ExtResource("1_biome")
@@ -21,7 +17,7 @@ RollingHeight = 2.0
 RollingFeatureSize = 32.0
 PlateausEnabled = false
 ColourProfile = ExtResource("2_colors")
-Vegetation = SubResource("Resource_s4iuf")
+Content = ExtResource("5_content")
 FeatureOverrides = Dictionary[String, Resource]({
 "basins": ExtResource("4_basins"),
 "ground": ExtResource("3_ground")
