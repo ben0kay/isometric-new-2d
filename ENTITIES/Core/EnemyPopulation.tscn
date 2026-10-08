@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://ENTITIES/Enemies/EnemyPopulation.cs" id="1_population"]
-[ext_resource type="PackedScene" path="res://ENTITIES/Enemies/Enemy.tscn" id="2_enemy"]
+[ext_resource type="Script" path="res://ENTITIES/Core/EnemyPopulation.cs" id="1_population"]
+[ext_resource type="PackedScene" path="res://ENTITIES/Core/Enemy.tscn" id="2_enemy"]
 
 [node name="EnemyPopulation" type="Node"]
 script = ExtResource("1_population")

@@ -43,7 +43,7 @@ public partial class CombatHitbox : Area2D
         }
         else if (actor is Enemy)
         {
-            path = "res://ENTITIES/Enemies/Robots/RobotHitbox.tres";
+            path = "res://ENTITIES/Species/Robots/RobotHitbox.tres";
             layer = EnemyLayer;
         }
         else return;
