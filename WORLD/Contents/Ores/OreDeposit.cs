@@ -24,67 +24,67 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 // Resolve the yield from a resource or catalog ID and configure this deposit.
 protected override void ConfigureInstance()
 {
-    if (Definition == null)
-        throw new InvalidOperationException(
-            "OreDeposit requires an OreDefinition.");
+	if (Definition == null)
+		throw new InvalidOperationException(
+			"OreDeposit requires an OreDefinition.");
 
-    _yieldItem = Definition.YieldItem;
+	_yieldItem = Definition.YieldItem;
 
-    if (_yieldItem == null &&
-        !string.IsNullOrWhiteSpace(Definition.YieldItemId))
-    {
-        ItemCatalog catalog = GD.Load<ItemCatalog>(
-            "res://ITEMS/ItemCatalog.tres");
+	if (_yieldItem == null &&
+		!string.IsNullOrWhiteSpace(Definition.YieldItemId))
+	{
+		ItemCatalog catalog = GD.Load<ItemCatalog>(
+			"res://ITEMS/ItemCatalog.tres");
 
-        if (catalog == null)
-            throw new InvalidOperationException(
-                "OreDeposit requires the master ItemCatalog.");
+		if (catalog == null)
+			throw new InvalidOperationException(
+				"OreDeposit requires the master ItemCatalog.");
 
-        _yieldItem = catalog.Get(Definition.YieldItemId);
-        if (_yieldItem == null)
-        {
-            catalog.Initialize();
-            _yieldItem = catalog.Get(Definition.YieldItemId);
-        }
-    }
+		_yieldItem = catalog.Get(Definition.YieldItemId);
+		if (_yieldItem == null)
+		{
+			catalog.Initialize();
+			_yieldItem = catalog.Get(Definition.YieldItemId);
+		}
+	}
 
-    if (_yieldItem == null)
-        throw new InvalidOperationException(
-            $"OreDeposit has an unknown yield: '{Definition.YieldItemId}'.");
+	if (_yieldItem == null)
+		throw new InvalidOperationException(
+			$"OreDeposit has an unknown yield: '{Definition.YieldItemId}'.");
 
-    InstanceSize = Mathf.Max(0.1f, InstanceSize);
-    Footprint = Definition.Footprint * InstanceSize;
-    Height = Definition.Height * InstanceSize;
-    VisualOverride = Definition.Visual;
-    RemainingUnits = Mathf.Max(1, Definition.TotalUnits);
+	InstanceSize = Mathf.Max(0.1f, InstanceSize);
+	Footprint = Definition.Footprint * InstanceSize;
+	Height = Definition.Height * InstanceSize;
+	VisualOverride = Definition.Visual;
+	RemainingUnits = Mathf.Max(1, Definition.TotalUnits);
 }
 
 // =========================================================
 // Build mining work and consume a batch only after successful collection.
 public bool Mine(float power, Func<ItemDefinition, int, bool> collect)
 {
-    if (IsQueuedForDeletion() || RemainingUnits <= 0 ||
-        power <= 0f || collect == null)
-        return false;
+	if (IsQueuedForDeletion() || RemainingUnits <= 0 ||
+		power <= 0f || collect == null)
+		return false;
 
-    float required = Mathf.Max(0.1f, Definition.WorkPerBatch);
-    _work = Mathf.Min(required, _work + power);
-    if (_work < required) return true;
+	float required = Mathf.Max(0.1f, Definition.WorkPerBatch);
+	_work = Mathf.Min(required, _work + power);
+	if (_work < required) return true;
 
-    int units = Math.Min(
-        RemainingUnits, Mathf.Max(1, Definition.UnitsPerBatch));
-    if (!collect(_yieldItem, units)) return false;
+	int units = Math.Min(
+		RemainingUnits, Mathf.Max(1, Definition.UnitsPerBatch));
+	if (!collect(_yieldItem, units)) return false;
 
-    _work = 0f;
-    RemainingUnits -= units;
+	_work = 0f;
+	RemainingUnits -= units;
 
-    if (RemainingUnits == 0)
-    {
-        CollisionLayer = 0;
-        QueueFree();
-    }
+	if (RemainingUnits == 0)
+	{
+		CollisionLayer = 0;
+		QueueFree();
+	}
 
-    return true;
+	return true;
 }
 	#endregion
 
