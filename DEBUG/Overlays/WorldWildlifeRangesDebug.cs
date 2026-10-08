@@ -3,7 +3,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public partial class WorldWildlifeRangesDebug : Node
+public partial class WorldWildlifeRangesDebug : Node, IDebugOptionProvider
 {
     #region Configuration
     [Export] public bool Enabled { get; set; } = false;
@@ -15,6 +15,35 @@ public partial class WorldWildlifeRangesDebug : Node
     private readonly List<Node2D> _removed = new();
     private double _timer;
     #endregion
+
+    // =========================================================
+// Register this overlay for automatic discovery by the F1 menu.
+public override void _EnterTree()
+{
+    AddToGroup(DebugOption.Group);
+}
+
+// =========================================================
+// Supply wildlife controls and herd legends to the shared menu.
+public IEnumerable<DebugOption> GetDebugOptions()
+{
+    yield return new DebugOption
+    {
+        Name = "Wildlife wander / herds",
+        Order = 30,
+        Read = () => Enabled,
+        Write = SetEnabled,
+        Legends = new[]
+        {
+            new DebugLegend(
+                "Cyan — Wander area / current centre", new Color("#68dce8")),
+            new DebugLegend(
+                "Amber — Herd anchor / roaming area", new Color("#e8bd68")),
+            new DebugLegend(
+                "Amber dot — Moving herd centre", new Color("#e8bd68"))
+        }
+    };
+}
 
     #region Lifecycle
     // =========================================================

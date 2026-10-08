@@ -3,7 +3,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public partial class WorldEnemyRangesDebug : Node
+public partial class WorldEnemyRangesDebug : Node, IDebugOptionProvider
 {
     #region Configuration
     [Export] public bool Enabled { get; set; } = false;
@@ -15,6 +15,32 @@ public partial class WorldEnemyRangesDebug : Node
     private readonly List<Enemy> _removed = new();
     private double _timer;
     #endregion
+
+    // =========================================================
+// Register this overlay for automatic discovery by the F1 menu.
+public override void _EnterTree()
+{
+    AddToGroup(DebugOption.Group);
+}
+
+// =========================================================
+// Supply the enemy toggle and its range legend to the shared menu.
+public IEnumerable<DebugOption> GetDebugOptions()
+{
+    yield return new DebugOption
+    {
+        Name = "Enemy ranges",
+        Order = 20,
+        Read = () => Enabled,
+        Write = SetEnabled,
+        Legends = new[]
+        {
+            new DebugLegend("Green — Detection", new Color("#65e58b")),
+            new DebugLegend("Red — Attack", new Color("#ff7272")),
+            new DebugLegend("Amber — Forget", new Color("#e8bd68"))
+        }
+    };
+}
 
     #region Lifecycle
 // =========================================================
