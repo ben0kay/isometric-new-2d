@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://d05w7fshmynje" path="res://WORLD/Generation/Biomes/BiomeEnemies.cs" id="1_population"]
 [ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/ENEMIES/EnemyDefinition.cs" id="1_tewhd"]
-[ext_resource type="Resource" uid="uid://dg6k3y10ofscf" path="res://ENTITIES/ENEMIES/Robots/MeleeRobot.tres" id="3_melee"]
-[ext_resource type="Resource" uid="uid://d0lklphub468y" path="res://ENTITIES/ENEMIES/Robots/RangedRobot.tres" id="4_ranged"]
-[ext_resource type="Resource" uid="uid://b5i5axmgq0u7o" path="res://ENTITIES/ENEMIES/Robots/EliteRangedRobot.tres" id="5_elite"]
+[ext_resource type="Resource" uid="uid://dg6k3y10ofscf" path="res://ENTITIES/Species/Robots/MeleeRobot.tres" id="3_melee"]
+[ext_resource type="Resource" uid="uid://d0lklphub468y" path="res://ENTITIES/Species/Robots/RangedRobot.tres" id="4_ranged"]
+[ext_resource type="Resource" uid="uid://b5i5axmgq0u7o" path="res://ENTITIES/Species/Robots/EliteRangedRobot.tres" id="5_elite"]
 
 [resource]
 script = ExtResource("1_population")

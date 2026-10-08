@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="RangedCombatSettings" format=3 uid="uid://djeioihpgb0k8"]
 
 [ext_resource type="Script" uid="uid://tyast7b0c1o8" path="res://ENTITIES/ENEMIES/RangedCombatSettings.cs" id="1_combat"]
-[ext_resource type="Resource" path="res://ENTITIES/ENEMIES/Robots/RobotBlaster.tres" id="2_attack"]
+[ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotBlaster.tres" id="2_attack"]
 
 [resource]
 script = ExtResource("1_combat")

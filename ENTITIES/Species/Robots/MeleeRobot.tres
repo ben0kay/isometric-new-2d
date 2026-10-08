@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://dg6k3y10ofscf"]
 
 [ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/ENEMIES/EnemyDefinition.cs" id="1_enemy"]
-[ext_resource type="Resource" path="res://ENTITIES/ENEMIES/Robots/RobotHull.tres" id="2_hull"]
+[ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Script" uid="uid://bjrfda2v750sh" path="res://ENTITIES/ENEMIES/MeleeCombatSettings.cs" id="3_combat"]
 
 [sub_resource type="Resource" id="MeleeCombat"]
