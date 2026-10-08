@@ -7,7 +7,7 @@ public partial class WildlifeRangeDebug : Node2D
 {
     #region State
     private Entity _entity;
-    private EntityHerd _herd;
+private EntityGroup _group;
     private bool _enabled;
     private float _radius = -1f;
     private Vector2[] _circle = Array.Empty<Vector2>();
@@ -41,34 +41,33 @@ public partial class WildlifeRangeDebug : Node2D
 
     #region Configuration
 // =========================================================
-// Display the creature's current solo or shared herd wander radius.
+// Display the active area owned by the creature's wandering component.
 public void Configure(Entity entity, bool enabled)
 {
     _entity = entity;
-    _herd = null;
+    _group = null;
 
-    string mode = entity.HasHerd ? "herd wander" : "solo wander";
-    SetGeometry(entity.ActiveWanderRadius,
+    string mode = entity.Wandering.UsesSharedArea ? "group wander" : "solo wander";
+    SetGeometry(entity.Wandering.Radius,
         $"{entity.Definition.DisplayName} {mode}");
-
     SetEnabled(enabled);
 }
 
-    // =========================================================
-    // Display the herd's fixed home anchor and roaming radius.
-    public void Configure(EntityHerd herd, bool enabled)
-    {
-        _entity = null;
-        _herd = herd;
-        SetGeometry(herd.RoamRadius, $"Herd: {herd.HerdId}");
-        SetEnabled(enabled);
+// =========================================================
+// Display a group's optional roaming anchor and moving centre.
+public void Configure(EntityGroup group, bool enabled)
+{
+    _entity = null;
+    _group = group;
+    SetGeometry(group.Roaming.RoamRadius, group.DisplayName);
+    SetEnabled(enabled);
 
-        Vector2 offset = herd.GlobalPosition - herd.Home;
-        if (offset == _herdOffset) return;
+    Vector2 offset = group.GlobalPosition - group.Roaming.Home;
+    if (offset == _herdOffset) return;
 
-        _herdOffset = offset;
-        QueueRedraw();
-    }
+    _herdOffset = offset;
+    QueueRedraw();
+}
 
     // =========================================================
     // Rebuild circle vertices only when the radius or label changes.
@@ -101,55 +100,52 @@ public void Configure(Entity entity, bool enabled)
         UpdatePresentation();
     }
 
-    // =========================================================
-    // Restrict presentation to the active world layer and living creatures.
-    private void UpdatePresentation()
+// =========================================================
+// Present active-layer creatures and groups using their component-owned centres.
+private void UpdatePresentation()
+{
+    Node2D owner = GodotObject.IsInstanceValid(_entity) ? _entity : _group;
+
+    if (!_enabled || !GodotObject.IsInstanceValid(owner) ||
+        !owner.IsInsideTree() || owner.IsQueuedForDeletion())
     {
-        Node2D owner = GodotObject.IsInstanceValid(_entity)
-            ? _entity : _herd;
-
-        if (!_enabled || !GodotObject.IsInstanceValid(owner) ||
-            !owner.IsInsideTree() || owner.IsQueuedForDeletion())
-        {
-            Visible = false;
-            return;
-        }
-
-        WorldLayer current =
-            WorldLayerController.Find(this)?.Current ?? WorldLayer.Surface;
-
-        bool alive = _entity == null ||
-            _entity.Health?.IsAlive == true;
-
-        Visible = alive && owner.IsVisibleInTree() &&
-            WorldLayerMember.For(owner) == current;
-
-        Vector2 centre = _entity != null
-            ? _entity.Centre : _herd.Home;
-        GlobalTransform = new Transform2D(0f, centre);
+        Visible = false;
+        return;
     }
+
+    WorldLayer current =
+        WorldLayerController.Find(this)?.Current ?? WorldLayer.Surface;
+
+    bool alive = _entity == null || _entity.Health?.IsAlive == true;
+    Visible = alive && owner.IsVisibleInTree() &&
+        WorldLayerMember.For(owner) == current;
+
+    Vector2 centre = _entity != null
+        ? _entity.Wandering.Centre : _group.Roaming.Home;
+    GlobalTransform = new Transform2D(0f, centre);
+}
     #endregion
 
     #region Drawing
-    // =========================================================
-    // Draw the retained wander circle or herd anchor and moving centre.
-    public override void _Draw()
-    {
-        bool herd = _herd != null;
-        Color colour = herd ? HerdColour : WanderColour;
+// =========================================================
+// Draw cached wander outlines or group anchors and moving centre markers.
+public override void _Draw()
+{
+    bool group = _group != null;
+    Color colour = group ? HerdColour : WanderColour;
 
-        if (_circle.Length > 1)
-            DrawPolyline(_circle, colour, 1.5f, true);
+    if (_circle.Length > 1)
+        DrawPolyline(_circle, colour, 1.5f, true);
 
-        DrawLine(new Vector2(-7, 0), new Vector2(7, 0), colour, 2f);
-        DrawLine(new Vector2(0, -7), new Vector2(0, 7), colour, 2f);
-        DrawString(ThemeDB.FallbackFont, new Vector2(10, -10),
-            _label, HorizontalAlignment.Left, -1, 14, colour);
+    DrawLine(new Vector2(-7, 0), new Vector2(7, 0), colour, 2f);
+    DrawLine(new Vector2(0, -7), new Vector2(0, 7), colour, 2f);
+    DrawString(ThemeDB.FallbackFont, new Vector2(10, -10),
+        _label, HorizontalAlignment.Left, -1, 14, colour);
 
-        if (!herd) return;
+    if (!group) return;
 
-        DrawLine(Vector2.Zero, _herdOffset, colour, 1f, true);
-        DrawCircle(_herdOffset, 5f, colour);
-    }
+    DrawLine(Vector2.Zero, _herdOffset, colour, 1f, true);
+    DrawCircle(_herdOffset, 5f, colour);
+}
     #endregion
 }

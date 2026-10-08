@@ -32,9 +32,8 @@ public partial class EnemyDefinition : Resource
     [Export] public Vector2 WanderWait { get; set; } = new(2f, 5f);
     #endregion
 
-    #region Herd
+  #region Herd
 [ExportGroup("Herd")]
-
 [Export(PropertyHint.Range, "1,64,1")]
 public int HerdSizeMin { get; set; } = 3;
 

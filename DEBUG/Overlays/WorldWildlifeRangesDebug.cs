@@ -53,44 +53,43 @@ public IEnumerable<DebugOption> GetDebugOptions()
         SetEnabled(Enabled);
     }
 
-    // =========================================================
-    // Discover streamed wildlife and update herd centre markers periodically.
-    public override void _Process(double delta)
+// =========================================================
+// Discover wildlife and optional group roaming areas at a modest refresh rate.
+public override void _Process(double delta)
+{
+    _timer -= delta;
+    if (_timer > 0.0) return;
+    _timer = System.Math.Max(0.1, RefreshInterval);
+
+    _removed.Clear();
+    foreach (var pair in _helpers)
+        if (!GodotObject.IsInstanceValid(pair.Key) ||
+            pair.Key.IsQueuedForDeletion() ||
+            !GodotObject.IsInstanceValid(pair.Value))
+            _removed.Add(pair.Key);
+
+    foreach (Node2D owner in _removed)
+        _helpers.Remove(owner);
+
+    foreach (Node node in GetTree().GetNodesInGroup("entities"))
     {
-        _timer -= delta;
-        if (_timer > 0.0) return;
-        _timer = System.Math.Max(0.1, RefreshInterval);
+        if (node is not Entity entity || entity.IsQueuedForDeletion() ||
+            entity.Definition == null || entity.Wandering == null ||
+            entity.Health?.IsAlive != true)
+            continue;
 
-        _removed.Clear();
-        foreach (var pair in _helpers)
-            if (!GodotObject.IsInstanceValid(pair.Key) ||
-                pair.Key.IsQueuedForDeletion() ||
-                !GodotObject.IsInstanceValid(pair.Value))
-                _removed.Add(pair.Key);
-
-        foreach (Node2D owner in _removed)
-            _helpers.Remove(owner);
-
-        foreach (Node node in GetTree().GetNodesInGroup("entities"))
-        {
-            if (node is not Entity entity ||
-                entity.IsQueuedForDeletion() ||
-                entity.Definition == null ||
-                entity.Health?.IsAlive != true)
-                continue;
-
-            HelperFor(entity).Configure(entity, Enabled);
-        }
-
-        foreach (Node node in GetTree().GetNodesInGroup("entity_herds"))
-        {
-            if (node is not EntityHerd herd || herd.IsQueuedForDeletion())
-                continue;
-
-            HelperFor(herd).Configure(herd, Enabled);
-        }
+        HelperFor(entity).Configure(entity, Enabled);
     }
 
+    foreach (Node node in GetTree().GetNodesInGroup("entity_groups"))
+    {
+        if (node is not EntityGroup group || group.IsQueuedForDeletion() ||
+            !GodotObject.IsInstanceValid(group.Roaming))
+            continue;
+
+        HelperFor(group).Configure(group, Enabled);
+    }
+}
     // =========================================================
     // Remove surviving helpers when the debug service leaves the world.
     public override void _ExitTree()

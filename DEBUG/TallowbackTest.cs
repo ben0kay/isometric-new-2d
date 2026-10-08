@@ -13,7 +13,7 @@ public partial class TallowbackTest : Node
     private Node2D _objects;
     private Player _player;
     private ChunkController _chunks;
-    private EntityHerd _herd;
+ private EntityGroup _group;
     private readonly RandomNumberGenerator _rng = new();
     private int _created, _targetCount;
     private double _timer;
@@ -49,97 +49,112 @@ public partial class TallowbackTest : Node
         _rng.Dispose();
     }
 
-    // =========================================================
-    // Create the group gradually on reachable, separated terrain.
-    public override void _PhysicsProcess(double delta)
+// =========================================================
+// Create a test group with optional shared roaming and budgeted placement checks.
+public override void _PhysicsProcess(double delta)
+{
+    if (!_chunks.WorldReady) return;
+
+    _timer -= delta;
+    if (_timer > 0.0) return;
+    _timer = 0.25;
+
+    WorldNavigation navigation = WorldNavigation.For(_player);
+    if (navigation == null ||
+        WorldLayerMember.For(_player) != WorldLayer.Surface)
+        return;
+
+    ResourceWorld resources = ResourceWorld.Find(this);
+    if (resources?.Catalog.Get("tallow") == null)
     {
-        if (!_chunks.WorldReady) return;
+        GD.PushError("TallowbackTest requires 'tallow' in the item catalog.");
+        SetPhysicsProcess(false);
+        return;
+    }
 
-        _timer -= delta;
-        if (_timer > 0.0) return;
-        _timer = 0.25;
+    GrazingWorld.GetOrCreate(this);
 
-        WorldNavigation navigation = WorldNavigation.For(_player);
-        if (navigation == null ||
-            WorldLayerMember.For(_player) != WorldLayer.Surface)
-            return;
-
-        ResourceWorld resources = ResourceWorld.Find(this);
-        if (resources?.Catalog.Get("tallow") == null)
-        {
-            GD.PushError("TallowbackTest requires 'tallow' in the item catalog.");
-            SetPhysicsProcess(false);
-            return;
-        }
-
-        GrazingWorld.GetOrCreate(this);
-
-        if (!GodotObject.IsInstanceValid(_herd))
-        {
-            for (int attempt = 0; attempt < 4; attempt++)
-            {
-                Vector2 centre = _player.GlobalPosition +
-                    Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) * 260f;
-
-                if (!navigation.CanTravelDirectly(
-                    _player.GlobalPosition, centre))
-                    continue;
-
-                _herd = new EntityHerd
-                {
-                    Name = "TallowbackTestHerd",
-                    HerdId = "test_tallowback_herd",
-                    Definition = _definition,
-                    Position = _objects.ToLocal(centre)
-                };
-                _objects.AddChild(_herd);
-                break;
-            }
-            return;
-        }
-
-        float spread = Mathf.Min(85f, _herd.WanderRadius);
+    if (!GodotObject.IsInstanceValid(_group))
+    {
         for (int attempt = 0; attempt < 4; attempt++)
         {
-            Vector2 point = _herd.GlobalPosition +
-                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
-                Mathf.Sqrt(_rng.Randf()) * spread;
+            Vector2 centre = _player.GlobalPosition +
+                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) * 260f;
 
-            if (_player.GlobalPosition.DistanceSquaredTo(point) < 130f * 130f ||
-                !navigation.CanTravelDirectly(_herd.GlobalPosition, point))
+            if (!navigation.CanTravelDirectly(
+                _player.GlobalPosition, centre))
                 continue;
 
-            bool crowded = false;
-            foreach (Node node in GetTree().GetNodesInGroup("entities"))
+            _group = new EntityGroup
             {
-                if (node is not Entity entity ||
-                    entity.IsQueuedForDeletion() ||
-                    !WorldLayerMember.Same(_player, entity))
-                    continue;
+                Name = "TallowbackTestGroup",
+                GroupId = "test_tallowback_group",
+                DisplayName = "Tallowback herd",
+                MinimumMembers = 2,
+                ShareThreats = true,
+                Position = _objects.ToLocal(centre)
+            };
 
-                if (entity.GlobalPosition.DistanceSquaredTo(point) < 32f * 32f)
-                {
-                    crowded = true;
-                    break;
-                }
-            }
-            if (crowded) continue;
-
-            Entity creature = _scene.Instantiate<Entity>();
-            creature.Name = $"Tallowback_{_created}";
-            creature.Definition = _definition;
-            creature.HerdId = _herd.HerdId;
-            creature.Position = _objects.ToLocal(point);
-            _objects.AddChild(creature);
-            _created++;
-
-            if (_created >= _targetCount)
+            Node systems = new() { Name = "Systems" };
+            _group.AddChild(systems);
+            systems.AddChild(new GroupRoaming
             {
-                _herd.CompleteFormation();
-                SetPhysicsProcess(false);
-            }
-            return;
+                Name = "Roaming",
+                Mode = GroupRoamingMode.PeriodicSteps,
+                WanderRadius = _definition.HerdWanderRadius,
+                RoamRadius = _definition.HerdRoamRadius,
+                StepDistance = _definition.HerdCentreStepDistance,
+                IntervalSeconds = _definition.HerdCentreIntervalSeconds
+            });
+
+            _objects.AddChild(_group);
+            break;
         }
+        return;
     }
+
+    float spread = Mathf.Min(85f, _group.Roaming.WanderRadius);
+    for (int attempt = 0; attempt < 4; attempt++)
+    {
+        Vector2 point = _group.GlobalPosition +
+            Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
+            Mathf.Sqrt(_rng.Randf()) * spread;
+
+        if (_player.GlobalPosition.DistanceSquaredTo(point) < 130f * 130f ||
+            !navigation.CanTravelDirectly(_group.GlobalPosition, point))
+            continue;
+
+        bool crowded = false;
+        foreach (Node node in GetTree().GetNodesInGroup("entities"))
+        {
+            if (node is not Entity entity || entity.IsQueuedForDeletion() ||
+                !WorldLayerMember.Same(_player, entity))
+                continue;
+
+            if (entity.GlobalPosition.DistanceSquaredTo(point) < 32f * 32f)
+            {
+                crowded = true;
+                break;
+            }
+        }
+        if (crowded) continue;
+
+        Entity creature = _scene.Instantiate<Entity>();
+        creature.Name = $"Tallowback_{_created}";
+        creature.Definition = _definition;
+        creature.GetNode<EntityGroupMember>("Systems/Group").GroupId =
+            _group.GroupId;
+        creature.Position = _objects.ToLocal(point);
+        _objects.AddChild(creature);
+        _created++;
+
+        if (_created >= _targetCount)
+        {
+            _group.CompleteFormation();
+            SetPhysicsProcess(false);
+        }
+        return;
+    }
+}
     #endregion
 }
