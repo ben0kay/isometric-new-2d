@@ -1,35 +1,46 @@
-// Opens the shared debug menu with F1 without pausing world simulation.
-// Overlay controls reuse existing services and preserve cached enemy geometry.
+// Builds the F1 menu from registered debug providers.
+// Options fill four columns vertically and can be sorted alphabetically.
 using Godot;
+using System;
+using System.Collections.Generic;
 
 public partial class DebugMenu : CanvasLayer
 {
+    #region Configuration
+    [Export(PropertyHint.Range, "1,20,1")]
+    public int OptionsPerColumn { get; set; } = 6;
+
+    [Export] public bool SortByName { get; set; } = true;
+    [Export] public float ScreenMargin { get; set; } = 32f;
+    #endregion
+
     #region State
+    private const int ColumnCount = 4;
+
     private InputModes _modes;
-    private WorldCollisionDebug _collision;
-    private WorldEnemyRangesDebug _ranges;
     private Control _root;
-    private CheckBox _collisionToggle, _rangesToggle;
+    private HBoxContainer _columns;
+    private CheckBox _sortToggle;
+    private Label _count;
     private bool _open;
+
+    private readonly List<(Node Owner, DebugOption Option)> _options = new();
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Resolve sibling debug services and build the menu once.
+    // Build the reusable menu shell without knowing any overlay types.
     public override void _Ready()
     {
         Layer = 120;
         _modes = InputModes.For(this);
-        _collision = GetParent<WorldCollisionDebug>();
-        _ranges = _collision.GetNode<WorldEnemyRangesDebug>("EnemyRanges");
-
         BuildInterface();
         SetProcess(false);
         SetProcessInput(true);
     }
 
     // =========================================================
-    // Release only this menu's input claim when the scene closes.
+    // Release this menu's input claim when its world closes.
     public override void _ExitTree()
     {
         if (GodotObject.IsInstanceValid(_modes))
@@ -37,7 +48,7 @@ public partial class DebugMenu : CanvasLayer
     }
 
     // =========================================================
-    // Toggle with F1 and close with Escape while this menu owns input.
+    // Open with F1 and close with F1 or Escape while owning input.
     public override void _Input(InputEvent input)
     {
         if (input is not InputEventKey key || !key.Pressed || key.Echo)
@@ -47,13 +58,17 @@ public partial class DebugMenu : CanvasLayer
         {
             if (_open)
             {
-                if (_modes.OwnsInput(this)) CloseMenu();
+                if (!_modes.OwnsInput(this)) return;
+                CloseMenu();
             }
-            else if (_modes.GameplayAllowed &&
-                !GetViewport().GuiIsDragging())
-                OpenMenu();
             else
-                return;
+            {
+                if (!_modes.GameplayAllowed ||
+                    GetViewport().GuiIsDragging())
+                    return;
+
+                OpenMenu();
+            }
 
             GetViewport().SetInputAsHandled();
         }
@@ -68,7 +83,7 @@ public partial class DebugMenu : CanvasLayer
 
     #region Interface
     // =========================================================
-    // Build a centred panel with a mouse-blocking backdrop and reusable toggles.
+    // Build a large screen-inset panel with four scrollable option columns.
     private void BuildInterface()
     {
         _root = new Control
@@ -82,119 +97,226 @@ public partial class DebugMenu : CanvasLayer
 
         ColorRect backdrop = new()
         {
-            Color = new Color(0f, 0f, 0f, 0.45f),
+            Color = new Color(0f, 0f, 0f, 0.55f),
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
         _root.AddChild(backdrop);
         backdrop.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
-        CenterContainer centre = new()
-        {
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        _root.AddChild(centre);
-        centre.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        PanelContainer panel = new();
+        _root.AddChild(panel);
+        panel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
 
-        PanelContainer panel = new()
-        {
-            CustomMinimumSize = new Vector2(380, 0)
-        };
-        centre.AddChild(panel);
+        float margin = Mathf.Max(0f, ScreenMargin);
+        panel.OffsetLeft = panel.OffsetTop = margin;
+        panel.OffsetRight = panel.OffsetBottom = -margin;
 
-        StyleBoxFlat style = new()
+        panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
         {
             BgColor = new Color("#14202a"),
             BorderColor = new Color("#486577"),
-            BorderWidthLeft = 1,
-            BorderWidthRight = 1,
-            BorderWidthTop = 1,
-            BorderWidthBottom = 1,
-            CornerRadiusTopLeft = 12,
-            CornerRadiusTopRight = 12,
-            CornerRadiusBottomLeft = 12,
-            CornerRadiusBottomRight = 12,
-            ContentMarginLeft = 24,
-            ContentMarginRight = 24,
-            ContentMarginTop = 22,
-            ContentMarginBottom = 22
-        };
-        panel.AddThemeStyleboxOverride("panel", style);
+            BorderWidthLeft = 1, BorderWidthRight = 1,
+            BorderWidthTop = 1, BorderWidthBottom = 1,
+            CornerRadiusTopLeft = 12, CornerRadiusTopRight = 12,
+            CornerRadiusBottomLeft = 12, CornerRadiusBottomRight = 12,
+            ContentMarginLeft = 24, ContentMarginRight = 24,
+            ContentMarginTop = 22, ContentMarginBottom = 22
+        });
 
-        VBoxContainer column = new();
-        column.AddThemeConstantOverride("separation", 12);
-        panel.AddChild(column);
+        VBoxContainer layout = new();
+        layout.AddThemeConstantOverride("separation", 16);
+        panel.AddChild(layout);
 
-        AddLabel(column, "DEBUG MENU", 22, new Color("#dcebf3"));
-        AddLabel(column, "World overlays", 14, new Color("#91aaba"));
-        column.AddChild(new HSeparator());
+        HBoxContainer toolbar = new();
+        toolbar.AddThemeConstantOverride("separation", 20);
+        layout.AddChild(toolbar);
 
-        _collisionToggle = new CheckBox
+        Label title = MakeLabel("DEBUG MENU", 24, new Color("#dcebf3"));
+        title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        toolbar.AddChild(title);
+
+        _sortToggle = new CheckBox { Text = "Sort by name" };
+        _sortToggle.SetPressedNoSignal(SortByName);
+        toolbar.AddChild(_sortToggle);
+        _sortToggle.Toggled += OnSortChanged;
+
+        Button refresh = new() { Text = "Refresh" };
+        toolbar.AddChild(refresh);
+        refresh.Pressed += RebuildOptions;
+
+        layout.AddChild(new HSeparator());
+
+        ScrollContainer scroll = new()
         {
-            Text = "Collision footprints"
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto
         };
-        column.AddChild(_collisionToggle);
-        _collisionToggle.Toggled += OnCollisionToggled;
+        layout.AddChild(scroll);
 
-        _rangesToggle = new CheckBox
+        _columns = new HBoxContainer
         {
-            Text = "Enemy ranges"
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
-        column.AddChild(_rangesToggle);
-        _rangesToggle.Toggled += OnRangesToggled;
+        _columns.AddThemeConstantOverride("separation", 24);
+        scroll.AddChild(_columns);
 
-        VBoxContainer legend = new();
-        legend.AddThemeConstantOverride("separation", 4);
-        column.AddChild(legend);
+        layout.AddChild(new HSeparator());
 
-        AddLabel(legend, "Green — Detection", 14, new Color("#65e58b"));
-        AddLabel(legend, "Red — Attack", 14, new Color("#ff7272"));
-        AddLabel(legend, "Amber — Forget", 14, new Color("#e8bd68"));
+        HBoxContainer footer = new();
+        footer.AddThemeConstantOverride("separation", 20);
+        layout.AddChild(footer);
 
-        column.AddChild(new HSeparator());
-        AddLabel(column, "Simulation continues while this menu is open.",
-            13, new Color("#91aaba"));
+        _count = MakeLabel("", 14, new Color("#91aaba"));
+        _count.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        footer.AddChild(_count);
 
         Button close = new()
         {
             Text = "Close  ·  F1 / Esc",
-            CustomMinimumSize = new Vector2(0, 38)
+            CustomMinimumSize = new Vector2(180, 38)
         };
-        column.AddChild(close);
+        footer.AddChild(close);
         close.Pressed += CloseMenu;
     }
 
     // =========================================================
-    // Add consistently styled, mouse-transparent explanatory text.
-    private static void AddLabel(
-        Node parent, string text, int size, Color colour)
+    // Create consistently styled explanatory text that wraps inside its column.
+    private static Label MakeLabel(string text, int size, Color colour)
     {
         Label label = new()
         {
             Text = text,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MouseFilter = Control.MouseFilterEnum.Ignore
         };
         label.AddThemeFontSizeOverride("font_size", size);
         label.AddThemeColorOverride("font_color", colour);
-        parent.AddChild(label);
+        return label;
+    }
+
+    // =========================================================
+    // Rediscover options only when opening, refreshing or changing sorting.
+    private void RebuildOptions()
+    {
+        _options.Clear();
+
+        Node world = GetParent().GetParent();
+        foreach (Node node in GetTree().GetNodesInGroup(DebugOption.Group))
+        {
+            if (!GodotObject.IsInstanceValid(node) ||
+                node.IsQueuedForDeletion() ||
+                !world.IsAncestorOf(node) ||
+                node is not IDebugOptionProvider provider)
+                continue;
+
+            foreach (DebugOption option in provider.GetDebugOptions())
+            {
+                if (option == null || string.IsNullOrWhiteSpace(option.Name) ||
+                    option.Read == null || option.Write == null)
+                    continue;
+
+                _options.Add((node, option));
+            }
+        }
+
+        _options.Sort((first, second) =>
+        {
+            if (!SortByName)
+            {
+                int order = first.Option.Order.CompareTo(second.Option.Order);
+                if (order != 0) return order;
+            }
+
+            return StringComparer.OrdinalIgnoreCase.Compare(
+                first.Option.Name, second.Option.Name);
+        });
+
+        foreach (Node child in _columns.GetChildren())
+        {
+            _columns.RemoveChild(child);
+            child.QueueFree();
+        }
+
+        int capacity = Math.Max(
+            Math.Max(1, OptionsPerColumn),
+            (_options.Count + ColumnCount - 1) / ColumnCount);
+
+        for (int columnIndex = 0; columnIndex < ColumnCount; columnIndex++)
+        {
+            VBoxContainer column = new()
+            {
+                CustomMinimumSize = new Vector2(200, 0),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+            };
+            column.AddThemeConstantOverride("separation", 16);
+            _columns.AddChild(column);
+
+            int start = columnIndex * capacity;
+            int end = Math.Min(start + capacity, _options.Count);
+            for (int index = start; index < end; index++)
+                AddOption(column, _options[index].Owner, _options[index].Option);
+        }
+
+        _count.Text = $"{_options.Count} options · Simulation continues";
+    }
+
+    // =========================================================
+    // Generate a checkbox and its provider-defined legend without custom handlers.
+    private static void AddOption(
+        VBoxContainer column, Node owner, DebugOption option)
+    {
+        VBoxContainer entry = new();
+        entry.AddThemeConstantOverride("separation", 5);
+        column.AddChild(entry);
+
+        CheckBox toggle = new() { Text = option.Name };
+        toggle.SetPressedNoSignal(option.Read());
+        entry.AddChild(toggle);
+
+        toggle.Toggled += enabled =>
+        {
+            if (!GodotObject.IsInstanceValid(owner) ||
+                owner.IsQueuedForDeletion())
+            {
+                toggle.Disabled = true;
+                return;
+            }
+
+            option.Write(enabled);
+            toggle.SetPressedNoSignal(option.Read());
+        };
+
+        foreach (DebugLegend legend in option.Legends)
+            entry.AddChild(MakeLabel(legend.Text, 13, legend.Colour));
+
+        entry.AddChild(new HSeparator());
+    }
+
+    // =========================================================
+    // Reorder options without changing any overlay's enabled state.
+    private void OnSortChanged(bool enabled)
+    {
+        SortByName = enabled;
+        RebuildOptions();
     }
     #endregion
 
     #region Menu Ownership
     // =========================================================
-    // Synchronize current overlay settings before claiming gameplay input.
+    // Discover current providers and claim gameplay input without pausing.
     private void OpenMenu()
     {
-        _collisionToggle.SetPressedNoSignal(_collision.Enabled);
-        _rangesToggle.SetPressedNoSignal(_ranges.Enabled);
-
+        RebuildOptions();
+        _sortToggle.SetPressedNoSignal(SortByName);
         _open = true;
         _root.Visible = true;
         _modes.Push(this, PlayerInputMode.DebugMenu);
-        _collisionToggle.GrabFocus();
+        _sortToggle.GrabFocus();
     }
 
     // =========================================================
-    // Close without changing overlay settings or discarding their caches.
+    // Close while retaining the selected overlay settings.
     private void CloseMenu()
     {
         if (!_open) return;
@@ -206,22 +328,6 @@ public partial class DebugMenu : CanvasLayer
         _open = false;
         _root.Visible = false;
         _modes.Release(this);
-    }
-    #endregion
-
-    #region Overlay Controls
-    // =========================================================
-    // Toggle collision rendering through its shared public control.
-    private void OnCollisionToggled(bool enabled)
-    {
-        _collision.SetEnabled(enabled);
-    }
-
-    // =========================================================
-    // Toggle enemy ranges while retaining their cached drawings.
-    private void OnRangesToggled(bool enabled)
-    {
-        _ranges.SetEnabled(enabled);
     }
     #endregion
 }

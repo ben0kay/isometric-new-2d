@@ -7,7 +7,7 @@ using System.Collections.Generic;
 public partial class WorldCollisionDebug : Node2D
 {
 	#region Configuration
-	[Export] public bool Enabled { get; set; } = true;
+	[Export] public bool Enabled { get; set; } = false;
 	[Export] public bool AlignWithArtwork { get; set; } = true;
 	[Export] public float RefreshSeconds { get; set; } = 0.1f;
 	[Export] public Color FillColor { get; set; } = new(0.1f, 1f, 0.25f, 0.15f);
@@ -24,41 +24,38 @@ public partial class WorldCollisionDebug : Node2D
 
 	#region Lifecycle
 // =========================================================
-// Initialize collision diagnostics, enemy ranges and the shared F1 menu.
+// Initialize independent debug overlays and the shared F1 menu.
 public override void _Ready()
 {
-	ZIndex = 4095;
-	ZAsRelative = false;
-	_objects = GetParent().GetNode("WorldObjects");
+    ZIndex = 4095;
+    ZAsRelative = false;
+    _objects = GetParent().GetNode("WorldObjects");
 
-	CanvasLayer hud = new() { Name = "DebugStatus", Layer = 20 };
-	AddChild(hud);
+    CanvasLayer hud = new() { Name = "DebugStatus", Layer = 20 };
+    AddChild(hud);
 
-	_status = new Label
-	{
-		Position = new Vector2(16, 170),
-		MouseFilter = Control.MouseFilterEnum.Ignore
-	};
-	_status.AddThemeColorOverride("font_color", OutlineColor);
-	_status.AddThemeColorOverride("font_shadow_color", Colors.Black);
-	_status.AddThemeConstantOverride("shadow_offset_x", 1);
-	_status.AddThemeConstantOverride("shadow_offset_y", 1);
-	hud.AddChild(_status);
+    _status = new Label
+    {
+        Position = new Vector2(16, 170),
+        MouseFilter = Control.MouseFilterEnum.Ignore
+    };
+    _status.AddThemeColorOverride("font_color", OutlineColor);
+    _status.AddThemeColorOverride("font_shadow_color", Colors.Black);
+    _status.AddThemeConstantOverride("shadow_offset_x", 1);
+    _status.AddThemeConstantOverride("shadow_offset_y", 1);
+    hud.AddChild(_status);
 
-	if (GetNodeOrNull<WorldEnemyRangesDebug>("EnemyRanges") == null)
-		AddChild(new WorldEnemyRangesDebug
-		{
-			Name = "EnemyRanges"
-		});
+    if (GetNodeOrNull<WorldEnemyRangesDebug>("EnemyRanges") == null)
+        AddChild(new WorldEnemyRangesDebug { Name = "EnemyRanges" });
 
-	if (GetNodeOrNull<DebugMenu>("DebugMenu") == null)
-		AddChild(new DebugMenu
-		{
-			Name = "DebugMenu"
-		});
+    if (GetNodeOrNull<WorldWildlifeRangesDebug>("WildlifeRanges") == null)
+        AddChild(new WorldWildlifeRangesDebug { Name = "WildlifeRanges" });
 
-	SetProcessInput(false);
-	SetEnabled(Enabled);
+    if (GetNodeOrNull<DebugMenu>("DebugMenu") == null)
+        AddChild(new DebugMenu { Name = "DebugMenu" });
+
+    SetProcessInput(false);
+    SetEnabled(Enabled);
 }
 
 // =========================================================
