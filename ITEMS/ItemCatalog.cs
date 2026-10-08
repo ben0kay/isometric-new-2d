@@ -24,35 +24,38 @@ public partial class ItemCatalog : Resource
     #endregion
 
     #region Registration
-    // =========================================================
-    // Build C# content once, then resolve resource overrides and defaults.
-    public void Initialize()
+// =========================================================
+// Build grouped C# content once, then resolve resource overrides and defaults.
+public void Initialize()
+{
+    if (IncludeBuiltInItems && !_built)
     {
-        if (IncludeBuiltInItems && !_built)
-        {
-            MaterialItems.Register(_builtIns);
-            RawFoodItems.Register(_builtIns);
-            PlaceableItems.Register(_builtIns);
-            _built = true;
-        }
-
-        _items.Clear();
-        RegisterCatalog(this, new HashSet<ItemCatalog>());
-
-        if (!IncludeBuiltInItems) return;
-
-        HashSet<string> generatedIds = new();
-        foreach (ItemDefinition item in _builtIns)
-        {
-            if (item == null || !generatedIds.Add(item.Id))
-                throw new InvalidOperationException(
-                    "C# item content contains a missing item or duplicate ID.");
-
-            // Explicit resource entries override generated content by ID.
-            if (!_items.ContainsKey(item.Id))
-                RegisterItem(item);
-        }
+        NaturalMaterialItems.Register(_builtIns);
+        RefinedMaterialItems.Register(_builtIns);
+        ProcessedMaterialItems.Register(_builtIns);
+        EquippableItems.Register(_builtIns);
+        RawFoodItems.Register(_builtIns);
+        PlaceableItems.Register(_builtIns);
+        _built = true;
     }
+
+    _items.Clear();
+    RegisterCatalog(this, new HashSet<ItemCatalog>());
+
+    if (!IncludeBuiltInItems) return;
+
+    HashSet<string> generatedIds = new();
+    foreach (ItemDefinition item in _builtIns)
+    {
+        if (item == null || !generatedIds.Add(item.Id))
+            throw new InvalidOperationException(
+                "C# item content contains a missing item or duplicate ID.");
+
+        // Explicit resource entries override generated content by ID.
+        if (!_items.ContainsKey(item.Id))
+            RegisterItem(item);
+    }
+}
 
     // =========================================================
     // Register configured resources while rejecting cycles and duplicate entries.
