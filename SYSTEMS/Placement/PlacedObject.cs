@@ -62,6 +62,8 @@ public partial class PlacedObject : Obstacle
             Shape = new ConvexPolygonShape2D { Points = points }
         });
 
+                CreateShadowAsync(points);
+
         Node2D artwork = _definition.ArtworkScene.Instantiate<Node2D>();
         artwork.Name = "Visual";
         artwork.Position = Vector2.Up * _world.HeightAt(GlobalPosition);
@@ -94,6 +96,36 @@ public partial class PlacedObject : Obstacle
 
         if (GodotObject.IsInstanceValid(_world) && _definition != null)
             _world.Unregister(this, _anchor, _definition.Cells);
+    }
+
+        // =========================================================
+    // Wait for atmosphere initialization, then create one cached ground shadow.
+    private async void CreateShadowAsync(Vector2[] footprint)
+    {
+        try
+        {
+            WorldAtmosphere atmosphere =
+                GetTree().GetFirstNodeInGroup("world_atmosphere")
+                as WorldAtmosphere;
+
+            if (!GodotObject.IsInstanceValid(atmosphere)) return;
+
+            Node systems = atmosphere.GetParent();
+
+            if (!systems.IsNodeReady())
+                await ToSignal(systems, Node.SignalName.Ready);
+
+            if (!IsInsideTree() || IsQueuedForDeletion() ||
+                !GodotObject.IsInstanceValid(atmosphere))
+                return;
+
+            atmosphere.CreateObstacleShadow(this, footprint);
+        }
+        catch (System.Exception error)
+        {
+            GD.PushError(
+                $"Placed object '{Name}' shadow failed: {error}");
+        }
     }
     #endregion
 }
