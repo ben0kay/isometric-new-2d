@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="EnemySequenceDefinition" format=3 uid="uid://dsbmsst6x8fq8"]
+
+[ext_resource type="Script" uid="uid://qu5ahsvsvadi" path="res://ENTITIES/ENEMIES/Sequences/EnemyAction.cs" id="1_eqwos"]
+[ext_resource type="Script" uid="uid://b3b07y60374hm" path="res://ENTITIES/ENEMIES/Sequences/EnemySequenceDefinition.cs" id="1_sequence"]
+[ext_resource type="Script" uid="uid://c7j0d1lu7ac8" path="res://ENTITIES/ENEMIES/Sequences/FireEnemyAction.cs" id="3_fire"]
+[ext_resource type="Script" uid="uid://ctorw172sioe8" path="res://ENTITIES/ENEMIES/Sequences/DodgeEnemyAction.cs" id="4_dodge"]
+[ext_resource type="Script" uid="uid://s6dtdu1i04eu" path="res://ENTITIES/ENEMIES/Sequences/WaitEnemyAction.cs" id="5_wait"]
+
+[sub_resource type="Resource" id="Fire"]
+script = ExtResource("3_fire")
+
+[sub_resource type="Resource" id="Dodge"]
+script = ExtResource("4_dodge")
+OnFailure = 1
+
+[sub_resource type="Resource" id="Wait"]
+script = ExtResource("5_wait")
+
+[resource]
+script = ExtResource("1_sequence")
+Actions = Array[ExtResource("1_eqwos")]([SubResource("Fire"), SubResource("Dodge"), SubResource("Fire"), SubResource("Wait")])

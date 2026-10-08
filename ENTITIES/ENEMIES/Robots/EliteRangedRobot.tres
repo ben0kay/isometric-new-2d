@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://b5i5axmgq0u7o"]
+
+[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/ENEMIES/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Resource" path="res://ENTITIES/ENEMIES/Robots/RobotHull.tres" id="2_hull"]
+[ext_resource type="Resource" uid="uid://djeioihpgb0k8" path="res://ENTITIES/ENEMIES/Robots/Combat/EliteRangedRobotCombat.tres" id="3_combat"]
+[ext_resource type="Resource" uid="uid://dsbmsst6x8fq8" path="res://ENTITIES/ENEMIES/Sequences/ShootDodgeShoot.tres" id="4_sequence"]
+
+[resource]
+script = ExtResource("1_enemy")
+Id = "elite_ranged_robot"
+DisplayName = "Elite Ranged Robot"
+MaxVitality = 100
+Defense = ExtResource("2_hull")
+MoveSpeed = 145.0
+WanderSpeed = 40.0
+Combat = ExtResource("3_combat")
+Sequence = ExtResource("4_sequence")
+VisualTint = Color(0.8, 0.45, 1, 1)
+VisualScale = 1.15

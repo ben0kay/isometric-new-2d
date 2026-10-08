@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://d0lklphub468y"]
 
-[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENEMIES/EnemyDefinition.cs" id="1_enemy"]
-[ext_resource type="Resource" path="res://ENEMIES/Robots/RobotHull.tres" id="2_hull"]
-[ext_resource type="Resource" uid="uid://tn4471d7ikxh" path="res://ENEMIES/Robots/Combat/RangedRobotCombat.tres" id="3_combat"]
+[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/ENEMIES/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Resource" path="res://ENTITIES/ENEMIES/Robots/RobotHull.tres" id="2_hull"]
+[ext_resource type="Resource" uid="uid://tn4471d7ikxh" path="res://ENTITIES/ENEMIES/Robots/Combat/RangedRobotCombat.tres" id="3_combat"]
 
 [resource]
 script = ExtResource("1_enemy")
