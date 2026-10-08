@@ -24,6 +24,22 @@ public partial class PlaceableDefinition : Resource
     public float CoverHeight { get; set; } = 96f;
     #endregion
 
+        #region Visibility
+    [ExportGroup("Visibility")]
+
+    // Artwork-local silhouette used to detect when this object covers the player.
+    // These defaults match the current Test Cube artwork.
+    [Export] public Vector2[] ObstructionOutline { get; set; } =
+    {
+        new(-64f, -96f),
+        new(0f, -128f),
+        new(64f, -96f),
+        new(64f, 0f),
+        new(0f, 32f),
+        new(-64f, 0f)
+    };
+    #endregion
+
     #region Validation
     // =========================================================
     // Reject missing scenes and unreasonable footprint settings.

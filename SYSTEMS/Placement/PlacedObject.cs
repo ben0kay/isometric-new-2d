@@ -68,6 +68,9 @@ public partial class PlacedObject : Obstacle
         artwork.Scale *= _definition.ArtworkScale;
         AddChild(artwork);
 
+                PlayerObstructionFade.Attach(
+            this, artwork, _definition.ObstructionOutline);
+
         ObjectHealth = GetNode<Health>("Systems/Health");
         ObjectHealth.Died += OnDestroyed;
 
