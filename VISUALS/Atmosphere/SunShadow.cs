@@ -1,169 +1,86 @@
-// Composites the eclipse over world visuals and supplies shared shadow uniforms.
-// Lives beside Atmosphere so surface suspension never stops the world clock.
+// Culls fixed sun-shadow polygons and attaches their shared eclipse material.
+// Visibility checks are staggered; polygon geometry is never rebuilt.
 using Godot;
 
-public partial class WorldEclipse : CanvasLayer
+public partial class SunShadow : Node
 {
-    #region Configuration
-    [ExportGroup("Eclipse Movement")]
-    [Export] public float WorldSpan { get; set; } = 240000f;
-    [Export] public float EdgeWidth { get; set; } = 3000f;
-    #endregion
-
     #region State
-    public ShaderMaterial ShadowMaterial { get; private set; }
-
-    private WorldClock _clock;
-    private WorldConfig _config;
-    private Player _player;
-    private PlayerFlashlight _flashlight;
-    private WorldLayerController _layers;
-    private ShaderMaterial _lighting;
-    private ColorRect _screen;
-    private BackBufferCopy _copy;
+    private Polygon2D _polygon;
+    private Rect2 _bounds;
+    private bool _boundMaterial;
     #endregion
 
     #region Installation
     // =========================================================
-    // Queue one independent eclipse service while the world is becoming ready.
-    public static void Install(WorldAtmosphere atmosphere)
+    // Keep the helper separate from the polygon it hides.
+    public static void Attach(Node2D owner, Polygon2D polygon)
     {
-        Node systems = atmosphere.GetParent();
-        if (systems.GetNodeOrNull<WorldEclipse>("WorldEclipse") != null)
-            return;
-
-        systems.CallDeferred(Node.MethodName.AddChild, new WorldEclipse
+        owner.AddChild(polygon);
+        owner.AddChild(new SunShadow
         {
-            Name = "WorldEclipse"
+            Name = "SunShadowCulling",
+            _polygon = polygon
         });
-    }
-
-    // =========================================================
-    // Find the eclipse service belonging to this world, not another viewport.
-    public static WorldEclipse Find(Node context)
-    {
-        for (Node ancestor = context; ancestor != null;
-             ancestor = ancestor.GetParent())
-        {
-            WorldEclipse eclipse = ancestor.GetNodeOrNull<WorldEclipse>(
-                "Systems/WorldEclipse");
-            if (eclipse != null) return eclipse;
-        }
-        return null;
     }
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Build one screen pass, one shared shadow material and the player beam.
+    // Cache the polygon's local bounds once.
     public override void _Ready()
     {
-        Layer = 5;
-        Node world = GetParent().GetParent();
-        _config = WorldConfig.Find(this);
-        _player = world.GetNode<Player>("WorldObjects/Player");
+        Vector2[] points = _polygon.Polygon;
+        _bounds = new Rect2(points[0], Vector2.Zero);
 
-        _clock = new WorldClock { Name = "WorldClock" };
-        AddChild(_clock);
+        foreach (Vector2 point in points)
+            _bounds = _bounds.Expand(point);
 
-        _lighting = new ShaderMaterial
-        {
-            Shader = GD.Load<Shader>(
-                "res://VISUALS/Atmosphere/WorldEclipse.gdshader")
-        };
-
-        ShadowMaterial = new ShaderMaterial
-        {
-            Shader = GD.Load<Shader>(
-                "res://VISUALS/Atmosphere/SunShadow.gdshader")
-        };
-
-        _copy = new BackBufferCopy
-        {
-            Name = "WorldCopy",
-            CopyMode = BackBufferCopy.CopyModeEnum.Viewport
-        };
-        AddChild(_copy);
-
-        _screen = new ColorRect
-        {
-            Name = "WorldLighting",
-            Material = _lighting,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        AddChild(_screen);
-        _screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-
-        Node playerSystems = _player.GetNode("Systems");
-        _flashlight = playerSystems.GetNodeOrNull<PlayerFlashlight>(
-            "Flashlight");
-
-        if (_flashlight == null)
-        {
-            _flashlight = new PlayerFlashlight { Name = "Flashlight" };
-            playerSystems.AddChild(_flashlight);
-        }
-
-        // Keep world debug labels above the lighting pass.
-        CanvasLayer hud = world.GetNodeOrNull<CanvasLayer>("HUD");
-        if (hud != null && hud.Layer <= Layer)
-            hud.Layer = Layer + 1;
-
-        // Run after the normal movement and camera updates.
-        ProcessPriority = 100;
+        _polygon.Visible = false;
+        Refresh();
     }
 
     // =========================================================
-    // Update a constant number of uniforms, regardless of object count.
-    public override void _Process(double delta)
+    // Distribute screen checks across existing physics ticks.
+    public override void _PhysicsProcess(double delta)
     {
-        _layers ??= WorldLayerController.Find(this);
-        bool surface = _layers == null ||
-            _layers.Current == WorldLayer.Surface;
-
-        _screen.Visible = surface;
-        _copy.CopyMode = surface
-            ? BackBufferCopy.CopyModeEnum.Viewport
-            : BackBufferCopy.CopyModeEnum.Disabled;
-
-        UpdateEclipseUniforms(_lighting, surface);
-        UpdateEclipseUniforms(ShadowMaterial, surface);
-
-        if (!surface) return;
-
-        // SCREEN_UV uses viewport pixels, so invert the actual canvas transform.
-        Transform2D inverse = GetViewport().GetCanvasTransform().AffineInverse();
-        _lighting.SetShaderParameter("screen_to_world_origin", inverse.Origin);
-        _lighting.SetShaderParameter("screen_to_world_x", inverse.X);
-        _lighting.SetShaderParameter("screen_to_world_y", inverse.Y);
-
-        _flashlight.UpdateBeam();
-        _lighting.SetShaderParameter("flashlight_enabled", _flashlight.Active);
-        _lighting.SetShaderParameter("flashlight_position", _flashlight.Position);
-        _lighting.SetShaderParameter("flashlight_direction", _flashlight.Direction);
-        _lighting.SetShaderParameter("flashlight_range",
-            Mathf.Max(1f, _flashlight.Range));
-        _lighting.SetShaderParameter("flashlight_half_angle",
-            Mathf.DegToRad(Mathf.Clamp(_flashlight.HalfAngleDegrees, 5f, 80f)));
-        _lighting.SetShaderParameter("flashlight_strength",
-            Mathf.Clamp(_flashlight.Strength, 0f, 1f));
+        if (StaggeredUpdate.DueSeconds(this, 0.1, 7))
+            Refresh();
     }
     #endregion
 
-    #region Shared Lighting
+    #region Visibility
     // =========================================================
-    // Keep shadow fading and the screen compositor on the same eclipse phase.
-    private void UpdateEclipseUniforms(ShaderMaterial material, bool enabled)
+    // Test shadow bounds without applying terrain elevation twice.
+    private void Refresh()
     {
-        material.SetShaderParameter("eclipse_enabled", enabled);
-        material.SetShaderParameter("eclipse_phase", _clock.Phase);
-        material.SetShaderParameter("eclipse_fraction", _clock.EclipseFraction);
-        material.SetShaderParameter("eclipse_world_span",
-            Mathf.Max(1f, WorldSpan));
-        material.SetShaderParameter("eclipse_edge_width",
-            Mathf.Clamp(EdgeWidth, 1f, Mathf.Max(1f, WorldSpan) * 0.1f));
-        material.SetShaderParameter("eclipse_darkness_multiplier",
-            Mathf.Max(0f, _config.EclipseDarknessMultiplier));
+        if (!_boundMaterial)
+        {
+            WorldEclipse eclipse = WorldEclipse.Find(this);
+            if (eclipse?.ShadowMaterial != null)
+            {
+                _polygon.Material = eclipse.ShadowMaterial;
+                _boundMaterial = true;
+            }
+        }
+
+        Node2D owner = GetParent<Node2D>();
+        if (!owner.IsVisibleInTree())
+        {
+            _polygon.Visible = false;
+            return;
+        }
+
+        Transform2D transform = _polygon.GetGlobalTransformWithCanvas();
+        Rect2 screen = new(transform * _bounds.Position, Vector2.Zero);
+
+        screen = screen.Expand(transform *
+            new Vector2(_bounds.End.X, _bounds.Position.Y));
+        screen = screen.Expand(transform * _bounds.End);
+        screen = screen.Expand(transform *
+            new Vector2(_bounds.Position.X, _bounds.End.Y));
+
+        _polygon.Visible = screen.Intersects(
+            GetViewport().GetVisibleRect().Grow(48f));
     }
     #endregion
 }

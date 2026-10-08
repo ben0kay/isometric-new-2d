@@ -4,3 +4,4 @@
 
 [node name="CONFIG" type="Node" unique_id=1964548479]
 script = ExtResource("1_config")
+EclipseDarknessMultiplier = 0.8
