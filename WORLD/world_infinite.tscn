@@ -49,11 +49,6 @@ Catalog = ExtResource("19_items")
 
 [node name="Atmosphere" type="Node" parent="Systems" unique_id=1205417837]
 script = ExtResource("9_atmosphere")
-SunTint = Color(1, 0.94, 0.82, 1)
-FaceAmbient = 0.24
-FaceSunStrength = 1.65
-ShadowLength = 2.2
-ShadowOpacity = 0.68
 FogColor = Color(0.16, 0.31, 0.43, 1)
 FogDensity = 0.72
 FogNoiseScale = 0.0012

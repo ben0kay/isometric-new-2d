@@ -23,6 +23,8 @@
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="23_item_catalog"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="30_surfaces"]
 [ext_resource type="Resource" uid="uid://nwjy3riw3qui" path="res://WORLD/Contents/Water/Water.tres" id="31_water"]
+[ext_resource type="Script" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
+[ext_resource type="Resource" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -130,3 +132,7 @@ script = ExtResource("16_4857e")
 
 [node name="CaveLayerTest" type="Node" parent="." unique_id=342114073]
 script = ExtResource("23_7wrb7")
+
+[node name="WorldLighting" type="Node" parent="Systems"]
+script = ExtResource("lighting_shared")
+Profile = ExtResource("lighting_profile")
