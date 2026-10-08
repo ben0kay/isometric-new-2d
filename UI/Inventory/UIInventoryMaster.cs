@@ -146,6 +146,15 @@ public VBoxContainer Section(Node parent, string title)
 		};
 		AddTab("INVENTORY", _inventoryTab);
 
+		        CraftingTab craftingTab = new()
+        {
+            Hud = this,
+            Crafting = Player.GetNode<PlayerCrafting>("Systems/Crafting"),
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        AddTab("CRAFTING", craftingTab);
+
 		Control spacer = new() { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 		_tabs.AddChild(spacer);
 		Button close = new()

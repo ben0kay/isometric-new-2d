@@ -294,6 +294,121 @@ public bool TryTakeOne(InventoryAddress address, ItemDefinition expected)
 }
 	#endregion
 
+	    #region Crafting
+    // =========================================================
+    // Count ingredients in physical backpack slots, excluding equipped gear.
+    public int GetBagItemCount(string itemId)
+    {
+        long total = 0;
+
+        for (int i = 0; i < _storage.SlotCount; i++)
+        {
+            InventoryStack stack = _storage.Get(i);
+
+            if (!stack.IsEmpty && stack.Item.Id == itemId)
+                total += stack.Count;
+        }
+
+        return (int)Math.Min(total, int.MaxValue);
+    }
+
+    // =========================================================
+    // Check ingredient availability for a requested number of crafting operations.
+    public bool HasCraftingIngredients(CraftingRecipe recipe, int quantity)
+    {
+        if (recipe == null || quantity < 1) return false;
+
+        foreach (CraftingIngredient ingredient in recipe.Ingredients)
+        {
+            long required = (long)ingredient.Count * quantity;
+
+            if (GetBagItemCount(ingredient.ItemId) < required)
+                return false;
+        }
+
+        return true;
+    }
+
+    // =========================================================
+	// Exchange one recipe's ingredients and output in a single safe transaction.
+	public bool TryCraft(CraftingRecipe recipe, out string reason)
+	{
+		reason = "";
+
+		if (recipe == null || recipe.Output == null ||
+			Equipment.Backpack == null)
+		{
+			reason = "A backpack is required.";
+			return false;
+		}
+
+		InventoryStorage staged = _storage.Clone();
+
+		foreach (CraftingIngredient ingredient in recipe.Ingredients)
+		{
+			int remaining = ingredient.Count;
+
+			for (int i = 0; i < staged.SlotCount && remaining > 0; i++)
+			{
+				InventoryStack stack = staged.Get(i);
+
+				if (stack.IsEmpty || stack.Item.Id != ingredient.ItemId)
+					continue;
+
+				int taken = Math.Min(remaining, stack.Count);
+				staged.Set(i, new InventoryStack(
+					stack.Item, stack.Count - taken));
+
+				remaining -= taken;
+			}
+
+			if (remaining > 0)
+			{
+				reason = $"Waiting for ingredient: {ingredient.ItemId}.";
+				return false;
+			}
+		}
+
+		if (!staged.TryAdd(recipe.Output, recipe.OutputCount))
+		{
+			reason = "Waiting for backpack space.";
+			return false;
+		}
+
+		BackpackDefinition pack = Equipment.Backpack;
+
+		GetTotals(staged, Equipment.CopyTools(), pack,
+			out float weight, out float volume);
+
+		if (!Rules.Allows(
+			weight, volume, Rules.MaximumWeightKg,
+			pack.CapacityLitres, out reason))
+			return false;
+
+		// Clear shortcuts only when their original stack disappears or changes item.
+		var removed = new System.Collections.Generic.List<InventoryAddress>();
+
+		for (int i = 0; i < _storage.SlotCount; i++)
+		{
+			InventoryStack before = _storage.Get(i);
+			InventoryStack after = staged.Get(i);
+
+			if (!before.IsEmpty &&
+				(after.IsEmpty ||
+				 !InventoryStorage.SameItem(before.Item, after.Item)))
+				removed.Add(new InventoryAddress(InventoryArea.Bag, i));
+		}
+
+		_storage = staged;
+
+		foreach (InventoryAddress address in removed)
+			Removed?.Invoke(address);
+
+		Recalculate();
+		return true;
+	}
+	#endregion
+
 	#region Carrying State
 	// =========================================================
 	// Include externally equipped tools and backpack mass, but only bag contents volume.

@@ -1,5 +1,5 @@
-// Holds world-wide loot frequency and terrain slope rules.
-// Inherits shared visibility settings from GlobalConfig.
+// Holds terrain slope rules for the world's CONFIG node.
+// Inherits shared game settings from GlobalConfig.
 using Godot;
 using System;
 
@@ -8,12 +8,6 @@ public partial class WorldConfig : GlobalConfig
     #region Defaults
     public const float DefaultSlopeAngle = 30f;
     public const float DefaultSlopeHeightScale = 1f;
-    #endregion
-
-    #region Loot
-    [ExportGroup("LOOT")]
-    [Export(PropertyHint.Range, "0,10,0.05")]
-    public float SpawnFrequencyMultiplier { get; set; } = 1f;
     #endregion
 
     #region Terrain Slopes
@@ -48,36 +42,6 @@ public partial class WorldConfig : GlobalConfig
     {
         return TryFind(context) ?? throw new InvalidOperationException(
             "World requires a CONFIG node using WorldConfig.cs.");
-    }
-    #endregion
-
-    #region Loot Frequency
-    // =========================================================
-    // Scale placement attempts with deterministic fractional rounding.
-    public int GetLootSpawnAttempts(int baseline, ulong seed)
-    {
-        float multiplier = SpawnFrequencyMultiplier;
-
-        if (!float.IsFinite(multiplier) || multiplier < 0f)
-            throw new InvalidOperationException(
-                "Loot spawn frequency must be finite and non-negative.");
-
-        double desired = Math.Max(0, baseline) * (double)multiplier;
-
-        if (desired > int.MaxValue - 1)
-            throw new InvalidOperationException(
-                "Loot spawn frequency produces too many attempts.");
-
-        int count = (int)Math.Floor(desired);
-        double fraction = desired - count;
-
-        if (fraction > 0.0)
-        {
-            using RandomNumberGenerator rng = new();
-            rng.Seed = seed;
-            if (rng.Randf() < fraction) count++;
-        }
-        return count;
     }
     #endregion
 }

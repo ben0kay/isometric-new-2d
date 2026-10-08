@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c3gvdm3m8q0kn"]
 
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="1_wwo7c"]
+[ext_resource type="Resource" uid="uid://ckwkxcmb1wjle" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="1_wwo7c"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_species"]
 [ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="4_placement"]

@@ -31,9 +31,7 @@ public partial class ChunkController : Node
 	[Export] public bool ShowChunkBoundaries { get; set; }
 	[ExportGroup("Spawn")]
 	[Export] public float SpawnClearRadius { get; set; } = 320f;
-	[ExportGroup("Test Props")]
-	[Export] public int CratesPerChunk { get; set; } = 2;
-	[Export] public VisualDefinition CrateVisual { get; set; }
+
 	#endregion
 
 	#region Chunk Records
@@ -407,119 +405,47 @@ private void RunRetirementBudget()
 
 	#region Stages 2–7 — Activate Nearby Chunks
 	// =========================================================
-	// Activate terrain, solids, vegetation and local water artwork.
-	private IEnumerable<ChunkBuildStage> ActivateChunk(ChunkRecord chunk)
-	{
-		foreach (ChunkBuildStage stage in chunk.Ground.UploadSteps())
-			yield return stage;
-		chunk.Ground.Visible = true;
-
-		foreach (ChunkBuildStage stage in _rocks.PopulateSteps(
-			chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
-			_groundRoot, _objects, _spawnPoint,
-			SpawnClearRadius, chunk.Obstacles))
-			yield return stage;
-
-		foreach (ChunkBuildStage stage in CreateCrateSteps(chunk))
-			yield return stage;
-
-		foreach (ChunkBuildStage stage in _vegetation.PopulateSteps(
-			chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
-			_groundRoot, _objects, _spawnPoint, SpawnClearRadius))
-			yield return stage;
-
-		foreach (ChunkBuildStage stage in _grass.PopulateSteps(
-			chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
-			_groundRoot, _objects, _spawnPoint))
-			yield return stage;
-
-		SurfaceWorld surfaces = SurfaceWorld.Find(this);
-		if (surfaces != null)
-		{
-			Rect2 area = new(
-				new Vector2(chunk.Coordinate.X * ChunkSize - 0.5f,
-					chunk.Coordinate.Y * ChunkSize - 0.5f),
-				Vector2.One * ChunkSize);
-
-			foreach (int step in surfaces.PrepareFills(area))
-				yield return ChunkBuildStage.Prepared;
-		}
-
-		chunk.Ready = true;
-		chunk.Stage = ChunkBuildStage.Ready;
-		ChunkAvailabilityChanged?.Invoke(chunk.Coordinate);
-	}
-
-// =========================================================
-// Spawn world loot using CONFIG's shared frequency and stable chunk identities.
-private IEnumerable<ChunkBuildStage> CreateCrateSteps(ChunkRecord chunk)
+// Activate terrain, rocks, vegetation, grass, and local water artwork.
+private IEnumerable<ChunkBuildStage> ActivateChunk(ChunkRecord chunk)
 {
-	WorldConfig config = WorldConfig.Find(this);
-	Vector2I coordinate = chunk.Coordinate;
+	foreach (ChunkBuildStage stage in chunk.Ground.UploadSteps())
+		yield return stage;
+	chunk.Ground.Visible = true;
 
-	int attempts = config.GetLootSpawnAttempts(
-		CratesPerChunk,
-		IsoGrid.Hash(
-			coordinate.X, coordinate.Y, WorldSeed ^ 0x10A7u));
+	foreach (ChunkBuildStage stage in _rocks.PopulateSteps(
+		chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint,
+		SpawnClearRadius, chunk.Obstacles))
+		yield return stage;
 
-	if (attempts == 0) yield break;
+	foreach (ChunkBuildStage stage in _vegetation.PopulateSteps(
+		chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint, SpawnClearRadius))
+		yield return stage;
 
-	LootWorld.GetOrCreate(this);
+	foreach (ChunkBuildStage stage in _grass.PopulateSteps(
+		chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
+		_groundRoot, _objects, _spawnPoint))
+		yield return stage;
 
-	PackedScene scene = GD.Load<PackedScene>(
-		"res://WORLDABLES/Objects/Storage/ArmouredCrate/ArmouredCrateLoot.tscn");
-
-	if (scene == null)
-		throw new InvalidOperationException(
-			"ArmouredCrateLoot.tscn is missing.");
-
-	List<Obstacle> obstacles = WorldPlacement.CollectObstacles(_objects);
-	using RandomNumberGenerator rng = new();
-
-	rng.Seed = IsoGrid.Hash(
-		coordinate.X, coordinate.Y, WorldSeed ^ 0xC8A7u);
-
-	float lowX = coordinate.X * ChunkSize - 0.5f;
-	float lowY = coordinate.Y * ChunkSize - 0.5f;
-
-	for (int i = 0; i < attempts; i++)
+	SurfaceWorld surfaces = SurfaceWorld.Find(this);
+	if (surfaces != null)
 	{
-		yield return ChunkBuildStage.Crates;
+		Rect2 area = new(
+			new Vector2(chunk.Coordinate.X * ChunkSize - 0.5f,
+				chunk.Coordinate.Y * ChunkSize - 0.5f),
+			Vector2.One * ChunkSize);
 
-		Vector2 tile = new(
-			rng.RandfRange(lowX, lowX + ChunkSize),
-			rng.RandfRange(lowY, lowY + ChunkSize));
-
-		Vector2 local = IsoGrid.TileToWorld(tile, TileSize);
-		Vector2 global = _groundRoot.ToGlobal(local);
-
-		Obstacle crate = scene.Instantiate<Obstacle>();
-		Vector2 footprint = crate.Footprint;
-
-		if (global.DistanceSquaredTo(_spawnPoint) <
-				SpawnClearRadius * SpawnClearRadius ||
-			!ChasmFeature.HasGroundClearance(
-				local, TileSize, footprint.Length() * 0.5f + 12f) ||
-			WorldPlacement.IsBlocked(
-				_objects, global, footprint,
-				obstacles, new Vector2(12, 8)))
-		{
-			crate.Free();
-			continue;
-		}
-
-		crate.Name =
-			$"ArmouredLootCrate_{coordinate.X}_{coordinate.Y}_{i}";
-
-		crate.Position = _objects.ToLocal(global);
-		crate.GetNode<LootContainer>("Systems/Loot").PersistentId =
-			$"armoured_crate:{coordinate.X}:{coordinate.Y}:{i}";
-
-		_objects.AddChild(crate);
-		chunk.Obstacles.Add(crate);
-		obstacles.Add(crate);
+		foreach (int step in surfaces.PrepareFills(area))
+			yield return ChunkBuildStage.Prepared;
 	}
+
+	chunk.Ready = true;
+	chunk.Stage = ChunkBuildStage.Ready;
+	ChunkAvailabilityChanged?.Invoke(chunk.Coordinate);
 }
+
+
 	#endregion
 
 	#region Stage 8 — Retire Old Chunks

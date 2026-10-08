@@ -127,7 +127,6 @@ script = ExtResource("3_fps")
 script = ExtResource("16_4857e")
 
 [node name="CONFIG" parent="." unique_id=857453352 instance=ExtResource("20_6li7p")]
-SpawnFrequencyMultiplier = 0.5
 
 [node name="CaveLayerTest" type="Node" parent="." unique_id=342114073]
 script = ExtResource("23_7wrb7")

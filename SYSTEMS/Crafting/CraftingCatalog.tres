@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="CraftingCatalog" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="2_recipe_script"]
+[ext_resource type="Resource" path="res://WORLDABLES/Objects/Building/TestCube/TestCubeRecipe.tres" id="3_cube"]
+
+[resource]
+script = ExtResource("1_catalog")
+Recipes = Array[ExtResource("2_recipe_script")]([ExtResource("3_cube")])

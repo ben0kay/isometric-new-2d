@@ -64,7 +64,7 @@ private void RegisterCatalog(
             item.Icon = item.Id switch
             {
                 "alien_berry" => AlienBerryDrawing.GetTexture(),
-                "test_cube" => TestCubeItemDrawing.GetTexture(),
+                "test_cube" => TestCubeDrawing.GetIconTexture(),
                 _ => CreateIcon(item.Id)
             };
     }
