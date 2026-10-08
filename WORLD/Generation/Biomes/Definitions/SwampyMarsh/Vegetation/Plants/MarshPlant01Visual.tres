@@ -1,11 +1,10 @@
-[gd_resource type="Resource" script_class="VisualDefinition" format=3]
+[gd_resource type="Resource" script_class="VisualDefinition" format=3 uid="uid://cw64u6cvp5vcg"]
 
-[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
-[ext_resource type="Texture2D" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.png" id="2_image"]
+[ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
+[ext_resource type="Texture2D" uid="uid://b5uvcpiis4exs" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.png" id="2_image"]
 
 [resource]
 script = ExtResource("1_visual")
 Image = ExtResource("2_image")
 ArtworkScale = Vector2(0.12, 0.12)
 ImageAnchor = Vector2(0.5, 0.96)
-ImageFilter = 2

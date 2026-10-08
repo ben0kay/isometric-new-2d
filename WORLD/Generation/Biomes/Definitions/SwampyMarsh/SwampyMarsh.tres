@@ -1,10 +1,81 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c3gvdm3m8q0kn"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="2_colors"]
+[ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Resource" uid="uid://ckwkxcmb1wjle" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshColors.tres" id="2_colors"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshGround.tres" id="3_ground"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_species"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshBasins.tres" id="4_basins"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshContent.tres" id="5_content"]
+[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="4_placement"]
+[ext_resource type="Resource" uid="uid://btwuqphtsd0nl" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshContent.tres" id="5_content"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="8_short"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="9_medium"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="10_tall"]
+[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="11_frond"]
+[ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="12_shrub"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.tres" id="12_wdvnm"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="13_tree"]
+[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="14_rock"]
+[ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="15_enemies"]
+
+[sub_resource type="Resource" id="RockEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("14_rock")
+
+[sub_resource type="Resource" id="ShortGrassEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("8_short")
+Weight = 5.0
+
+[sub_resource type="Resource" id="MediumGrassEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("9_medium")
+Weight = 20.0
+
+[sub_resource type="Resource" id="TallGrassEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("10_tall")
+Weight = 75.0
+
+[sub_resource type="Resource" id="GrassPlacement"]
+script = ExtResource("4_placement")
+Distribution = 1
+ClumpsPerChunk = 10
+ClumpRadiusTiles = 2.2
+
+[sub_resource type="Resource" id="MarshPlantEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("12_wdvnm")
+Weight = 70.0
+
+[sub_resource type="Resource" id="FrondEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("11_frond")
+Weight = 20.0
+
+[sub_resource type="Resource" id="ShrubEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("12_shrub")
+Weight = 10.0
+
+[sub_resource type="Resource" id="TreeEntry"]
+script = ExtResource("3_species")
+Definition = ExtResource("13_tree")
+
+[sub_resource type="Resource" id="TreePlacement"]
+script = ExtResource("4_placement")
+FrequencyMultiplier = 0.2
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+Plants = Array[ExtResource("3_species")]([SubResource("MarshPlantEntry"), SubResource("FrondEntry"), SubResource("ShrubEntry")])
+TreesPerChunk = 1
+Trees = Array[ExtResource("3_species")]([SubResource("TreeEntry")])
+TreesPlacement = SubResource("TreePlacement")
+GrassPatches = 12
+GrassTuftsPerPatch = 12
+Grass = Array[ExtResource("3_species")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
+GrassPlacement = SubResource("GrassPlacement")
 
 [resource]
 script = ExtResource("1_biome")
@@ -18,7 +89,11 @@ RollingFeatureSize = 32.0
 PlateausEnabled = false
 ColourProfile = ExtResource("2_colors")
 Content = ExtResource("5_content")
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 1
+Rocks = Array[ExtResource("3_species")]([SubResource("RockEntry")])
 FeatureOverrides = Dictionary[String, Resource]({
 "basins": ExtResource("4_basins"),
 "ground": ExtResource("3_ground")
 })
+Enemies = ExtResource("15_enemies")

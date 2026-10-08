@@ -17,4 +17,9 @@ public partial class VisualDefinition : Resource
     [Export] public CanvasItem.TextureFilterEnum ImageFilter { get; set; }
         = CanvasItem.TextureFilterEnum.Linear;
     #endregion
+
+        #region Vegetation Effects
+    [ExportGroup("Vegetation Effects")]
+    [Export] public VegetationVisualSettings Vegetation { get; set; }
+    #endregion
 }

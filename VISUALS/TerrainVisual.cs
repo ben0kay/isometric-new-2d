@@ -13,50 +13,60 @@ public partial class TerrainVisual : Node2D
     #endregion
 
     #region Creation
-// =========================================================
-// Attach artwork, actor hitboxes and shared player-obstruction fading.
-public static TerrainVisual Attach(
-    Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
-    bool followMovement, VisualDefinition definition = null,
-    Texture2D fallbackTexture = null, Material fallbackMaterial = null)
-{
-    TerrainVisual visual = new()
+    // =========================================================
+    // Attach chosen artwork, actor hitboxes and optional obstruction fading.
+    public static TerrainVisual Attach(
+        Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
+        bool followMovement, VisualDefinition definition = null,
+        Texture2D fallbackTexture = null, Material fallbackMaterial = null)
     {
-        Name = "Visual",
-        FollowMovement = followMovement
-    };
-
-    if (!visual.TryAttachCustom(definition))
-    {
-        if (fallbackTexture == null)
-            visual.AttachBaked(region, origin, scale);
-        else
+        TerrainVisual visual = new()
         {
-            visual.AddChild(new Sprite2D
+            Name = "Visual",
+            FollowMovement = followMovement
+        };
+
+        if (!visual.TryAttachCustom(definition))
+        {
+            if (fallbackTexture == null)
+                visual.AttachBaked(region, origin, scale);
+            else
             {
-                Name = "Artwork",
-                Texture = new AtlasTexture
+                visual.AddChild(new Sprite2D
                 {
-                    Atlas = fallbackTexture,
-                    Region = region
-                },
-                Centered = false,
-                Offset = origin,
-                Scale = scale,
-                Material = fallbackMaterial ?? PlaceholderAtlas.BakedMaterial,
-                TextureFilter = TextureFilterEnum.Linear
-            });
+                    Name = "Artwork",
+                    Texture = new AtlasTexture
+                    {
+                        Atlas = fallbackTexture,
+                        Region = region
+                    },
+                    Centered = false,
+                    Offset = origin,
+                    Scale = scale,
+                    Material = fallbackMaterial ?? PlaceholderAtlas.BakedMaterial,
+                    TextureFilter = TextureFilterEnum.Linear
+                });
+            }
         }
+
+        host.AddChild(visual);
+
+        Sprite2D sprite = visual.GetNodeOrNull<Sprite2D>("Artwork");
+        if (sprite != null && definition?.Image != null &&
+            sprite.Texture == definition.Image)
+            ImportedVegetationMaterials.Attach(host, sprite, definition);
+
+        CombatHitbox.Attach(host, visual);
+
+        bool fade = definition?.Vegetation?.FadeBehindPlayer
+            ?? (host is Tree || host is Plant);
+        PlayerObstructionFade.Attach(host, visual, fade);
+
+        return visual;
     }
 
-    host.AddChild(visual);
-    CombatHitbox.Attach(host, visual);
-    PlayerObstructionFade.Attach(host, visual);
-    return visual;
-}
-
-    // =========================================================
-    // Prefer a valid visual scene, then an image, otherwise request the fallback.
+// =========================================================
+    // Prefer a custom scene, then an imported image, then the baked fallback.
     private bool TryAttachCustom(VisualDefinition definition)
     {
         if (definition == null) return false;
@@ -75,7 +85,8 @@ public static TerrainVisual Attach(
 
             instance.Free();
             GD.PushWarning(
-                "VisualDefinition requires a Node2D scene root. Trying image or baked fallback.");
+                "VisualDefinition requires a Node2D scene root. " +
+                "Trying image or baked fallback.");
         }
 
         if (definition.Image == null) return false;

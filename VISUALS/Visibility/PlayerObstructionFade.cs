@@ -69,10 +69,15 @@ public partial class PlayerObstructionFade : Node
     }
 
     // =========================================================
-    // Register player artwork or an existing tree sprite.
-    public static void Attach(Node2D host, TerrainVisual visual)
+    // Register the player or eligible stationary vegetation artwork.
+    public static void Attach(
+        Node2D host, TerrainVisual visual, bool enabled = true)
     {
-        if (host is not Player && host is not Tree) return;
+        if (host is not Player &&
+            (!enabled || (host is not Tree &&
+                          host is not Plant &&
+                          host is not Grass)))
+            return;
 
         PlayerObstructionFade manager = FindManager(host);
         if (manager == null) return;
@@ -85,7 +90,6 @@ public partial class PlayerObstructionFade : Node
         }
 
         Sprite2D sprite = visual.GetNodeOrNull<Sprite2D>("Artwork");
-
         if (sprite == null)
         {
             GD.PushWarning(

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" format=3 uid="uid://btwuqphtsd0nl"]
+[gd_resource type="Resource" script_class="BiomeContent" format=3 uid="uid://btwuqphtsd0nl"]
 
 [ext_resource type="Script" uid="uid://bwfdkn22kvm5v" path="res://WORLD/Generation/Biomes/BiomeContent.cs" id="1_content"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
