@@ -10,14 +10,19 @@ public partial class Entity : CharacterBody2D
     [Export] public string HerdId { get; set; } = "";
     #endregion
 
-    #region Public State
-    public Health Health { get; private set; }
-    public EntityHerd Herd { get; private set; }
-    public Vector2 Home { get; private set; }
-    public bool HasThreat => Living(_threat);
-    public Vector2 Centre => GodotObject.IsInstanceValid(Herd)
-        ? Herd.GlobalPosition : Home;
-    #endregion
+#region Public State
+public Health Health { get; private set; }
+public EntityHerd Herd { get; private set; }
+public Vector2 Home { get; private set; }
+public bool HasThreat => Living(_threat);
+
+public bool HasHerd => GodotObject.IsInstanceValid(Herd) &&
+    !Herd.IsQueuedForDeletion();
+
+public Vector2 Centre => HasHerd ? Herd.GlobalPosition : Home;
+public float ActiveWanderRadius => HasHerd
+    ? Herd.WanderRadius : Definition.WanderRadius;
+#endregion
 
     #region State
     private EnemyMotor _motor;
@@ -87,19 +92,27 @@ public partial class Entity : CharacterBody2D
         }
     }
 
-    // =========================================================
-    // Release reservations, herd membership and subscriptions on every exit.
-    public override void _ExitTree()
+// =========================================================
+// Release reservations, herd membership and subscriptions on every exit.
+public override void _ExitTree()
+{
+    ReleaseFood();
+
+    EntityHerd previousHerd = Herd;
+    Herd = null;
+
+    if (GodotObject.IsInstanceValid(previousHerd) &&
+        !previousHerd.IsQueuedForDeletion())
+        previousHerd.Leave(this);
+
+    if (GodotObject.IsInstanceValid(Health))
     {
-        ReleaseFood();
-        if (GodotObject.IsInstanceValid(Herd)) Herd.Leave(this);
-        if (GodotObject.IsInstanceValid(Health))
-        {
-            Health.Hit -= OnHit;
-            Health.Died -= OnDeath;
-        }
-        _rng.Dispose();
+        Health.Hit -= OnHit;
+        Health.Died -= OnDeath;
     }
+
+    _rng.Dispose();
+}
 
     // =========================================================
     // Advance movement and feeding while staggering decisions and threat scans.
@@ -168,83 +181,94 @@ public partial class Entity : CharacterBody2D
     #endregion
 
     #region Decisions
-    // =========================================================
-    // Prioritize threats, then grazing, then a valid wandering destination.
-    private void Decide()
+// =========================================================
+// Prioritize threats, then use the active solo or shared herd wander area.
+private void Decide()
+{
+    ScanPersonalSpace();
+
+    if (HasThreat)
     {
-        ScanPersonalSpace();
-
-        if (HasThreat)
-        {
-            if (_threatMemory <= 0.0 ||
-                GlobalPosition.DistanceSquaredTo(_threat.GlobalPosition) >
-                    Definition.DisengageRange * Definition.DisengageRange ||
-                GlobalPosition.DistanceSquaredTo(Centre) >
-                    Definition.MaxPursuitDistance * Definition.MaxPursuitDistance)
-            {
-                _threat = null;
-                _motor.Stop();
-                _motor.SetGoal(Centre, Definition.WanderSpeed, 16f);
-                return;
-            }
-
-            HandleThreat();
-            return;
-        }
-
-        if (_threat != null)
+        if (_threatMemory <= 0.0 ||
+            GlobalPosition.DistanceSquaredTo(_threat.GlobalPosition) >
+                Definition.DisengageRange * Definition.DisengageRange ||
+            GlobalPosition.DistanceSquaredTo(Centre) >
+                Definition.MaxPursuitDistance * Definition.MaxPursuitDistance)
         {
             _threat = null;
             _motor.Stop();
-        }
-
-        if (_food != null)
-        {
-            if (_food.GlobalPosition.DistanceSquaredTo(Centre) >
-                Definition.WanderRadius * Definition.WanderRadius * 1.5f)
-            {
-                ReleaseFood();
-                _motor.Stop();
-            }
-            else
-                return;
-        }
-
-        if (_motor.HasGoal || _wait > 0.0) return;
-
-        if (Definition.GrazingEnabled && _feedingCooldown <= 0.0)
-        {
-            _food = _grazing.Reserve(
-                this, Centre, Definition.WanderRadius);
-
-            if (_food != null)
-            {
-                _travelTime = 0.0;
-                _motor.SetGoal(
-                    _food.GlobalPosition, Definition.WanderSpeed, 18f);
-                return;
-            }
-        }
-
-        WorldNavigation navigation = WorldNavigation.For(this);
-        if (navigation == null) return;
-
-        for (int attempt = 0; attempt < 4; attempt++)
-        {
-            Vector2 point = Centre +
-                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
-                Mathf.Sqrt(_rng.Randf()) * Definition.WanderRadius;
-
-            if (!navigation.CanTravelDirectly(GlobalPosition, point))
-                continue;
-
-            _travelTime = 0.0;
-            _motor.SetGoal(point, Definition.WanderSpeed, 12f);
+            _motor.SetGoal(Centre, Definition.WanderSpeed, 16f);
             return;
         }
 
-        _wait = 2.0;
+        HandleThreat();
+        return;
     }
+
+    if (_threat != null)
+    {
+        _threat = null;
+        _motor.Stop();
+    }
+
+    Vector2 centre = Centre;
+    float radius = ActiveWanderRadius;
+    float radiusSquared = radius * radius;
+
+    if (_food != null)
+    {
+        if (_food.GlobalPosition.DistanceSquaredTo(centre) > radiusSquared)
+        {
+            ReleaseFood();
+            _motor.Stop();
+        }
+        else
+            return;
+    }
+
+    if (_motor.HasGoal) return;
+
+    WorldNavigation navigation = WorldNavigation.For(this);
+    if (navigation == null) return;
+
+    // Recover after pursuit or a centre shift before ordinary wandering.
+    if (GlobalPosition.DistanceSquaredTo(centre) > radiusSquared)
+    {
+        _travelTime = 0.0;
+        _motor.SetGoal(centre, Definition.WanderSpeed, 16f);
+        return;
+    }
+
+    if (_wait > 0.0) return;
+
+    if (Definition.GrazingEnabled && _feedingCooldown <= 0.0)
+    {
+        _food = _grazing.Reserve(this, centre, radius);
+        if (_food != null)
+        {
+            _travelTime = 0.0;
+            _motor.SetGoal(
+                _food.GlobalPosition, Definition.WanderSpeed, 18f);
+            return;
+        }
+    }
+
+    for (int attempt = 0; attempt < 4; attempt++)
+    {
+        Vector2 point = centre +
+            Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
+            Mathf.Sqrt(_rng.Randf()) * radius;
+
+        if (!navigation.CanTravelDirectly(GlobalPosition, point))
+            continue;
+
+        _travelTime = 0.0;
+        _motor.SetGoal(point, Definition.WanderSpeed, 12f);
+        return;
+    }
+
+    _wait = 2.0;
+}
 
     // =========================================================
     // Respond to nearby actors according to species and herd tolerance.
@@ -372,14 +396,23 @@ public void ReactTo(Node2D attacker)
             Herd.Alert(attacker);
     }
 
-    // =========================================================
-    // Remove the actor after the separate death-loot subscriber has delivered loot.
-    private void OnDeath()
-    {
-        _motor.Stop();
-        ReleaseFood();
-        QueueFree();
-    }
+// =========================================================
+// Deliver the existing death flow and immediately update surviving herd members.
+private void OnDeath()
+{
+    _motor.Stop();
+    ReleaseFood();
+
+    EntityHerd previousHerd = Herd;
+    Herd = null;
+    HerdId = "";
+
+    if (GodotObject.IsInstanceValid(previousHerd) &&
+        !previousHerd.IsQueuedForDeletion())
+        previousHerd.Leave(this);
+
+    QueueFree();
+}
 
     // =========================================================
     // Clear feeding state and relinquish the target on interruption.
@@ -402,4 +435,38 @@ public void ReactTo(Node2D attacker)
             actor.GetNodeOrNull<Health>("Systems/Health")?.IsAlive == true;
     }
     #endregion
+
+    // =========================================================
+// Adopt a solo anchor at the survivor's current position without cancelling combat.
+public void BecomeSolo(EntityHerd previousHerd)
+{
+    if (Herd != previousHerd) return;
+
+    Herd = null;
+    HerdId = "";
+    Home = GlobalPosition;
+    ReleaseFood();
+    _wait = 0.0;
+
+    if (!HasThreat)
+        _motor?.Stop();
+}
+
+// =========================================================
+// Reconsider peaceful movement after the shared centre changes.
+public void ReconsiderWanderArea()
+{
+    if (HasThreat) return;
+
+    // Keep feeding or approaching a tuft still inside the new shared area.
+    if (GodotObject.IsInstanceValid(_food) &&
+        !_food.IsQueuedForDeletion() &&
+        _food.GlobalPosition.DistanceSquaredTo(Centre) <=
+            ActiveWanderRadius * ActiveWanderRadius)
+        return;
+
+    ReleaseFood();
+    _motor?.Stop();
+    _wait = 0.0;
+}
 }

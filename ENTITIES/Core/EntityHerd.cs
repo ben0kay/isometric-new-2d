@@ -1,90 +1,125 @@
-// Maintains a slowly roaming herd centre around a fixed home anchor.
-// Damage alerts are events; members choose their own configured response.
+// Owns a shared wander area that steps periodically around its original anchor.
+// Membership changes dissolve a completed herd when fewer than two remain.
 using Godot;
+using System;
 using System.Collections.Generic;
 
 public partial class EntityHerd : Node2D
 {
     #region Configuration
     [Export] public string HerdId { get; set; } = "";
-    [Export] public float RoamRadius { get; set; } = 260f;
-    [Export] public float CentreSpeed { get; set; } = 8f;
+    [Export] public EntityDefinition Definition { get; set; }
+    #endregion
+
+    #region Public State
+    public Vector2 Home { get; private set; }
+    public float WanderRadius => Definition.HerdWanderRadius;
+    public float RoamRadius => Definition.HerdRoamRadius;
+    public int MemberCount => _members.Count;
+    public bool FormationComplete { get; private set; }
     #endregion
 
     #region State
-    public Vector2 Home { get; private set; }
-    private Vector2 _destination;
-    private double _wait;
     private readonly List<Entity> _members = new();
     private readonly RandomNumberGenerator _rng = new();
+    private Timer _stepTimer;
+    private bool _dissolving;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Register this layer-scoped herd and retain its original anchor.
+    // Register the herd and prepare a timer without a herd processing loop.
     public override void _Ready()
     {
+        if (Definition == null)
+            throw new InvalidOperationException(
+                "EntityHerd requires a species Definition.");
+
+        Definition.Validate();
         AddToGroup("entity_herds");
         Home = GlobalPosition;
-        _destination = Home;
         _rng.Randomize();
         WorldLayerMember.Attach(this, WorldLayer.Surface);
+
+        _stepTimer = new Timer
+        {
+            Name = "CentreStepTimer",
+            WaitTime = Definition.HerdCentreIntervalSeconds,
+            OneShot = false,
+            ProcessCallback = Timer.TimerProcessCallback.Physics
+        };
+        AddChild(_stepTimer);
+        _stepTimer.Timeout += OnCentreStep;
+
+        SetProcess(false);
+        SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Release the native random generator with the herd.
+    // Release the timer subscription and native random generator.
     public override void _ExitTree()
     {
+        if (GodotObject.IsInstanceValid(_stepTimer))
+            _stepTimer.Timeout -= OnCentreStep;
+
         _rng.Dispose();
     }
+    #endregion
 
+    #region Roaming
     // =========================================================
-    // Move slowly along validated ground, pausing while members defend or flee.
-    public override void _PhysicsProcess(double delta)
+    // Try a small centre step only when the timer expires and members are calm.
+    private void OnCentreStep()
     {
-        if (_members.Count == 0) return;
+        _stepTimer.WaitTime = Math.Max(
+            1.0, Definition.HerdCentreIntervalSeconds);
+
+        if (_dissolving || !FormationComplete || _members.Count < 2)
+            return;
+
         foreach (Entity member in _members)
             if (GodotObject.IsInstanceValid(member) && member.HasThreat)
                 return;
 
-        _wait -= delta;
-        if (!StaggeredUpdate.DueSeconds(this, 0.25, 21)) return;
+        float step = Definition.HerdCentreStepDistance;
+        if (step <= 0f || RoamRadius <= 0f) return;
 
         WorldNavigation navigation = WorldNavigation.For(this);
         if (navigation == null) return;
 
-        if (GlobalPosition.DistanceSquaredTo(_destination) <= 16f)
+        for (int attempt = 0; attempt < 4; attempt++)
         {
-            if (_wait > 0.0) return;
-            _wait = _rng.RandfRange(6f, 12f);
+            Vector2 point = GlobalPosition +
+                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) * step;
 
-            Vector2 candidate = Home +
-                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
-                Mathf.Sqrt(_rng.Randf()) * RoamRadius;
+            if (point.DistanceSquaredTo(Home) > RoamRadius * RoamRadius ||
+                !navigation.CanTravelDirectly(GlobalPosition, point))
+                continue;
 
-            if (navigation.CanTravelDirectly(GlobalPosition, candidate))
-                _destination = candidate;
+            GlobalPosition = point;
+
+            foreach (Entity member in _members)
+                if (GodotObject.IsInstanceValid(member) &&
+                    !member.IsQueuedForDeletion())
+                    member.ReconsiderWanderArea();
+
+            return;
         }
-
-        Vector2 next = GlobalPosition.MoveToward(
-            _destination, Mathf.Max(0f, CentreSpeed) * 0.25f);
-
-        if (navigation.CanTravelDirectly(GlobalPosition, next))
-            GlobalPosition = next;
-        else
-            _destination = GlobalPosition;
     }
     #endregion
 
     #region Membership
     // =========================================================
-    // Resolve the requested herd only within the member's current world layer.
+    // Find a compatible, present herd within the creature's world layer.
     public static EntityHerd Find(Entity actor, string id)
     {
         if (string.IsNullOrWhiteSpace(id)) return null;
 
         foreach (Node node in actor.GetTree().GetNodesInGroup("entity_herds"))
-            if (node is EntityHerd herd && herd.HerdId == id &&
+            if (node is EntityHerd herd &&
+                !herd.IsQueuedForDeletion() && !herd._dissolving &&
+                herd.HerdId == id && herd.Definition != null &&
+                herd.Definition.SpeciesId == actor.Definition.SpeciesId &&
                 WorldLayerMember.Same(actor, herd))
                 return herd;
 
@@ -92,26 +127,69 @@ public partial class EntityHerd : Node2D
     }
 
     // =========================================================
-    // Register one member without duplicates.
+    // Add one member while retaining the forming herd's shared centre.
     public void Join(Entity member)
     {
-        if (!_members.Contains(member)) _members.Add(member);
+        if (_dissolving || _members.Contains(member)) return;
+        _members.Add(member);
     }
 
     // =========================================================
-    // Remove dead or departing members.
+    // Start roaming only after the spawner has finished creating members.
+    public void CompleteFormation()
+    {
+        if (FormationComplete || _dissolving) return;
+
+        FormationComplete = true;
+        CheckSurvivors();
+
+        if (!_dissolving)
+            _stepTimer.Start();
+    }
+
+    // =========================================================
+    // Remove a departing member and check whether the herd still exists.
     public void Leave(Entity member)
     {
-        _members.Remove(member);
+        if (!_members.Remove(member) || !FormationComplete || _dissolving)
+            return;
+
+        CheckSurvivors();
     }
 
     // =========================================================
-    // Notify the herd once; recipients never rebroadcast the same alert.
+    // Convert the last living member to solo wandering and remove the herd.
+    private void CheckSurvivors()
+    {
+        for (int i = _members.Count - 1; i >= 0; i--)
+        {
+            Entity member = _members[i];
+            if (!GodotObject.IsInstanceValid(member) ||
+                member.IsQueuedForDeletion() ||
+                member.Health?.IsAlive != true)
+                _members.RemoveAt(i);
+        }
+
+        if (_members.Count >= 2) return;
+
+        _dissolving = true;
+        _stepTimer.Stop();
+
+        if (_members.Count == 1)
+            _members[0].BecomeSolo(this);
+
+        _members.Clear();
+        QueueFree();
+    }
+
+    // =========================================================
+    // Broadcast damage alerts without recipients rebroadcasting them.
     public void Alert(Node2D attacker)
     {
         foreach (Entity member in _members)
             if (GodotObject.IsInstanceValid(member) &&
-                !member.IsQueuedForDeletion() && member.Health.IsAlive)
+                !member.IsQueuedForDeletion() &&
+                member.Health?.IsAlive == true)
                 member.ReactTo(attacker);
     }
     #endregion

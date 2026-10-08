@@ -1,5 +1,5 @@
-// Creates one removable test herd on valid terrain near the player's start.
-// This prototype is deliberately separate from procedural biome populations.
+// Creates one test group using the species' herd size and roaming settings.
+// Placement checks are budgeted; biome population streaming is a later pass.
 using Godot;
 
 public partial class TallowbackTest : Node
@@ -15,34 +15,46 @@ public partial class TallowbackTest : Node
     private ChunkController _chunks;
     private EntityHerd _herd;
     private readonly RandomNumberGenerator _rng = new();
-    private int _created;
+    private int _created, _targetCount;
     private double _timer;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Resolve services while allowing terrain generation to finish normally.
+    // Resolve world services and choose the group size once.
     public override void _Ready()
     {
         Node world = GetParent().GetParent();
         _objects = world.GetNode<Node2D>("WorldObjects");
         _player = _objects.GetNode<Player>("Player");
         _chunks = GetParent().GetNode<ChunkController>("ChunkController");
+
+        if (_scene == null || _definition == null)
+        {
+            GD.PushError("TallowbackTest requires its scene and species resource.");
+            SetPhysicsProcess(false);
+            return;
+        }
+
+        _definition.Validate();
         _rng.Randomize();
+        _targetCount = _rng.RandiRange(
+            _definition.HerdSizeMin, _definition.HerdSizeMax);
     }
 
     // =========================================================
-    // Release the test helper's random generator.
+    // Release the test spawner's random generator.
     public override void _ExitTree()
     {
         _rng.Dispose();
     }
 
     // =========================================================
-    // Spread a small number of placement checks over time.
+    // Create the group gradually on reachable, separated terrain.
     public override void _PhysicsProcess(double delta)
     {
         if (!_chunks.WorldReady) return;
+
         _timer -= delta;
         if (_timer > 0.0) return;
         _timer = 0.25;
@@ -55,14 +67,14 @@ public partial class TallowbackTest : Node
         ResourceWorld resources = ResourceWorld.Find(this);
         if (resources?.Catalog.Get("tallow") == null)
         {
-            GD.PushError("Add Tallow.tres to ItemCatalog before running this test.");
+            GD.PushError("TallowbackTest requires 'tallow' in the item catalog.");
             SetPhysicsProcess(false);
             return;
         }
 
         GrazingWorld.GetOrCreate(this);
 
-        if (_herd == null)
+        if (!GodotObject.IsInstanceValid(_herd))
         {
             for (int attempt = 0; attempt < 4; attempt++)
             {
@@ -77,6 +89,7 @@ public partial class TallowbackTest : Node
                 {
                     Name = "TallowbackTestHerd",
                     HerdId = "test_tallowback_herd",
+                    Definition = _definition,
                     Position = _objects.ToLocal(centre)
                 };
                 _objects.AddChild(_herd);
@@ -85,11 +98,12 @@ public partial class TallowbackTest : Node
             return;
         }
 
+        float spread = Mathf.Min(85f, _herd.WanderRadius);
         for (int attempt = 0; attempt < 4; attempt++)
         {
             Vector2 point = _herd.GlobalPosition +
                 Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
-                _rng.RandfRange(35f, 85f);
+                Mathf.Sqrt(_rng.Randf()) * spread;
 
             if (_player.GlobalPosition.DistanceSquaredTo(point) < 130f * 130f ||
                 !navigation.CanTravelDirectly(_herd.GlobalPosition, point))
@@ -97,9 +111,18 @@ public partial class TallowbackTest : Node
 
             bool crowded = false;
             foreach (Node node in GetTree().GetNodesInGroup("entities"))
-                if (node is Entity entity &&
-                    entity.GlobalPosition.DistanceSquaredTo(point) < 32f * 32f)
+            {
+                if (node is not Entity entity ||
+                    entity.IsQueuedForDeletion() ||
+                    !WorldLayerMember.Same(_player, entity))
+                    continue;
+
+                if (entity.GlobalPosition.DistanceSquaredTo(point) < 32f * 32f)
+                {
                     crowded = true;
+                    break;
+                }
+            }
             if (crowded) continue;
 
             Entity creature = _scene.Instantiate<Entity>();
@@ -110,7 +133,11 @@ public partial class TallowbackTest : Node
             _objects.AddChild(creature);
             _created++;
 
-            if (_created >= 3) SetPhysicsProcess(false);
+            if (_created >= _targetCount)
+            {
+                _herd.CompleteFormation();
+                SetPhysicsProcess(false);
+            }
             return;
         }
     }

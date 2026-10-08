@@ -40,16 +40,19 @@ public partial class WildlifeRangeDebug : Node2D
     #endregion
 
     #region Configuration
-    // =========================================================
-    // Display this creature's actual wander radius around its current centre.
-    public void Configure(Entity entity, bool enabled)
-    {
-        _entity = entity;
-        _herd = null;
-        SetGeometry(entity.Definition.WanderRadius,
-            $"{entity.Definition.DisplayName} wander");
-        SetEnabled(enabled);
-    }
+// =========================================================
+// Display the creature's current solo or shared herd wander radius.
+public void Configure(Entity entity, bool enabled)
+{
+    _entity = entity;
+    _herd = null;
+
+    string mode = entity.HasHerd ? "herd wander" : "solo wander";
+    SetGeometry(entity.ActiveWanderRadius,
+        $"{entity.Definition.DisplayName} {mode}");
+
+    SetEnabled(enabled);
+}
 
     // =========================================================
     // Display the herd's fixed home anchor and roaming radius.

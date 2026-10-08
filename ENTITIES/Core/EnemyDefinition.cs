@@ -32,6 +32,23 @@ public partial class EnemyDefinition : Resource
     [Export] public Vector2 WanderWait { get; set; } = new(2f, 5f);
     #endregion
 
+    #region Herd
+[ExportGroup("Herd")]
+
+[Export(PropertyHint.Range, "1,64,1")]
+public int HerdSizeMin { get; set; } = 3;
+
+[Export(PropertyHint.Range, "1,64,1")]
+public int HerdSizeMax { get; set; } = 3;
+
+[Export] public float HerdWanderRadius { get; set; } = 300f;
+[Export] public float HerdRoamRadius { get; set; } = 500f;
+[Export] public float HerdCentreStepDistance { get; set; } = 60f;
+
+[Export(PropertyHint.Range, "1,600,1")]
+public double HerdCentreIntervalSeconds { get; set; } = 60.0;
+#endregion
+
     #region Combat
     [ExportGroup("Combat")]
     [Export] public EnemyCombatSettings Combat { get; set; }
@@ -61,31 +78,35 @@ public partial class EnemyDefinition : Resource
     #endregion
 
     #region Validation
-    // =========================================================
-    // Validate definition settings, combat configuration and optional sequences.
-    public void Validate()
-    {
-        if (MaxVitality < 1 || MoveSpeed <= 0f || WanderSpeed <= 0f ||
-            TargetInterval < 0.1 || DecisionInterval < 0.1 ||
-            PathInterval < 0.1 || VisualScale <= 0f ||
-            WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
-            WanderRadius <= 0f || HomeLeash < WanderRadius)
-            throw new InvalidOperationException(
-                $"Enemy '{Id}' has invalid settings.");
+// =========================================================
+// Validate species settings before creating individual or herd components.
+public void Validate()
+{
+    if (string.IsNullOrWhiteSpace(SpeciesId) ||
+        MaxHealth < 1 || WanderSpeed <= 0f || ThreatSpeed <= 0f ||
+        !float.IsFinite(WanderRadius) || WanderRadius <= 0f ||
+        WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
+        PathInterval < 0.1 ||
+        GrazingDuration <= 0.0 || FeedingCooldown < 0.0 ||
+        PersonalSpaceRadius <= 0f ||
+        DisengageRange < PersonalSpaceRadius ||
+        HerdSizeMin < 1 || HerdSizeMax < HerdSizeMin ||
+        HerdSizeMax > 64 ||
+        !float.IsFinite(HerdWanderRadius) || HerdWanderRadius <= 0f ||
+        !float.IsFinite(HerdRoamRadius) || HerdRoamRadius < 0f ||
+        !float.IsFinite(HerdCentreStepDistance) ||
+        HerdCentreStepDistance < 0f ||
+        !double.IsFinite(HerdCentreIntervalSeconds) ||
+        HerdCentreIntervalSeconds < 1.0 ||
+        MaxPursuitDistance < Mathf.Max(WanderRadius, HerdWanderRadius) ||
+        ThreatMemorySeconds <= 0.0 || MeleeRange <= 0f ||
+        MeleeDamage < 0 || MeleeCooldown < 0.1 ||
+        PlaceholderDrawing == null || Hitbox == null ||
+        ArtworkSize.X <= 0 || ArtworkSize.Y <= 0)
+        throw new InvalidOperationException(
+            $"Entity '{SpeciesId}' has invalid settings.");
 
-        if (Combat is not MeleeCombatSettings &&
-            Combat is not RangedCombatSettings)
-            throw new InvalidOperationException(
-                $"Enemy '{Id}' requires MeleeCombatSettings " +
-                "or RangedCombatSettings.");
-
-        Combat.Validate(Id);
-        Sequence?.Validate();
-
-        // Existing Fire sequence actions require a ranged weapon.
-        if (Sequence != null && Combat is not RangedCombatSettings)
-            throw new InvalidOperationException(
-                $"Enemy '{Id}': this sequence pass requires ranged combat settings.");
-    }
+    Hitbox.Validate();
+}
     #endregion
 }
