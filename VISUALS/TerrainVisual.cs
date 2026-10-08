@@ -54,7 +54,7 @@ public static TerrainVisual Attach(
     WorldLightingMaterials.Attach(
         host, visual.GetNode<Node>("Artwork"), definition);
 
-    GroundShadow.Attach(host, visual, definition);
+    // GroundShadow.Attach(host, visual, definition);
     CombatHitbox.Attach(host, visual);
 
     bool fade = definition?.Vegetation?.FadeBehindPlayer
