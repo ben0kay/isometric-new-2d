@@ -32,21 +32,22 @@ public partial class EnemyDefinition : Resource
     [Export] public Vector2 WanderWait { get; set; } = new(2f, 5f);
     #endregion
 
-  #region Herd
-[ExportGroup("Herd")]
-[Export(PropertyHint.Range, "1,64,1")]
-public int HerdSizeMin { get; set; } = 3;
+      #region Herd
+    [ExportGroup("Herd")]
 
-[Export(PropertyHint.Range, "1,64,1")]
-public int HerdSizeMax { get; set; } = 3;
+    [Export(PropertyHint.Range, "1,64,1")]
+    public int HerdSizeMin { get; set; } = 3;
 
-[Export] public float HerdWanderRadius { get; set; } = 300f;
-[Export] public float HerdRoamRadius { get; set; } = 500f;
-[Export] public float HerdCentreStepDistance { get; set; } = 60f;
+    [Export(PropertyHint.Range, "1,64,1")]
+    public int HerdSizeMax { get; set; } = 3;
 
-[Export(PropertyHint.Range, "1,600,1")]
-public double HerdCentreIntervalSeconds { get; set; } = 60.0;
-#endregion
+    [Export] public float HerdWanderRadius { get; set; } = 300f;
+    [Export] public float HerdRoamRadius { get; set; } = 500f;
+    [Export] public float HerdCentreStepDistance { get; set; } = 60f;
+
+    [Export(PropertyHint.Range, "1,600,1,or_greater")]
+    public double HerdCentreIntervalSeconds { get; set; } = 60.0;
+    #endregion
 
     #region Combat
     [ExportGroup("Combat")]
@@ -77,35 +78,35 @@ public double HerdCentreIntervalSeconds { get; set; } = 60.0;
     #endregion
 
     #region Validation
-// =========================================================
-// Validate species settings before creating individual or herd components.
-public void Validate()
-{
-    if (string.IsNullOrWhiteSpace(SpeciesId) ||
-        MaxHealth < 1 || WanderSpeed <= 0f || ThreatSpeed <= 0f ||
-        !float.IsFinite(WanderRadius) || WanderRadius <= 0f ||
-        WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
-        PathInterval < 0.1 ||
-        GrazingDuration <= 0.0 || FeedingCooldown < 0.0 ||
-        PersonalSpaceRadius <= 0f ||
-        DisengageRange < PersonalSpaceRadius ||
-        HerdSizeMin < 1 || HerdSizeMax < HerdSizeMin ||
-        HerdSizeMax > 64 ||
-        !float.IsFinite(HerdWanderRadius) || HerdWanderRadius <= 0f ||
-        !float.IsFinite(HerdRoamRadius) || HerdRoamRadius < 0f ||
-        !float.IsFinite(HerdCentreStepDistance) ||
-        HerdCentreStepDistance < 0f ||
-        !double.IsFinite(HerdCentreIntervalSeconds) ||
-        HerdCentreIntervalSeconds < 1.0 ||
-        MaxPursuitDistance < Mathf.Max(WanderRadius, HerdWanderRadius) ||
-        ThreatMemorySeconds <= 0.0 || MeleeRange <= 0f ||
-        MeleeDamage < 0 || MeleeCooldown < 0.1 ||
-        PlaceholderDrawing == null || Hitbox == null ||
-        ArtworkSize.X <= 0 || ArtworkSize.Y <= 0)
-        throw new InvalidOperationException(
-            $"Entity '{SpeciesId}' has invalid settings.");
+    // =========================================================
+    // Reject unusable species settings before creating components.
+    public void Validate()
+    {
+        if (string.IsNullOrWhiteSpace(SpeciesId) ||
+            MaxHealth < 1 || WanderSpeed <= 0f || ThreatSpeed <= 0f ||
+            !float.IsFinite(WanderRadius) || WanderRadius <= 0f ||
+            WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
+            PathInterval < 0.1 ||
+            HerdSizeMin < 1 || HerdSizeMax < HerdSizeMin ||
+            HerdSizeMax > 64 ||
+            !float.IsFinite(HerdWanderRadius) || HerdWanderRadius <= 0f ||
+            !float.IsFinite(HerdRoamRadius) || HerdRoamRadius < 0f ||
+            !float.IsFinite(HerdCentreStepDistance) ||
+            HerdCentreStepDistance < 0f ||
+            !double.IsFinite(HerdCentreIntervalSeconds) ||
+            HerdCentreIntervalSeconds < 1.0 ||
+            GrazingDuration <= 0.0 || FeedingCooldown < 0.0 ||
+            PersonalSpaceRadius <= 0f ||
+            DisengageRange < PersonalSpaceRadius ||
+            MaxPursuitDistance < Mathf.Max(WanderRadius, HerdWanderRadius) ||
+            ThreatMemorySeconds <= 0.0 || MeleeRange <= 0f ||
+            MeleeDamage < 0 || MeleeCooldown < 0.1 ||
+            PlaceholderDrawing == null || Hitbox == null ||
+            ArtworkSize.X <= 0 || ArtworkSize.Y <= 0)
+            throw new InvalidOperationException(
+                $"Entity '{SpeciesId}' has invalid settings.");
 
-    Hitbox.Validate();
-}
+        Hitbox.Validate();
+    }
     #endregion
 }
