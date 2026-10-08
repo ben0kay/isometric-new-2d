@@ -1,9 +1,7 @@
-[gd_resource type="Resource" script_class="CraftingCatalog" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="CraftingCatalog" format=3 uid="uid://dip4okvxysju3"]
 
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingCatalog.cs" id="1_catalog"]
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="2_recipe_script"]
-[ext_resource type="Resource" path="res://WORLDABLES/Objects/Building/TestCube/TestCubeRecipe.tres" id="3_cube"]
+[ext_resource type="Script" uid="uid://8w3kijfuriyu" path="res://SYSTEMS/Crafting/CraftingCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" uid="uid://dp3vga7w0qjhs" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="2_recipe_script"]
 
 [resource]
 script = ExtResource("1_catalog")
-Recipes = Array[ExtResource("2_recipe_script")]([ExtResource("3_cube")])

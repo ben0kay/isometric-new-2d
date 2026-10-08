@@ -18,6 +18,7 @@ public partial class PlayerPlacement : Node2D
 
     [ExportGroup("Testing")]
     [Export] public ItemDefinition StartingItem { get; set; }
+    [Export] public string StartingItemId { get; set; } = "";
     [Export(PropertyHint.Range, "0,100,1")]
     public int StartingCount { get; set; } = 12;
     #endregion
@@ -55,14 +56,38 @@ public partial class PlayerPlacement : Node2D
         Callable.From(GiveStartingItems).CallDeferred();
     }
 
-    // =========================================================
-    // Add a test stack to the backpack; the player assigns its hotbar shortcut.
-    private void GiveStartingItems()
+// =========================================================
+// Resolve a starting item through the catalog or use an explicit resource.
+private void GiveStartingItems()
+{
+    if (StartingCount <= 0) return;
+
+    ItemDefinition item = StartingItem;
+    if (item == null && !string.IsNullOrWhiteSpace(StartingItemId))
     {
-        if (StartingItem != null && StartingCount > 0)
-            GetNode<PlayerInventory>("../Inventory")
-                .TryCollect(StartingItem, StartingCount);
+        ItemCatalog catalog = GD.Load<ItemCatalog>(
+            "res://ITEMS/ItemCatalog.tres");
+
+        if (catalog == null)
+        {
+            GD.PushError("Starting items require the master ItemCatalog.");
+            return;
+        }
+
+        catalog.Initialize();
+        item = catalog.Get(StartingItemId);
+
+        if (item == null)
+        {
+            GD.PushError($"Unknown starting item: '{StartingItemId}'.");
+            return;
+        }
     }
+
+    if (item != null)
+        GetNode<PlayerInventory>("../Inventory")
+            .TryCollect(item, StartingCount);
+}
     #endregion
 
     #region Preview And Placement

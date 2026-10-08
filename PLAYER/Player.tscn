@@ -30,7 +30,6 @@
 [ext_resource type="Script" uid="uid://bn3ufkbmya6qp" path="res://SYSTEMS/Crafting/PlayerCrafting.cs" id="28_itn3c"]
 [ext_resource type="Script" uid="uid://dgd652jtb6848" path="res://SYSTEMS/Placement/PlayerPlacement.cs" id="29_placement"]
 [ext_resource type="Resource" path="res://SYSTEMS/Crafting/CraftingCatalog.tres" id="29_whd4c"]
-[ext_resource type="Resource" uid="uid://d3fw167xh5pd7" path="res://WORLDABLES/Objects/Building/TestCube/TestCubeItem.tres" id="30_cube"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 
@@ -110,7 +109,7 @@ script = ExtResource("28_consumption")
 
 [node name="Placement" type="Node2D" parent="Systems" unique_id=591324204]
 script = ExtResource("29_placement")
-StartingItem = ExtResource("30_cube")
+StartingItemId = "test_cube"
 
 [node name="Crafting" type="Node" parent="Systems" unique_id=2133274699]
 script = ExtResource("28_itn3c")

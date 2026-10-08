@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="ItemCatalog" load_steps=4 format=3]
-
-[ext_resource type="Script" path="res://ITEMS/ItemCatalog.cs" id="1"]
-[ext_resource type="Script" path="res://ITEMS/ItemDefinition.cs" id="2"]
-[ext_resource type="Resource" path="res://WORLDABLES/Objects/Building/TestCube/TestCubeItem.tres" id="3"]
-
-[resource]
-script = ExtResource("1")
-Items = Array[ExtResource("2")]([ExtResource("3")])
