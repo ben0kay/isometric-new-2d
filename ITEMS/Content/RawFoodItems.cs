@@ -29,7 +29,7 @@ public static class RawFoodItems
 
 	#region Artwork
 	// =========================================================
-	// Draw the existing alien berry cluster inside the shared icon canvas.
+	// Draw the alien berry cluster inside the shared icon canvas.
 	private static string BerryDrawing()
 	{
 		return

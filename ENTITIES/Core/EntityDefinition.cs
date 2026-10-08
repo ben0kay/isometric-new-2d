@@ -26,6 +26,23 @@ public partial class EntityDefinition : Resource
     [Export] public double PathInterval { get; set; } = 0.45;
     #endregion
 
+        #region Herd
+    [ExportGroup("Herd")]
+
+    [Export(PropertyHint.Range, "1,64,1")]
+    public int HerdSizeMin { get; set; } = 3;
+
+    [Export(PropertyHint.Range, "1,64,1")]
+    public int HerdSizeMax { get; set; } = 3;
+
+    [Export] public float HerdWanderRadius { get; set; } = 300f;
+    [Export] public float HerdRoamRadius { get; set; } = 500f;
+    [Export] public float HerdCentreStepDistance { get; set; } = 60f;
+
+    [Export(PropertyHint.Range, "1,600,1,or_greater")]
+    public double HerdCentreIntervalSeconds { get; set; } = 60.0;
+    #endregion
+
     #region Grazing
     [ExportGroup("Grazing")]
     [Export] public bool GrazingEnabled { get; set; } = true;

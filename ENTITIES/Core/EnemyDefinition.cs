@@ -79,34 +79,29 @@ public partial class EnemyDefinition : Resource
 
     #region Validation
     // =========================================================
-    // Reject unusable species settings before creating components.
+    // Validate enemy settings and their shared combat resources.
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(SpeciesId) ||
-            MaxHealth < 1 || WanderSpeed <= 0f || ThreatSpeed <= 0f ||
+        if (string.IsNullOrWhiteSpace(Id) ||
+            !float.IsFinite(SpawnWeight) || SpawnWeight < 0f ||
+            MaxVitality < 1 ||
+            !float.IsFinite(MoveSpeed) || MoveSpeed <= 0f ||
+            !float.IsFinite(WanderSpeed) || WanderSpeed <= 0f ||
             !float.IsFinite(WanderRadius) || WanderRadius <= 0f ||
+            !float.IsFinite(HomeLeash) || HomeLeash < WanderRadius ||
+            !float.IsFinite(WanderWait.X) ||
+            !float.IsFinite(WanderWait.Y) ||
             WanderWait.X < 0f || WanderWait.Y < WanderWait.X ||
-            PathInterval < 0.1 ||
-            HerdSizeMin < 1 || HerdSizeMax < HerdSizeMin ||
-            HerdSizeMax > 64 ||
-            !float.IsFinite(HerdWanderRadius) || HerdWanderRadius <= 0f ||
-            !float.IsFinite(HerdRoamRadius) || HerdRoamRadius < 0f ||
-            !float.IsFinite(HerdCentreStepDistance) ||
-            HerdCentreStepDistance < 0f ||
-            !double.IsFinite(HerdCentreIntervalSeconds) ||
-            HerdCentreIntervalSeconds < 1.0 ||
-            GrazingDuration <= 0.0 || FeedingCooldown < 0.0 ||
-            PersonalSpaceRadius <= 0f ||
-            DisengageRange < PersonalSpaceRadius ||
-            MaxPursuitDistance < Mathf.Max(WanderRadius, HerdWanderRadius) ||
-            ThreatMemorySeconds <= 0.0 || MeleeRange <= 0f ||
-            MeleeDamage < 0 || MeleeCooldown < 0.1 ||
-            PlaceholderDrawing == null || Hitbox == null ||
-            ArtworkSize.X <= 0 || ArtworkSize.Y <= 0)
+            !double.IsFinite(TargetInterval) || TargetInterval < 0.1 ||
+            !double.IsFinite(DecisionInterval) || DecisionInterval < 0.1 ||
+            !double.IsFinite(PathInterval) || PathInterval < 0.1 ||
+            !float.IsFinite(VisualScale) || VisualScale <= 0f ||
+            Combat == null)
             throw new InvalidOperationException(
-                $"Entity '{SpeciesId}' has invalid settings.");
+                $"Enemy '{Id}' has invalid settings.");
 
-        Hitbox.Validate();
+        Combat.Validate(Id);
+        Sequence?.Validate();
     }
     #endregion
 }
