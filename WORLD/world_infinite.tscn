@@ -77,7 +77,7 @@ script = ExtResource("20_surfaces")
 PlaceTestWater = false
 
 [node name="EnemyPopulation" parent="Systems" unique_id=588426670 instance=ExtResource("6_enemies")]
-script = null
+EnemyScene = null
 
 [node name="ProjectilePool" type="Node" parent="Systems" unique_id=764369652]
 script = ExtResource("8_projectiles")

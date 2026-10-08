@@ -8,7 +8,7 @@ public partial class TallowbackTest : Node
     private readonly PackedScene _scene = GD.Load<PackedScene>(
         "res://ENTITIES/Core/Entity.tscn");
     private readonly EntityDefinition _definition = GD.Load<EntityDefinition>(
-        "res://ENTITIES/Species/Tallowback/Tallowback.tres");
+        "res://ENTITIES/Species/Wildlife/Tallowback/Tallowback.tres");
 
     private Node2D _objects;
     private Player _player;

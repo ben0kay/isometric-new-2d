@@ -343,20 +343,24 @@ public partial class Entity : CharacterBody2D
     #endregion
 
     #region Events
-    // =========================================================
-    // Receive a local or herd threat without rebroadcasting it.
-    public void ReactTo(Node2D attacker)
-    {
-        if (Definition.ThreatResponse == EntityThreatResponse.Ignore ||
-            !Living(attacker) || attacker == this ||
-            !WorldLayerMember.Same(this, attacker))
-            return;
+// =========================================================
+// Refresh threat memory without resetting movement for the same attacker.
+public void ReactTo(Node2D attacker)
+{
+    if (Definition.ThreatResponse == EntityThreatResponse.Ignore ||
+        !Living(attacker) || attacker == this ||
+        !WorldLayerMember.Same(this, attacker))
+        return;
 
-        _threat = attacker;
-        _threatMemory = Definition.ThreatMemorySeconds;
-        ReleaseFood();
-        _motor.Stop();
-    }
+    bool changedThreat = _threat != attacker;
+    _threat = attacker;
+    _threatMemory = Definition.ThreatMemorySeconds;
+
+    if (!changedThreat) return;
+
+    ReleaseFood();
+    _motor.Stop();
+}
 
     // =========================================================
     // Accepted combat damage alerts the herd, including a fatal hit.

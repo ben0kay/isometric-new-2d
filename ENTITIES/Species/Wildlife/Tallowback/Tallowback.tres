@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="EntityDefinition" format=3]
 
 [ext_resource type="Script" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
-[ext_resource type="PackedScene" path="res://ENTITIES/Species/Wildlife/TallowbackDrawing.tscn" id="2_drawing"]
+[ext_resource type="PackedScene" path="res://ENTITIES/Species/Wildlife/Tallowback/TallobackDrawing.tscn" id="2_drawing"]
 [ext_resource type="Script" path="res://COMBAT/Hitboxes/CombatHitboxDefinition.cs" id="3_hitbox"]
 [ext_resource type="Script" path="res://SYSTEMS/Loot/LootTable.cs" id="4_table"]
 [ext_resource type="Script" path="res://SYSTEMS/Loot/LootEntry.cs" id="5_entry"]
