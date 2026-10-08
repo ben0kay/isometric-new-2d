@@ -46,19 +46,49 @@ public partial class BiomeDefinition : Resource
     [Export] public BiomeColourProfile ColourProfile { get; set; }
     #endregion
 
-    #region Vegetation
-    [ExportGroup("Vegetation")]
-    [Export] public BiomeVegetation Vegetation { get; set; } = new();
+    #region Content
+    [ExportGroup("Content")]
+    [Export] public BiomeContent Content { get; set; }
     #endregion
 
-    #region Rocks
-    [ExportGroup("Rocks")]
-    [Export] public int RocksPerChunk { get; set; } = 8;
+    #region Legacy Population
+    // Existing biome resources retain their settings until migrated to Content.
+    // These accessors also keep current shared spawners using one resolved source.
+    private BiomeVegetation _vegetation = new();
+    private int _rocksPerChunk = 8;
+    private Godot.Collections.Array<BiomeSpecies> _rocks = new();
+    private BiomePlacementSettings _rocksPlacement;
 
-    [Export] public Godot.Collections.Array<BiomeSpecies> Rocks { get; set; }
-        = new();
+    [ExportGroup("Legacy Population")]
+    [ExportSubgroup("Vegetation")]
+    [Export]
+    public BiomeVegetation Vegetation
+    {
+        get => Content != null ? Content.Vegetation : _vegetation;
+        set => _vegetation = value;
+    }
 
-    [Export] public BiomePlacementSettings RocksPlacement { get; set; }
+    [ExportSubgroup("Rocks")]
+    [Export]
+    public int RocksPerChunk
+    {
+        get => Content != null ? Content.RocksPerChunk : _rocksPerChunk;
+        set => _rocksPerChunk = value;
+    }
+
+    [Export]
+    public Godot.Collections.Array<BiomeSpecies> Rocks
+    {
+        get => Content != null ? Content.Rocks : _rocks;
+        set => _rocks = value;
+    }
+
+    [Export]
+    public BiomePlacementSettings RocksPlacement
+    {
+        get => Content != null ? Content.RocksPlacement : _rocksPlacement;
+        set => _rocksPlacement = value;
+    }
     #endregion
 
     #region Feature Overrides
@@ -68,9 +98,16 @@ public partial class BiomeDefinition : Resource
         { get; set; } = new();
     #endregion
 
-    #region Enemies
-    [ExportGroup("Enemies")]
-    [Export] public BiomeEnemies Enemies { get; set; }
+    #region Legacy Enemies
+    private BiomeEnemies _enemies;
+
+    [ExportGroup("Legacy Enemies")]
+    [Export]
+    public BiomeEnemies Enemies
+    {
+        get => Content != null ? Content.Enemies : _enemies;
+        set => _enemies = value;
+    }
     #endregion
 
     #region Shared Settings

@@ -38,38 +38,38 @@ public partial class TreeAtlas : Node2D
             variant / Columns * CellSize, CellSize, CellSize);
     }
 
-// =========================================================
-// Load cached tree artwork or bake it, then prepare the shared canopy wind.
-private static async Task BakeAsync(Node host)
-{
-    // Increase this after changing tree drawings, palettes or the baking shader.
-    const int artworkRevision = 1;
-
-    try
+    // =========================================================
+    // Load cached tree artwork and prepare the shared canopy wind.
+    private static async Task BakeAsync(Node host)
     {
-        ShaderMaterial wind = ArtworkBaker.LoadMaterial(
-            "res://VISUALS/Drawings/Vegetation/Trees/TreeWind.gdshader");
+        const int artworkRevision = 1;
 
-        int rows = (CarbonTreeDrawing.VariantCount + Columns - 1) / Columns;
-        string key = $"trees-{artworkRevision}"
-            + $"|variants={CarbonTreeDrawing.VariantCount}|origin={Origin}";
+        try
+        {
+            ShaderMaterial wind = ArtworkBaker.LoadMaterial(
+                "res://VISUALS/Drawings/Vegetation/TreeWind.gdshader");
 
-        Texture = await ArtworkBaker.LoadOrBake(
-            host, "TreeBake", key,
-            new Vector2I(Columns * CellSize, rows * CellSize),
-            () => new TreeAtlas
-            {
-                Material = ArtworkBaker.LoadMaterial(
-                    "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
-            });
-        WindMaterial = wind;
+            int rows = (CarbonTreeDrawing.VariantCount + Columns - 1) / Columns;
+            string key = $"trees-{artworkRevision}"
+                + $"|variants={CarbonTreeDrawing.VariantCount}|origin={Origin}";
+
+            Texture = await ArtworkBaker.LoadOrBake(
+                host, "TreeBake", key,
+                new Vector2I(Columns * CellSize, rows * CellSize),
+                () => new TreeAtlas
+                {
+                    Material = ArtworkBaker.LoadMaterial(
+                        "res://VISUALS/Drawings/Vegetation/VegetationBake.gdshader")
+                });
+
+            WindMaterial = wind;
+        }
+        catch
+        {
+            _bakeTask = null;
+            throw;
+        }
     }
-    catch
-    {
-        _bakeTask = null;
-        throw;
-    }
-}
     #endregion
 
     #region Drawing

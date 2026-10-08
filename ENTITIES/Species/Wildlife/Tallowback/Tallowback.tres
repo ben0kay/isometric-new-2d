@@ -1,16 +1,10 @@
-[gd_resource type="Resource" script_class="EntityDefinition" format=3]
+[gd_resource type="Resource" script_class="EntityDefinition" format=3 uid="uid://rs2f8t8kih7p"]
 
 [ext_resource type="Script" uid="uid://cv62vuncf01ti" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
 [ext_resource type="PackedScene" path="res://ENTITIES/Species/Wildlife/Tallowback/TallowbackDrawing.tscn" id="2_drawing"]
 [ext_resource type="Script" uid="uid://ig4csqodtn1p" path="res://COMBAT/Hitboxes/CombatHitboxDefinition.cs" id="3_hitbox"]
 [ext_resource type="Script" uid="uid://c4g1jh1f1arwr" path="res://SYSTEMS/Loot/LootTable.cs" id="4_table"]
 [ext_resource type="Script" uid="uid://b7cr6xw4nawmf" path="res://SYSTEMS/Loot/LootEntry.cs" id="5_entry"]
-
-
-[sub_resource type="Resource" id="Hitbox"]
-script = ExtResource("3_hitbox")
-Points = PackedVector2Array(-50, -43, -27, -62, 27, -51, 65, -31, 42, -5, -38, -5)
-AimPoint = Vector2(0, -32)
 
 [sub_resource type="Resource" id="TallowEntry"]
 script = ExtResource("5_entry")
@@ -24,32 +18,15 @@ Entries = Array[ExtResource("5_entry")]([SubResource("TallowEntry")])
 MinimumRolls = 1
 MaximumRolls = 1
 
+[sub_resource type="Resource" id="Hitbox"]
+script = ExtResource("3_hitbox")
+Points = PackedVector2Array(-50, -43, -27, -62, 27, -51, 65, -31, 42, -5, -38, -5)
+AimPoint = Vector2(0, -32)
+
 [resource]
 script = ExtResource("1_definition")
 SpeciesId = "tallowback"
 DisplayName = "Tallowback"
-MaxHealth = 100
-WanderSpeed = 26.0
-ThreatSpeed = 85.0
-WanderRadius = 180.0
-HerdSizeMin = 3
-HerdSizeMax = 3
-HerdWanderRadius = 300.0
-HerdRoamRadius = 500.0
-HerdCentreStepDistance = 60.0
-HerdCentreIntervalSeconds = 60.0
-GrazingEnabled = true
-GrazingDuration = 15.0
-FeedingCooldown = 8.0
-ThreatResponse = 2
-TerritoryPolicy = 0
-PersonalSpaceRadius = 100.0
-DisengageRange = 360.0
-MaxPursuitDistance = 700.0
-ThreatMemorySeconds = 5.0
-MeleeRange = 45.0
-MeleeDamage = 18
-MeleeCooldown = 1.2
 DeathLoot = SubResource("DeathLoot")
 PlaceholderDrawing = ExtResource("2_drawing")
 Hitbox = SubResource("Hitbox")
