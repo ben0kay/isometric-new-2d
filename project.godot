@@ -38,3 +38,42 @@ enabled=PackedStringArray("res://addons/biome_catalog/plugin.cfg")
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+
+[shader_globals]
+
+wl_sun_direction={
+"type": "vec3",
+"value": Vector3(-0.72, -0.50, 0.48)
+}
+wl_sun_color={
+"type": "color",
+"value": Color(1, 0.94, 0.82, 1)
+}
+wl_ambient={
+"type": "float",
+"value": 0.3
+}
+wl_sun_strength={
+"type": "float",
+"value": 1.15
+}
+wl_shape_strength={
+"type": "float",
+"value": 2.8
+}
+wl_brush_position={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+wl_brush_direction={
+"type": "vec2",
+"value": Vector2(1, 0)
+}
+wl_brush_radius={
+"type": "vec2",
+"value": Vector2(42, 24)
+}
+wl_brush_strength={
+"type": "float",
+"value": 0.0
+}

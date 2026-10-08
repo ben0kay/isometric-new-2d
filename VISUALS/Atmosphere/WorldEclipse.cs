@@ -20,94 +20,82 @@ public partial class WorldEclipse : CanvasLayer
     #endregion
 
     #region Installation
-    // =========================================================
-    // Queue one independent eclipse service while the world is becoming ready.
-    public static void Install(WorldAtmosphere atmosphere)
-    {
-        Node systems = atmosphere.GetParent();
-        if (systems.GetNodeOrNull<WorldEclipse>("WorldEclipse") != null)
-            return;
+// =========================================================
+// Install one eclipse compositor beneath the main lighting authority.
+public static void Install(WorldLighting lighting)
+{
+    if (lighting.GetNodeOrNull<WorldEclipse>("WorldEclipse") != null)
+        return;
 
-        systems.CallDeferred(Node.MethodName.AddChild, new WorldEclipse
-        {
-            Name = "WorldEclipse"
-        });
+    lighting.CallDeferred(Node.MethodName.AddChild, new WorldEclipse
+    {
+        Name = "WorldEclipse"
+    });
+}
+
+// =========================================================
+// Find the eclipse belonging to the caller's world lighting system.
+public static WorldEclipse Find(Node context)
+{
+    return WorldLighting.Find(context)
+        ?.GetNodeOrNull<WorldEclipse>("WorldEclipse");
+}
+
+// =========================================================
+// Build the existing eclipse, shadow fading and helmet-light compositor.
+public override void _Ready()
+{
+    Layer = 5;
+    Node world = GetParent<WorldLighting>().GetParent().GetParent();
+    _config = WorldConfig.Find(this);
+    _player = world.GetNode<Player>("WorldObjects/Player");
+
+    _clock = new WorldClock { Name = "WorldClock" };
+    AddChild(_clock);
+
+    _lighting = new ShaderMaterial
+    {
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Atmosphere/WorldEclipse.gdshader")
+    };
+
+    ShadowMaterial = new ShaderMaterial
+    {
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Atmosphere/SunShadow.gdshader")
+    };
+
+    _copy = new BackBufferCopy
+    {
+        Name = "WorldCopy",
+        CopyMode = BackBufferCopy.CopyModeEnum.Viewport
+    };
+    AddChild(_copy);
+
+    _screen = new ColorRect
+    {
+        Name = "WorldLighting",
+        Material = _lighting,
+        MouseFilter = Control.MouseFilterEnum.Ignore
+    };
+    AddChild(_screen);
+    _screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+
+    Node playerSystems = _player.GetNode("Systems");
+    _flashlight = playerSystems.GetNodeOrNull<PlayerFlashlight>("Flashlight");
+
+    if (_flashlight == null)
+    {
+        _flashlight = new PlayerFlashlight { Name = "Flashlight" };
+        playerSystems.AddChild(_flashlight);
     }
 
-    // =========================================================
-    // Find the eclipse service belonging to this world, not another viewport.
-    public static WorldEclipse Find(Node context)
-    {
-        for (Node ancestor = context; ancestor != null;
-             ancestor = ancestor.GetParent())
-        {
-            WorldEclipse eclipse = ancestor.GetNodeOrNull<WorldEclipse>(
-                "Systems/WorldEclipse");
-            if (eclipse != null) return eclipse;
-        }
-        return null;
-    }
-    #endregion
+    CanvasLayer hud = world.GetNodeOrNull<CanvasLayer>("HUD");
+    if (hud != null && hud.Layer <= Layer)
+        hud.Layer = Layer + 1;
 
-    #region Lifecycle
-    // =========================================================
-    // Build one screen pass, one shared shadow material and the player beam.
-    public override void _Ready()
-    {
-        Layer = 5;
-        Node world = GetParent().GetParent();
-        _config = WorldConfig.Find(this);
-        _player = world.GetNode<Player>("WorldObjects/Player");
-
-        _clock = new WorldClock { Name = "WorldClock" };
-        AddChild(_clock);
-
-        _lighting = new ShaderMaterial
-        {
-            Shader = GD.Load<Shader>(
-                "res://VISUALS/Atmosphere/WorldEclipse.gdshader")
-        };
-
-        ShadowMaterial = new ShaderMaterial
-        {
-            Shader = GD.Load<Shader>(
-                "res://VISUALS/Atmosphere/SunShadow.gdshader")
-        };
-
-        _copy = new BackBufferCopy
-        {
-            Name = "WorldCopy",
-            CopyMode = BackBufferCopy.CopyModeEnum.Viewport
-        };
-        AddChild(_copy);
-
-        _screen = new ColorRect
-        {
-            Name = "WorldLighting",
-            Material = _lighting,
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        AddChild(_screen);
-        _screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-
-        Node playerSystems = _player.GetNode("Systems");
-        _flashlight = playerSystems.GetNodeOrNull<PlayerFlashlight>(
-            "Flashlight");
-
-        if (_flashlight == null)
-        {
-            _flashlight = new PlayerFlashlight { Name = "Flashlight" };
-            playerSystems.AddChild(_flashlight);
-        }
-
-        // Keep world debug labels above the lighting pass.
-        CanvasLayer hud = world.GetNodeOrNull<CanvasLayer>("HUD");
-        if (hud != null && hud.Layer <= Layer)
-            hud.Layer = Layer + 1;
-
-        // Run after the normal movement and camera updates.
-        ProcessPriority = 100;
-    }
+    ProcessPriority = 100;
+}
 
     // =========================================================
     // Update a constant number of uniforms, regardless of object count.

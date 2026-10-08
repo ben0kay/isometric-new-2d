@@ -39,72 +39,55 @@ public partial class Grass : Node2D
         return material;
     }
 
-    // =========================================================
-    // Update only the two shared material variants that permit brushing.
-    public static void UpdateBrush(
-        Vector2 position, Vector2 direction, Vector2 radius, float strength)
-    {
-        for (int i = 0; i < 2; i++)
-        {
-            ShaderMaterial material = Materials[i];
-
-            if (material == null || !GodotObject.IsInstanceValid(material))
-                continue;
-
-            material.SetShaderParameter("brush_position", position);
-            material.SetShaderParameter("brush_direction", direction);
-            material.SetShaderParameter("brush_radius", radius);
-            material.SetShaderParameter("brush_strength", strength);
-        }
-    }
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Attach artwork with the appropriate shared tint and brushing settings.
-    public override async void _Ready()
+// =========================================================
+// Attach lit grass with the appropriate shared tint and brushing settings.
+public override async void _Ready()
+{
+    try
     {
-        try
-        {
-            if (Definition == null)
-                throw new System.InvalidOperationException(
-                    "Grass requires a GrassDefinition.");
+        if (Definition == null)
+            throw new System.InvalidOperationException(
+                "Grass requires a GrassDefinition.");
 
-            VegetationPlacement.Attach(
+        VegetationPlacement.Attach(
             this, Definition.PlacementFootprint *
                 Mathf.Max(0.1f, SizeMultiplier), true);
 
-            await VegetationAtlas.EnsureReady(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        await VegetationAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-            float tintStrength = Mathf.Clamp(BiomeTintStrength, 0f, 1f);
-            bool tinted = tintStrength > 0f;
-            bool shortGrass = Definition.BakedHeight == GrassHeight.Short;
-            ShaderMaterial material = GetGrassMaterial(shortGrass, tinted);
+        float tintStrength = Mathf.Clamp(BiomeTintStrength, 0f, 1f);
+        bool tinted = tintStrength > 0f;
+        bool shortGrass = Definition.BakedHeight == GrassHeight.Short;
+        ShaderMaterial material = GetGrassMaterial(shortGrass, tinted);
 
-            TerrainVisual visual = TerrainVisual.Attach(
-                this,
-                VegetationAtlas.GetGrassRegion(Definition.BakedHeight, Variant),
-                VegetationAtlas.GrassOrigin, Vector2.One, false,
-                Definition.Visual, VegetationAtlas.Texture, material);
+        TerrainVisual visual = TerrainVisual.Attach(
+            this,
+            VegetationAtlas.GetGrassRegion(Definition.BakedHeight, Variant),
+            VegetationAtlas.GrassOrigin, Vector2.One, false,
+            Definition.Visual, VegetationAtlas.Texture, material);
 
-            float size = Mathf.Max(0.1f, SizeMultiplier);
-            visual.Scale = new Vector2(Mirror ? -size : size, size);
+        float size = Mathf.Max(0.1f, SizeMultiplier);
+        visual.Scale = new Vector2(Mirror ? -size : size, size);
 
-            if (tinted &&
-                visual.GetNodeOrNull<Sprite2D>("Artwork") is Sprite2D sprite &&
-                sprite.Material == material)
-            {
-                sprite.SelfModulate = new Color(
-                    BiomeTint.R, BiomeTint.G, BiomeTint.B, tintStrength);
-            }
-
-            SetProcess(false);
-        }
-        catch (System.Exception error)
+        if (tinted &&
+            visual.GetNodeOrNull<Sprite2D>("Artwork") is Sprite2D sprite &&
+            sprite.Texture is AtlasTexture atlas &&
+            atlas.Atlas == VegetationAtlas.Texture)
         {
-            GD.PushError($"Grass '{Name}' artwork failed: {error}");
+            sprite.SelfModulate = new Color(
+                BiomeTint.R, BiomeTint.G, BiomeTint.B, tintStrength);
         }
+
+        SetProcess(false);
     }
+    catch (System.Exception error)
+    {
+        GD.PushError($"Grass '{Name}' artwork failed: {error}");
+    }
+}
     #endregion
 }

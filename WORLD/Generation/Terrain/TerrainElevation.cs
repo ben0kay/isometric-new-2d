@@ -5,31 +5,22 @@ using System.Collections.Generic;
 
 public partial class TerrainElevation : Node
 {
-    #region Configuration
-    [ExportGroup("Height Cache")]
-    [Export] public int MaxCachedHeights { get; set; } = 32768;
+#region Configuration
+[ExportGroup("Height Cache")]
+[Export] public int MaxCachedHeights { get; set; } = 32768;
 
-    [ExportGroup("Slope Lighting")]
-    [Export] public bool SlopeLightingEnabled { get; set; } = true;
+[ExportGroup("Surface Normals")]
+[Export] public bool SlopeLightingEnabled { get; set; } = true;
 
-    [Export(PropertyHint.Range, "0,8,0.1")]
-    public float NormalStrength { get; set; } = 3f;
-
-    [Export(PropertyHint.Range, "0,1,0.01")]
-    public float AmbientLight { get; set; } = 0.45f;
-
-    [Export(PropertyHint.Range, "0.1,2,0.05")]
-    public float SunElevation { get; set; } = 0.65f;
-
-    [Export(PropertyHint.Range, "0.1,1.5,0.01")]
-    public float FlatBrightness { get; set; } = 0.85f;
-    #endregion
+[Export(PropertyHint.Range, "0,8,0.1")]
+public float NormalStrength { get; set; } = 3f;
+#endregion
 
     #region References
     private ChunkController _chunks;
     private Node2D _ground;
     private WorldGenerator _generator;
-    private WorldAtmosphere _atmosphere;
+
 
     private readonly Dictionary<Vector2, float> _heights = new();
     private readonly Queue<Vector2> _heightOrder = new();
@@ -131,42 +122,25 @@ private Vector2 GetGroundGradient(Vector2 tile)
         (alongX + alongY) / Mathf.Max(1f, _chunks.TileSize.Y));
 }
 
-    // =========================================================
-    // Light slopes by orientation while keeping flat ground brightness consistent.
-    public Color GetTint(Vector2 tile)
-    {
-        float brightness = Mathf.Max(0.1f, FlatBrightness);
+// =========================================================
+// Encode terrain normals for the shared runtime lighting shader.
+// The method name is retained for the existing chunk-building interface.
+public Color GetTint(Vector2 tile)
+{
+    if (!SlopeLightingEnabled)
+        return new Color(0.5f, 0.5f, 1f, 1f);
 
-        if (!SlopeLightingEnabled)
-            return new Color(brightness, brightness, brightness, 1f);
+    Vector2 gradient = GetGroundGradient(tile)
+        * Mathf.Max(0f, NormalStrength);
 
-        _atmosphere ??= GetTree().GetFirstNodeInGroup(
-            "world_atmosphere") as WorldAtmosphere;
+    Vector3 normal = new Vector3(
+        -gradient.X, -gradient.Y, 1f).Normalized();
 
-        Vector2 direction = _atmosphere?.LightDirection
-            ?? new Vector2(-1f, -0.7f).Normalized();
-
-        Vector2 gradient = GetGroundGradient(tile)
-            * Mathf.Max(0f, NormalStrength);
-
-        Vector3 normal = new Vector3(
-            -gradient.X, -gradient.Y, 1f).Normalized();
-
-        Vector3 light = new Vector3(
-            direction.X, direction.Y,
-            Mathf.Max(0.1f, SunElevation)).Normalized();
-
-        float ambient = Mathf.Clamp(AmbientLight, 0f, 1f);
-        float diffuse = Mathf.Max(0f, normal.Dot(light));
-
-        float flatLight = ambient + (1f - ambient) * light.Z;
-        float slopeLight = ambient + (1f - ambient) * diffuse;
-
-        float shade = brightness * Mathf.Clamp(
-            slopeLight / Mathf.Max(0.001f, flatLight), 0.55f, 1.5f);
-
-        // The existing ground shader already applies the sunlight colour.
-        return new Color(shade, shade, shade, 1f);
-    }
+    return new Color(
+        normal.X * 0.5f + 0.5f,
+        normal.Y * 0.5f + 0.5f,
+        normal.Z * 0.5f + 0.5f,
+        1f);
+}
     #endregion
 }

@@ -22,6 +22,8 @@
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="19_items"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="20_surfaces"]
 [ext_resource type="Script" uid="uid://deafdno075uwe" path="res://WORLD/Generation/InfiniteWorldGeneration.cs" id="21_infinite"]
+[ext_resource type="Script" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
+[ext_resource type="Resource" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
 
 [node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
@@ -121,3 +123,7 @@ DebugMapPoiRadiusTiles = 384.0
 
 [node name="InfiniteGeneration" type="Node" parent="." unique_id=1419098382]
 script = ExtResource("21_infinite")
+
+[node name="WorldLighting" type="Node" parent="Systems"]
+script = ExtResource("lighting_shared")
+Profile = ExtResource("lighting_profile")

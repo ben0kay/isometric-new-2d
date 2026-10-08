@@ -37,48 +37,63 @@ public partial class PlacedObject : Obstacle
         Footprint = high - low;
     }
 
-    // =========================================================
-    // Build the full cell footprint and attach artwork without atlas baking.
-    public override void _Ready()
+// =========================================================
+// Build placement collision, lit artwork, obstruction fading and health.
+public override void _Ready()
+{
+    if (_world == null || _definition == null)
     {
-        if (_world == null || _definition == null)
-        {
-            GD.PushError("PlacedObject must be configured by PlacementWorld.");
-            QueueFree();
-            return;
-        }
-
-        CollisionLayer = 1;
-        CollisionMask = 0;
-
-        Vector2 centre = _world.Grid.Centre(_anchor, _definition.Cells);
-        Vector2[] points = _world.Grid.Corners(_anchor, _definition.Cells);
-        for (int i = 0; i < points.Length; i++)
-            points[i] = (points[i] - centre) * 0.98f;
-
-        AddChild(new CollisionShape2D
-        {
-            Name = "Footprint",
-            Shape = new ConvexPolygonShape2D { Points = points }
-        });
-
-                CreateShadowAsync(points);
-
-        Node2D artwork = _definition.ArtworkScene.Instantiate<Node2D>();
-        artwork.Name = "Visual";
-        artwork.Position = Vector2.Up * _world.HeightAt(GlobalPosition);
-        artwork.Scale *= _definition.ArtworkScale;
-        AddChild(artwork);
-
-                PlayerObstructionFade.Attach(
-            this, artwork, _definition.ObstructionOutline);
-
-        ObjectHealth = GetNode<Health>("Systems/Health");
-        ObjectHealth.Died += OnDestroyed;
-
-        SetProcess(false);
-        SetPhysicsProcess(false);
+        GD.PushError("PlacedObject must be configured by PlacementWorld.");
+        QueueFree();
+        return;
     }
+
+    CollisionLayer = 1;
+    CollisionMask = 0;
+
+    Vector2 centre = _world.Grid.Centre(_anchor, _definition.Cells);
+    Vector2[] points = _world.Grid.Corners(_anchor, _definition.Cells);
+    for (int i = 0; i < points.Length; i++)
+        points[i] = (points[i] - centre) * 0.98f;
+
+    AddChild(new CollisionShape2D
+    {
+        Name = "Footprint",
+        Shape = new ConvexPolygonShape2D { Points = points }
+    });
+
+    CreateShadowAsync(points);
+
+    Node2D artwork = _definition.ArtworkScene.Instantiate<Node2D>();
+    artwork.Name = "Visual";
+    artwork.Position = Vector2.Up * _world.HeightAt(GlobalPosition);
+    artwork.Scale *= _definition.ArtworkScale;
+    AddChild(artwork);
+
+    Rect2? drawingBounds = null;
+    Vector2[] outline = _definition.ObstructionOutline;
+
+    if (outline != null && outline.Length > 0)
+    {
+        Rect2 bounds = new(outline[0], Vector2.Zero);
+        foreach (Vector2 point in outline)
+            bounds = bounds.Expand(point);
+
+        if (bounds.Size.X > 0f && bounds.Size.Y > 0f)
+            drawingBounds = bounds;
+    }
+
+    WorldLightingMaterials.Attach(this, artwork, null, drawingBounds);
+
+    PlayerObstructionFade.Attach(
+        this, artwork, _definition.ObstructionOutline);
+
+    ObjectHealth = GetNode<Health>("Systems/Health");
+    ObjectHealth.Died += OnDestroyed;
+
+    SetProcess(false);
+    SetPhysicsProcess(false);
+}
 
     // =========================================================
     // Remove the object once health reaches zero.

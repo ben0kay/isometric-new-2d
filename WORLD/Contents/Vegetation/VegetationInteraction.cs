@@ -128,27 +128,15 @@ public partial class VegetationInteraction : Node
     #endregion
 
     #region Shader Updates
-    // =========================================================
-    // Share player contact with placeholder and imported vegetation materials.
-    private void ApplyBrush(float strength)
-    {
-        Vector2 radius = new(
-            Mathf.Max(1f, Radius.X), Mathf.Max(1f, Radius.Y));
+// =========================================================
+// Publish one contact field shared by all vegetation materials.
+private void ApplyBrush(float strength)
+{
+    Vector2 radius = new(
+        Mathf.Max(1f, Radius.X), Mathf.Max(1f, Radius.Y));
 
-        ShaderMaterial plants = VegetationAtlas.WindMaterial;
-        if (plants != null && GodotObject.IsInstanceValid(plants))
-        {
-            plants.SetShaderParameter("brush_position", _brushPosition);
-            plants.SetShaderParameter("brush_direction", _direction);
-            plants.SetShaderParameter("brush_radius", radius);
-            plants.SetShaderParameter("brush_strength", strength);
-        }
-
-        Grass.UpdateBrush(
-            _brushPosition, _direction, radius, strength);
-
-        ImportedVegetationMaterials.UpdateBrush(
-            this, _brushPosition, _direction, radius, strength);
-    }
+    WorldLighting.UpdateBrush(
+        _brushPosition, _direction, radius, strength);
+}
     #endregion
 }

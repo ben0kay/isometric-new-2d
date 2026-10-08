@@ -4,19 +4,24 @@ using Godot;
 
 public partial class WorldAtmosphere : Node
 {
-    #region Configuration
-    [Export] public Vector2 SunDirection { get; set; } = new(-1f, -0.7f);
-    [Export] public Color SunTint { get; set; } = new(1f, 0.96f, 0.87f);
-    [Export] public float FaceAmbient { get; set; } = 0.65f;
-    [Export] public float FaceSunStrength { get; set; } = 0.55f;
-    [Export] public float ShadowLength { get; set; } = 1.8f;
-    [Export] public float ShadowOpacity { get; set; } = 0.38f;
-    [Export] public Color FogColor { get; set; } = new("#294f6d");
-    [Export] public float FogDensity { get; set; } = 0.65f;
-    [Export] public float FogNoiseScale { get; set; } = 0.012f;
-    [Export] public Vector2 FogDrift { get; set; } = new(3f, -1f);
-    [Export] public float GroundSunStrength { get; set; } = 2.2f;
-    #endregion
+#region Configuration
+[ExportGroup("Fog")]
+[Export] public Color FogColor { get; set; } = new("#294f6d");
+[Export] public float FogDensity { get; set; } = 0.65f;
+[Export] public float FogNoiseScale { get; set; } = 0.012f;
+[Export] public Vector2 FogDrift { get; set; } = new(3f, -1f);
+
+// Existing consumers read the shared profile rather than separate sun settings.
+private WorldLightingSettings LightingSettings =>
+    WorldLighting.Find(this)?.Settings ?? WorldLighting.DefaultProfile;
+
+public Vector2 SunDirection => LightingSettings.SunDirection;
+public Color SunTint => LightingSettings.SunColour;
+public float FaceAmbient => LightingSettings.AmbientStrength;
+public float FaceSunStrength => LightingSettings.SunStrength;
+public float ShadowLength => LightingSettings.ShadowLength;
+public float ShadowOpacity => LightingSettings.ShadowOpacity;
+#endregion
 
     #region State
     public ShaderMaterial FogMaterial { get; private set; }
@@ -39,7 +44,7 @@ private NoiseTexture2D _mistTexture;
     }
 
 // =========================================================
-// Prepare existing ground/fog materials and install independent eclipse lighting.
+// Prepare ground and fog materials; WorldLighting owns illumination and eclipse.
 public override void _Ready()
 {
     _elevation = GetNode<TerrainElevation>("../TerrainElevation");
@@ -68,8 +73,10 @@ public override void _Ready()
     };
     FogMaterial.SetShaderParameter("mist_texture", _mistTexture);
     FogMaterial.SetShaderParameter("fog_color", FogColor);
-    FogMaterial.SetShaderParameter("fog_density", Mathf.Clamp(FogDensity, 0f, 1f));
-    FogMaterial.SetShaderParameter("noise_scale", Mathf.Max(0.0001f, FogNoiseScale));
+    FogMaterial.SetShaderParameter("fog_density",
+        Mathf.Clamp(FogDensity, 0f, 1f));
+    FogMaterial.SetShaderParameter("noise_scale",
+        Mathf.Max(0.0001f, FogNoiseScale));
     FogMaterial.SetShaderParameter("drift", FogDrift);
 
     GroundMaterial = new ShaderMaterial
@@ -77,29 +84,19 @@ public override void _Ready()
         Shader = GD.Load<Shader>(
             "res://VISUALS/Atmosphere/GroundSun.gdshader")
     };
-    GroundMaterial.SetShaderParameter("ground_noise", GroundSurfaceNoise.GetTexture());
+    GroundMaterial.SetShaderParameter(
+        "ground_noise", GroundSurfaceNoise.GetTexture());
     GroundMaterial.SetShaderParameter("mist_texture", _mistTexture);
-    GroundMaterial.SetShaderParameter("sun_direction", LightDirection);
-    GroundMaterial.SetShaderParameter("sun_color", SunTint);
-    GroundMaterial.SetShaderParameter("sun_strength", Mathf.Max(0f, GroundSunStrength));
-
-    WorldEclipse.Install(this);
 }
     #endregion
 
     #region Sunlight
-    // =========================================================
-    // Tint a baked face according to its approximate screen-space orientation.
-    public Color ShadeFace(Color baseColor, Vector2 outwardNormal)
-    {
-        float facing = Mathf.Max(0f, outwardNormal.Normalized().Dot(LightDirection));
-        float intensity = Mathf.Max(0f, FaceAmbient + facing * FaceSunStrength);
-        return new Color(
-            baseColor.R * SunTint.R * intensity,
-            baseColor.G * SunTint.G * intensity,
-            baseColor.B * SunTint.B * intensity,
-            baseColor.A);
-    }
+// =========================================================
+// Keep compatibility with painters while removing baked world sunlight.
+public Color ShadeFace(Color baseColor, Vector2 outwardNormal)
+{
+    return baseColor;
+}
     #endregion
 
        #region Shadows

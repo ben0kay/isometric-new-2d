@@ -1,11 +1,8 @@
-// Combines canopy wind and obstruction fading with shared world lighting.
+// Applies the same lighting to premultiplied baked world artwork.
 shader_type canvas_item;
 render_mode unshaded, blend_premul_alpha;
 
 #include "res://VISUALS/Lighting/WorldSurface.gdshaderinc"
-
-uniform float wind_strength : hint_range(0.0, 12.0) = 4.0;
-uniform float wind_speed : hint_range(0.0, 4.0) = 0.85;
 
 varying vec4 artwork_colour;
 varying vec2 artwork_position;
@@ -13,30 +10,23 @@ varying vec2 normal_axis_x;
 varying vec2 normal_axis_y;
 
 // =========================================================
-// Bend the canopy while retaining its surface orientation.
+// Retain surface coordinates and modulation before texture sampling.
 void vertex() {
     artwork_colour = COLOR;
     artwork_position = VERTEX;
     normal_axis_x = normalize(MODEL_MATRIX[0].xy);
     normal_axis_y = normalize(MODEL_MATRIX[1].xy);
-
-    float phase = dot(MODEL_MATRIX[3].xy, vec2(0.017, 0.011));
-    float time = TIME * wind_speed;
-    float gust = 0.75 + 0.25 * sin(time * 0.37);
-    float sway = sin(time + phase) * 0.75
-        + sin(time * 1.83 + phase * 0.63) * 0.25;
-
-    float crown_weight = smoothstep(85.0, 330.0, -VERTEX.y);
-    VERTEX.x += sway * gust * wind_strength * crown_weight;
 }
 
 // =========================================================
-// Shade the tree and fade its premultiplied colour correctly.
+// Fade premultiplied colour and alpha together before illumination.
 void fragment() {
     vec4 pixel = texture(TEXTURE, UV) * artwork_colour;
     pixel.rgb *= artwork_colour.a;
+
     pixel.rgb = world_surface(
         pixel.rgb, artwork_position, normal_axis_x, normal_axis_y
     );
+
     COLOR = pixel;
 }

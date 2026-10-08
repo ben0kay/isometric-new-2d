@@ -46,28 +46,19 @@ public partial class PlaceholderAtlas : Node2D
     }
 
 // =========================================================
-// Cache rocks and characters using both artwork revision and baked sunlight.
+// Cache neutral artwork independently of the runtime sunlight profile.
 private static async Task BakeAsync(Node host)
 {
-    // Increase this after changing these drawings or their baking shaders.
-    const int artworkRevision = 1;
+    const int artworkRevision = 2;
 
     try
     {
-        WorldAtmosphere atmosphere = host.GetTree().GetFirstNodeInGroup(
-            "world_atmosphere") as WorldAtmosphere;
-
-string lighting = atmosphere == null
-    ? "no-atmosphere"
-    : System.FormattableString.Invariant(
-        $"{atmosphere.SunDirection.X:R}|{atmosphere.SunDirection.Y:R}|{atmosphere.SunTint.R:R}|{atmosphere.SunTint.G:R}|{atmosphere.SunTint.B:R}|{atmosphere.FaceAmbient:R}|{atmosphere.FaceSunStrength:R}");
-
-        string key = $"placeholders-{artworkRevision}"
-            + $"|rocks={RockDrawing.VariantCount}|light={lighting}";
+        string key = $"placeholders-neutral-{artworkRevision}"
+            + $"|rocks={RockDrawing.VariantCount}";
 
         Texture = await ArtworkBaker.LoadOrBake(
             host, "PlaceholderBake", key, new Vector2I(768, 512),
-            () => new PlaceholderAtlas { _atmosphere = atmosphere });
+            () => new PlaceholderAtlas());
     }
     catch
     {
