@@ -57,5 +57,6 @@ RollingHeight = 0.0
 RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
+RocksPerChunk = 8
 Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
 Enemies = ExtResource("20_enemies")

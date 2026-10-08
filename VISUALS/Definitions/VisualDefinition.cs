@@ -1,5 +1,5 @@
-// Defines replacement artwork, placement and shared surface lighting.
-// Vegetation movement remains optional and separate from illumination.
+// Defines replacement artwork, placement, lighting and ground shadows.
+// Optional vegetation effects remain separate from shared visual behaviour.
 using Godot;
 
 [GlobalClass]
@@ -23,6 +23,11 @@ public partial class VisualDefinition : Resource
     #region Lighting
     [ExportGroup("Lighting")]
     [Export] public VisualLightingSettings Lighting { get; set; }
+    #endregion
+
+    #region Shadows
+    [ExportGroup("Ground Shadows")]
+    [Export] public GroundShadowSettings Shadows { get; set; }
     #endregion
 
     #region Vegetation

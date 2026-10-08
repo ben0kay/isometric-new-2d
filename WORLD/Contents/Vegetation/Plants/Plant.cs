@@ -13,51 +13,41 @@ public partial class Plant : Node2D
     #endregion
 
     #region Lifecycle
-    // =========================================================
-    // Attach terrain-adjusted artwork above the species' shared contact shadow.
-    public override async void _Ready()
+// =========================================================
+// Attach replaceable plant artwork and its automatically shared shadows.
+public override async void _Ready()
+{
+    try
     {
-        try
-        {
-            if (Definition == null)
-                throw new System.InvalidOperationException(
-                    "Plant requires a PlantDefinition.");
+        if (Definition == null)
+            throw new System.InvalidOperationException(
+                "Plant requires a PlantDefinition.");
 
-            VegetationPlacement.Attach(
+        VegetationPlacement.Attach(
             this, Definition.PlacementFootprint *
                 Mathf.Max(0.1f, SizeMultiplier), false);
 
-            ResourceHarvest.Attach(this, Definition, "plant_fiber", true);
-            await VegetationAtlas.EnsureReady(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        ResourceHarvest.Attach(this, Definition, "plant_fiber", true);
 
-            TerrainVisual visual = TerrainVisual.Attach(
-                this,
-                VegetationAtlas.GetRegion(
-                    Definition.BakedKind == PlantArtwork.Shrub, Variant),
-                VegetationAtlas.Origin, Vector2.One, false,
-                Definition.Visual, VegetationAtlas.Texture,
-                VegetationAtlas.WindMaterial);
+        await VegetationAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-            Sprite2D shadow = new()
-            {
-                Name = "ContactShadow",
-                Texture = VegetationShadow.GetTexture(),
-                Position = new Vector2(5, 3),
-                Scale = Definition.ContactShadowScale,
-                TextureFilter = TextureFilterEnum.Linear
-            };
-            visual.AddChild(shadow);
-            visual.MoveChild(shadow, 0);
+        TerrainVisual visual = TerrainVisual.Attach(
+            this,
+            VegetationAtlas.GetRegion(
+                Definition.BakedKind == PlantArtwork.Shrub, Variant),
+            VegetationAtlas.Origin, Vector2.One, false,
+            Definition.Visual, VegetationAtlas.Texture,
+            VegetationAtlas.WindMaterial);
 
-            float size = Mathf.Max(0.1f, SizeMultiplier);
-            visual.Scale = new Vector2(Mirror ? -size : size, size);
-            SetProcess(false);
-        }
-        catch (System.Exception error)
-        {
-            GD.PushError($"Plant '{Name}' artwork failed: {error}");
-        }
+        float size = Mathf.Max(0.1f, SizeMultiplier);
+        visual.Scale = new Vector2(Mirror ? -size : size, size);
+        SetProcess(false);
     }
+    catch (System.Exception error)
+    {
+        GD.PushError($"Plant '{Name}' artwork failed: {error}");
+    }
+}
     #endregion
 }

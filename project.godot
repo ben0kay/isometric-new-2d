@@ -43,7 +43,7 @@ rendering_device/driver.windows="d3d12"
 
 wl_sun_direction={
 "type": "vec3",
-"value": Vector3(-0.72, -0.50, 0.48)
+"value": Vector3(-0.72, -0.5, 0.48)
 }
 wl_sun_color={
 "type": "color",

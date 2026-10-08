@@ -136,12 +136,13 @@ public Color ShadeFace(Color baseColor, Vector2 outwardNormal)
         CreateObstacleShadow(obstacle, footprint);
     }
 
-   // =========================================================
-// Project a fixed shadow footprint, then attach culling and eclipse fading.
+ // =========================================================
+// Project an obstacle footprint unless its visual selects another shadow mode.
 public void CreateObstacleShadow(
     Obstacle obstacle, Vector2[] footprint)
 {
-    if (footprint == null || footprint.Length < 3 ||
+    if (obstacle.HasMeta("shared_shadow_override") ||
+        footprint == null || footprint.Length < 3 ||
         obstacle.GetNodeOrNull<Polygon2D>("SunShadow") != null)
         return;
 

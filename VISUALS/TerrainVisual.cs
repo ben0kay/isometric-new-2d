@@ -14,7 +14,7 @@ public partial class TerrainVisual : Node2D
 
     #region Creation
 // =========================================================
-// Attach artwork, shared world lighting, hitboxes and obstruction fading.
+// Attach artwork, lighting, shared shadows, hitboxes and obstruction fading.
 public static TerrainVisual Attach(
     Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
     bool followMovement, VisualDefinition definition = null,
@@ -54,6 +54,7 @@ public static TerrainVisual Attach(
     WorldLightingMaterials.Attach(
         host, visual.GetNode<Node>("Artwork"), definition);
 
+    GroundShadow.Attach(host, visual, definition);
     CombatHitbox.Attach(host, visual);
 
     bool fade = definition?.Vegetation?.FadeBehindPlayer
