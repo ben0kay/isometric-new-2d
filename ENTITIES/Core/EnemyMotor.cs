@@ -6,32 +6,32 @@ using System;
 public partial class EnemyMotor : Node
 {
     #region State
-    private Enemy _actor;
-    private GlobalConfig _config;
-    private WorldNavigation _navigation;
+private CharacterBody2D _actor;
+private GlobalConfig _config;
+private WorldNavigation _navigation;
 
-    private Vector2 _goal, _requestGoal;
-    private Vector2[] _path = Array.Empty<Vector2>();
-    private int _pathIndex;
-    private double _retryTimer;
-    private float _speed, _stopDistance, _stalled;
-    private bool _direct, _urgent, _failed;
+private Vector2 _goal, _requestGoal;
+private Vector2[] _path = Array.Empty<Vector2>();
+private int _pathIndex;
+private double _retryTimer;
+private float _speed, _stopDistance, _stalled;
+private bool _direct, _urgent, _failed;
 
-    public bool HasGoal { get; private set; }
-    public bool Arrived => HasGoal &&
-        _actor.GlobalPosition.DistanceSquaredTo(_goal) <=
-        _stopDistance * _stopDistance;
-    public bool IsStuck => _stalled >= 2f;
-    #endregion
+public bool HasGoal { get; private set; }
+public bool Arrived => HasGoal &&
+    _actor.GlobalPosition.DistanceSquaredTo(_goal) <=
+    _stopDistance * _stopDistance;
+public bool IsStuck => _stalled >= 2f;
+#endregion
 
     #region Lifecycle
-    // =========================================================
-    // Resolve the actor and shared configuration.
-    public override void _Ready()
-    {
-        _actor = GetParent().GetParent<Enemy>();
-        _config = WorldConfig.Find(this);
-    }
+// =========================================================
+// Resolve any character body using the shared Systems/Motor arrangement.
+public override void _Ready()
+{
+    _actor = GetParent().GetParent<CharacterBody2D>();
+    _config = WorldConfig.Find(this);
+}
 
     // =========================================================
     // Remove queued work when this component leaves the scene.
@@ -190,36 +190,39 @@ public partial class EnemyMotor : Node
         _stalled = 0f;
     }
 
-    // =========================================================
-    // Stagger requests and avoid rebuilding failed routes every frame.
-    private void RequestRouteIfDue()
+// =========================================================
+// Share route scheduling while reading each actor's own planning interval.
+private void RequestRouteIfDue()
+{
+    if (_navigation.HasPending(this)) return;
+
+    float threshold = _navigation.CellSize;
+    bool movedGoal = _requestGoal.DistanceSquaredTo(_goal) >=
+        threshold * threshold;
+    bool changedArea = _navigation.FailedAreaChanged(this);
+
+    if (_failed && _retryTimer > 0.0 && !movedGoal && !changedArea)
+        return;
+
+    if (movedGoal || changedArea || (_failed && _retryTimer <= 0.0))
+        _urgent = true;
+
+    double interval = _actor switch
     {
-        if (_navigation.HasPending(this)) return;
+        Enemy enemy => enemy.Definition.PathInterval,
+        Entity entity => entity.Definition.PathInterval,
+        _ => 0.45
+    };
 
-        float threshold = _navigation.CellSize;
-        bool movedGoal = _requestGoal.DistanceSquaredTo(_goal) >=
-            threshold * threshold;
-        bool changedArea = _navigation.FailedAreaChanged(this);
+    bool due = _urgent
+        ? StaggeredUpdate.Due(this, _config.NavigationStaggerTicks, 1)
+        : StaggeredUpdate.DueSeconds(this, interval, 1);
 
-        if (_failed && _retryTimer > 0.0 &&
-            !movedGoal && !changedArea)
-            return;
+    if (!due) return;
 
-        if (movedGoal || changedArea ||
-            (_failed && _retryTimer <= 0.0))
-            _urgent = true;
-
-        bool due = _urgent
-            ? StaggeredUpdate.Due(
-                this, _config.NavigationStaggerTicks, 1)
-            : StaggeredUpdate.DueSeconds(
-                this, _actor.Definition.PathInterval, 1);
-
-        if (!due) return;
-
-        _requestGoal = _goal;
-        _urgent = false;
-        _navigation.RequestRoute(this, _actor, _goal);
-    }
+    _requestGoal = _goal;
+    _urgent = false;
+    _navigation.RequestRoute(this, _actor, _goal);
+}
     #endregion
 }

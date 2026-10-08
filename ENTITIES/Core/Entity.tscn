@@ -1,0 +1,25 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ENTITIES/Core/Entity.cs" id="1_entity"]
+[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Script" path="res://ENTITIES/Core/EnemyMotor.cs" id="3_motor"]
+
+[sub_resource type="CircleShape2D" id="Body"]
+radius = 10.0
+
+[node name="Entity" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 13
+motion_mode = 1
+script = ExtResource("1_entity")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Body")
+
+[node name="Systems" type="Node" parent="."]
+
+[node name="Health" type="Node" parent="Systems"]
+script = ExtResource("2_health")
+
+[node name="Motor" type="Node" parent="Systems"]
+script = ExtResource("3_motor")

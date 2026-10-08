@@ -169,41 +169,41 @@ public override void _ExitTree()
 	#endregion
 
 	#region Projectiles
-	// =========================================================
-	// Capture the shot's cover height and world layer for pooled projectiles.
-    public void EmitProjectile(
-        Vector2 origin, Vector2 direction, ProjectileAttack attack)
-    {
-        _pool ??= GetTree().GetFirstNodeInGroup(
-            "projectile_pool") as ProjectilePool;
+// =========================================================
+// Include the weapon owner so wildlife knows who actually attacked it.
+public void EmitProjectile(
+	Vector2 origin, Vector2 direction, ProjectileAttack attack)
+{
+	_pool ??= GetTree().GetFirstNodeInGroup(
+		"projectile_pool") as ProjectilePool;
 
-        if (_pool == null)
-        {
-            GD.PushError("Weapon requires ProjectilePool.");
-            return;
-        }
+	if (_pool == null)
+	{
+		GD.PushError("Weapon requires ProjectilePool.");
+		return;
+	}
 
-        uint mask = Team == CombatTeam.Player
-            ? CombatHitbox.EnemyLayer : CombatHitbox.PlayerLayer;
+	uint mask = Team == CombatTeam.Player
+		? CombatHitbox.EnemyLayer : CombatHitbox.PlayerLayer;
 
-        float height = _shotHeight > 0f
-            ? _shotHeight : CombatCover.HeightFor(Source);
+	float height = _shotHeight > 0f
+		? _shotHeight : CombatCover.HeightFor(Source);
 
-        _pool.Fire(
-            origin, direction, attack, mask, SourceHeight(),
-            height, WorldLayerMember.For(Source));
-    }
+	_pool.Fire(
+		origin, direction, attack, mask, SourceHeight(),
+		height, WorldLayerMember.For(Source), Source);
+}
 
 // =========================================================
 // Include airborne height when aiming and launching projectiles.
 private float SourceHeight()
 {
-    float terrainHeight = WorldLayerController.HeightFor(
-        Source, Source.GlobalPosition);
-    float jumpHeight = Source is Player player
-        ? player.JumpHeight : 0f;
+	float terrainHeight = WorldLayerController.HeightFor(
+		Source, Source.GlobalPosition);
+	float jumpHeight = Source is Player player
+		? player.JumpHeight : 0f;
 
-    return terrainHeight + jumpHeight;
+	return terrainHeight + jumpHeight;
 }
 	#endregion
 }

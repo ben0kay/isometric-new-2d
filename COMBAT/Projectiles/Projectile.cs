@@ -20,6 +20,8 @@ public partial class Projectile : Node2D
     private int _damage;
     private DamageType _damageType;
     private bool _active;
+
+    public Node2D DamageSource { get; set; }
     #endregion
 
     #region Lifecycle
@@ -56,8 +58,8 @@ public override void _ExitTree()
     _worldExcluded.Clear();
 }
 
-   // =========================================================
-// Resolve cover and actor impacts, damaging placed objects struck as cover.
+// =========================================================
+// Resolve cover and actor impacts while retaining the original shooter.
 public override void _PhysicsProcess(double delta)
 {
     if (!_active) return;
@@ -102,7 +104,7 @@ public override void _PhysicsProcess(double delta)
     if (worldHit.Count > 0 && worldDistance <= actorDistance)
     {
         if (worldHit["collider"].AsGodotObject() is PlacedObject placed)
-            placed.ObjectHealth?.Damage(_damage, _damageType);
+            placed.ObjectHealth?.Damage(_damage, _damageType, DamageSource);
 
         Release();
         return;
@@ -112,7 +114,7 @@ public override void _PhysicsProcess(double delta)
     {
         CombatHitbox hitbox =
             actorHit["collider"].AsGodotObject() as CombatHitbox;
-        hitbox?.ReceiveDamage(_damage, _damageType);
+        hitbox?.ReceiveDamage(_damage, _damageType, DamageSource);
         Release();
         return;
     }

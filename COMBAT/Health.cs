@@ -25,6 +25,7 @@ public partial class Health : Node
     public bool IsAlive => Current > 0;
     public string VitalityLabel => Defense?.VitalityLabel ?? "Health";
     private double _immunity;
+    public Node2D LastDamageSource { get; private set; }
     #endregion
 
     #region Lifecycle
@@ -47,22 +48,26 @@ public partial class Health : Node
     #endregion
 
     #region Operations
-    // =========================================================
-    // Resolve defenses, apply accepted damage, and emit death once.
-    public bool Damage(int amount, DamageType type = DamageType.Neutral)
-    {
-        if (!IsAlive || amount <= 0 || _immunity > 0.0) return false;
-        int resolved = Defense?.ResolveDamage(amount, type) ?? amount;
-        if (resolved <= 0) return false;
+// =========================================================
+// Preserve the accepted attacker's identity for shared retaliation behaviour.
+public bool Damage(
+    int amount, DamageType type = DamageType.Neutral, Node2D source = null)
+{
+    if (!IsAlive || amount <= 0 || _immunity > 0.0) return false;
 
-        Current = Math.Max(0, Current - resolved);
-        _immunity = Math.Max(0.0, DamageImmunity);
-        SetPhysicsProcess(_immunity > 0.0);
-        EmitSignal(SignalName.Changed, Current, MaxHealth);
-        EmitSignal(SignalName.Hit);
-        if (!IsAlive) EmitSignal(SignalName.Died);
-        return true;
-    }
+    int resolved = Defense?.ResolveDamage(amount, type) ?? amount;
+    if (resolved <= 0) return false;
+
+    LastDamageSource = GodotObject.IsInstanceValid(source) ? source : null;
+    Current = Math.Max(0, Current - resolved);
+    _immunity = Math.Max(0.0, DamageImmunity);
+    SetPhysicsProcess(_immunity > 0.0);
+
+    EmitSignal(SignalName.Changed, Current, MaxHealth);
+    EmitSignal(SignalName.Hit);
+    if (!IsAlive) EmitSignal(SignalName.Died);
+    return true;
+}
 
     // =========================================================
     // Restore full vitality with optional respawn protection.

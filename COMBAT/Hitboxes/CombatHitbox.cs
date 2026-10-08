@@ -29,46 +29,47 @@ public partial class CombatHitbox : Area2D
     #endregion
 
     #region Creation
-    // =========================================================
-    // Attach shared combat behaviour only to player and enemy artwork.
-    public static void Attach(Node2D actor, TerrainVisual visual)
+// =========================================================
+// Attach the correct silhouette to player, robot or configurable wildlife artwork.
+public static void Attach(Node2D actor, TerrainVisual visual)
+{
+    CombatHitboxDefinition definition;
+    uint layer;
+
+    if (actor is Player)
     {
-        string path;
-        uint layer;
-
-        if (actor is Player)
-        {
-            path = "res://PLAYER/PlayerHitbox.tres";
-            layer = PlayerLayer;
-        }
-        else if (actor is Enemy)
-        {
-            path = "res://ENTITIES/Species/Robots/RobotHitbox.tres";
-            layer = EnemyLayer;
-        }
-        else return;
-
-        CombatHitboxDefinition definition =
-            GD.Load<CombatHitboxDefinition>(path);
-
-        if (definition == null)
-            throw new InvalidOperationException(
-                $"Combat hitbox definition is missing: {path}");
-
-        definition.Validate();
-
-        Node2D artwork = visual.GetNode<Node2D>("Artwork");
-        artwork.AddChild(new CombatHitbox
-        {
-            Name = "CombatHitbox",
-            _actor = actor,
-            _visual = visual,
-            _health = actor.GetNode<Health>("Systems/Health"),
-            _definition = definition,
-            _teamLayer = layer
-        });
+        definition = GD.Load<CombatHitboxDefinition>(
+            "res://PLAYER/PlayerHitbox.tres");
+        layer = PlayerLayer;
     }
+    else if (actor is Entity entity)
+    {
+        definition = entity.Definition.Hitbox;
+        layer = EnemyLayer;
+    }
+    else if (actor is Enemy)
+    {
+        definition = GD.Load<CombatHitboxDefinition>(
+            "res://ENTITIES/Species/Robots/RobotHitbox.tres");
+        layer = EnemyLayer;
+    }
+    else return;
 
+    if (definition == null)
+        throw new InvalidOperationException("Actor hitbox definition is missing.");
+
+    definition.Validate();
+
+    visual.GetNode<Node2D>("Artwork").AddChild(new CombatHitbox
+    {
+        Name = "CombatHitbox",
+        _actor = actor,
+        _visual = visual,
+        _health = actor.GetNode<Health>("Systems/Health"),
+        _definition = definition,
+        _teamLayer = layer
+    });
+}
     // =========================================================
     // Find an actor's hitbox without searching the whole scene.
     public static CombatHitbox Find(Node2D actor)
@@ -137,13 +138,14 @@ public partial class CombatHitbox : Area2D
         if (CollisionLayer != layer) CollisionLayer = layer;
     }
 
-    // =========================================================
-    // Deliver accepted projectile impacts through existing defense and immunity.
-    public void ReceiveDamage(int amount, DamageType type)
-    {
-        if (CanReceiveProjectile)
-            _health.Damage(amount, type);
-    }
+// =========================================================
+// Forward damage and its actual source through shared health.
+public void ReceiveDamage(
+    int amount, DamageType type, Node2D source = null)
+{
+    if (CanReceiveProjectile)
+        _health.Damage(amount, type, source);
+}
 
     // =========================================================
 // Prevent a projectile from damaging an actor in another world layer.

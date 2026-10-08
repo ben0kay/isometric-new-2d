@@ -36,17 +36,17 @@ public partial class WorldNavigation : Node
         }
     }
 
-    private sealed class RouteJob
-    {
-        public ulong Id;
-        public EnemyMotor Owner;
-        public Enemy Actor;
-        public Vector2 Goal;
-        public int Padding;
-        public long Submitted;
-        public bool Checked, WarmOnly;
-        public GridEntry Grid;
-    }
+private sealed class RouteJob
+{
+    public ulong Id;
+    public EnemyMotor Owner;
+    public CharacterBody2D Actor;
+    public Vector2 Goal;
+    public int Padding;
+    public long Submitted;
+    public bool Checked, WarmOnly;
+    public GridEntry Grid;
+}
 
     public readonly struct RouteResult
     {
@@ -386,31 +386,32 @@ public partial class WorldNavigation : Node
     #endregion
 
     #region Requests
-    // =========================================================
-    // Keep at most one pending request for each motor.
-    public void RequestRoute(EnemyMotor owner, Enemy actor, Vector2 goal)
+// =========================================================
+// Queue the same budgeted navigation work for robots and wildlife.
+public void RequestRoute(
+    EnemyMotor owner, CharacterBody2D actor, Vector2 goal)
+{
+    ulong id = owner.GetInstanceId();
+    if (_jobs.ContainsKey(id)) return;
+
+    _results.Remove(id);
+    _failedAreas.Remove(id);
+    _changedFailures.Remove(id);
+
+    var job = new RouteJob
     {
-        ulong id = owner.GetInstanceId();
-        if (_jobs.ContainsKey(id)) return;
+        Id = id,
+        Owner = owner,
+        Actor = actor,
+        Goal = goal,
+        Padding = Mathf.Max(CellSize * 2,
+            _config.NavigationInitialPadding),
+        Submitted = Stopwatch.GetTimestamp()
+    };
 
-        _results.Remove(id);
-        _failedAreas.Remove(id);
-        _changedFailures.Remove(id);
-
-        var job = new RouteJob
-        {
-            Id = id,
-            Owner = owner,
-            Actor = actor,
-            Goal = goal,
-            Padding = Mathf.Max(CellSize * 2,
-                _config.NavigationInitialPadding),
-            Submitted = Stopwatch.GetTimestamp()
-        };
-
-        _jobs.Add(id, job);
-        _queue.Enqueue(job);
-    }
+    _jobs.Add(id, job);
+    _queue.Enqueue(job);
+}
 
     // =========================================================
     // Test pending state without performing navigation work.

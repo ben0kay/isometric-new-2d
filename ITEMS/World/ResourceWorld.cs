@@ -135,4 +135,32 @@ public bool SpawnHarvest(string primaryId, int primaryCount,
 	return true;
 }
 	#endregion
+
+	// =========================================================
+// Deliver an actor's drops into that actor's layer, independent of the player.
+public bool SpawnItemFor(
+    Node owner, ItemDefinition item, int count, Vector2 globalPosition)
+{
+    WorldLayer layer = WorldLayerMember.For(owner);
+    WorldLayerController layers = WorldLayerController.Find(this);
+    Node2D objects = layer == WorldLayer.Cave
+        ? layers?.Cave?.Objects : _objects;
+
+    if (item == null || count <= 0 ||
+        !GodotObject.IsInstanceValid(objects))
+        return false;
+
+    WorldPickup pickup = new()
+    {
+        Name = "ItemDrop",
+        Item = item,
+        Count = count,
+        PickupRadius = Mathf.Max(8f, PickupRadius),
+        PickupDelay = Math.Max(0, PickupDelay),
+        Position = objects.ToLocal(globalPosition)
+    };
+
+    objects.CallDeferred(Node.MethodName.AddChild, pickup);
+    return true;
+}
 }
