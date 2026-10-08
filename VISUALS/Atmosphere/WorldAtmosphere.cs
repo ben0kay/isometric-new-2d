@@ -39,7 +39,7 @@ private NoiseTexture2D _mistTexture;
     }
 
 // =========================================================
-// Prepare shared noise textures, continuous ground materials and ravine mist.
+// Prepare existing ground/fog materials and install independent eclipse lighting.
 public override void _Ready()
 {
     _elevation = GetNode<TerrainElevation>("../TerrainElevation");
@@ -63,7 +63,8 @@ public override void _Ready()
 
     FogMaterial = new ShaderMaterial
     {
-        Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/RavineFog.gdshader")
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Atmosphere/RavineFog.gdshader")
     };
     FogMaterial.SetShaderParameter("mist_texture", _mistTexture);
     FogMaterial.SetShaderParameter("fog_color", FogColor);
@@ -73,13 +74,16 @@ public override void _Ready()
 
     GroundMaterial = new ShaderMaterial
     {
-        Shader = GD.Load<Shader>("res://VISUALS/Atmosphere/GroundSun.gdshader")
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Atmosphere/GroundSun.gdshader")
     };
     GroundMaterial.SetShaderParameter("ground_noise", GroundSurfaceNoise.GetTexture());
     GroundMaterial.SetShaderParameter("mist_texture", _mistTexture);
     GroundMaterial.SetShaderParameter("sun_direction", LightDirection);
     GroundMaterial.SetShaderParameter("sun_color", SunTint);
     GroundMaterial.SetShaderParameter("sun_strength", Mathf.Max(0f, GroundSunStrength));
+
+    WorldEclipse.Install(this);
 }
     #endregion
 
@@ -135,77 +139,68 @@ public override void _Ready()
         CreateObstacleShadow(obstacle, footprint);
     }
 
-    // =========================================================
-    // Project a supplied ground footprint away from the sunlight.
-    // Footprint points are local to the obstacle, before terrain height adjustment.
-    public void CreateObstacleShadow(
-        Obstacle obstacle, Vector2[] footprint)
+   // =========================================================
+// Project a fixed shadow footprint, then attach culling and eclipse fading.
+public void CreateObstacleShadow(
+    Obstacle obstacle, Vector2[] footprint)
+{
+    if (footprint == null || footprint.Length < 3 ||
+        obstacle.GetNodeOrNull<Polygon2D>("SunShadow") != null)
+        return;
+
+    float length = obstacle.Height * Mathf.Max(0f, ShadowLength);
+    float opacity = Mathf.Clamp(ShadowOpacity, 0f, 1f);
+    if (length < 1f || opacity <= 0f) return;
+
+    Vector2 direction = -LightDirection;
+    Vector2 extension = direction * length;
+    Vector2[] candidates = new Vector2[footprint.Length * 2];
+
+    for (int i = 0; i < footprint.Length; i++)
     {
-        if (footprint == null || footprint.Length < 3 ||
-            obstacle.GetNodeOrNull<Polygon2D>("SunShadow") != null)
+        candidates[i] = footprint[i];
+        float taper = obstacle is PlacedObject ? 1f : 0.7f;
+        candidates[i + footprint.Length] =
+            extension + footprint[i] * taper;
+    }
+
+    Vector2[] hull = Geometry2D.ConvexHull(candidates);
+    if (hull.Length > 1 && hull[0].IsEqualApprox(hull[hull.Length - 1]))
+        System.Array.Resize(ref hull, hull.Length - 1);
+    if (hull.Length < 3) return;
+
+    Vector2[] points = new Vector2[hull.Length];
+    Color[] colors = new Color[hull.Length];
+
+    for (int i = 0; i < hull.Length; i++)
+    {
+        Vector2 globalPoint = obstacle.ToGlobal(hull[i]);
+
+        if (!ChasmFeature.HasGroundClearance(
+            _ground.ToLocal(globalPoint), _chunks.TileSize))
             return;
 
-        float length = obstacle.Height * Mathf.Max(0f, ShadowLength);
-        float opacity = Mathf.Clamp(ShadowOpacity, 0f, 1f);
+        Vector2 visualPoint = globalPoint;
+        visualPoint.Y -= _elevation.SampleWorldHeight(globalPoint);
+        points[i] = obstacle.ToLocal(visualPoint);
 
-        if (length < 1f || opacity <= 0f) return;
+        float fraction = Mathf.Clamp(
+            hull[i].Dot(direction) / length, 0f, 1f);
 
-        Vector2 direction = -LightDirection;
-        Vector2 extension = direction * length;
-
-        Vector2[] candidates = new Vector2[footprint.Length * 2];
-
-        for (int i = 0; i < footprint.Length; i++)
-        {
-            candidates[i] = footprint[i];
-
-            // Buildings keep their full projected width.
-            float taper = obstacle is PlacedObject ? 1f : 0.7f;
-            candidates[i + footprint.Length] =
-                extension + footprint[i] * taper;
-        }
-
-        Vector2[] hull = Geometry2D.ConvexHull(candidates);
-
-        if (hull.Length > 1 &&
-            hull[0].IsEqualApprox(hull[hull.Length - 1]))
-            System.Array.Resize(ref hull, hull.Length - 1);
-
-        if (hull.Length < 3) return;
-
-        Vector2[] points = new Vector2[hull.Length];
-        Color[] colors = new Color[hull.Length];
-
-        for (int i = 0; i < hull.Length; i++)
-        {
-            Vector2 globalPoint = obstacle.ToGlobal(hull[i]);
-
-            if (!ChasmFeature.HasGroundClearance(
-                _ground.ToLocal(globalPoint), _chunks.TileSize))
-                return;
-
-            Vector2 visualPoint = globalPoint;
-            visualPoint.Y -= _elevation.SampleWorldHeight(globalPoint);
-
-            points[i] = obstacle.ToLocal(visualPoint);
-
-            float fraction = Mathf.Clamp(
-                hull[i].Dot(direction) / length, 0f, 1f);
-
-            colors[i] = new Color(
-                0.015f, 0.025f, 0.04f,
-                opacity * (1f - fraction * 0.65f));
-        }
-
-        obstacle.AddChild(new Polygon2D
-        {
-            Name = "SunShadow",
-            Polygon = points,
-            VertexColors = colors,
-            Color = Colors.White,
-            ZAsRelative = false,
-            ZIndex = -1
-        });
+        colors[i] = new Color(
+            0.015f, 0.025f, 0.04f,
+            opacity * (1f - fraction * 0.65f));
     }
+
+    SunShadow.Attach(obstacle, new Polygon2D
+    {
+        Name = "SunShadow",
+        Polygon = points,
+        VertexColors = colors,
+        Color = Colors.White,
+        ZAsRelative = false,
+        ZIndex = -1
+    });
+}
     #endregion
 }

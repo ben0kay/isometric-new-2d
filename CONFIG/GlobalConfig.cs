@@ -133,4 +133,17 @@ public int EnemyScreenCheckTicks { get; set; } = 12;
 [Export(PropertyHint.Range, "0,512,16")]
 public float EnemyScreenMarginPixels { get; set; } = 128f;
 #endregion
+
+#region Eclipse
+[ExportGroup("ECLIPSE")]
+
+[Export(PropertyHint.Range, "0.1,240,0.1,or_greater")]
+public double DayDurationMinutes { get; set; } = 45.0;
+
+[Export(PropertyHint.Range, "0,120,0.1,or_greater")]
+public double EclipseDurationMinutes { get; set; } = 15.0;
+
+[Export(PropertyHint.Range, "0,4,0.05,or_greater")]
+public float EclipseDarknessMultiplier { get; set; } = 1f;
+#endregion
 }
