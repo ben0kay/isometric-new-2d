@@ -22,8 +22,9 @@
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="19_items"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="20_surfaces"]
 [ext_resource type="Script" uid="uid://deafdno075uwe" path="res://WORLD/Generation/InfiniteWorldGeneration.cs" id="21_infinite"]
-[ext_resource type="Script" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
-[ext_resource type="Resource" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
+[ext_resource type="Script" uid="uid://lmyytts0i8f5" path="res://DEBUG/Performance/PerformanceDebug.cs" id="22_t0pjo"]
+[ext_resource type="Resource" uid="uid://csyfj5gk345yu" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
+[ext_resource type="Script" uid="uid://d3v5aarbwxiuf" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
 
 [node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
@@ -85,6 +86,10 @@ script = ExtResource("8_projectiles")
 [node name="TallowbackTest" type="Node" parent="Systems" unique_id=1128939807]
 script = ExtResource("18_gp4vb")
 
+[node name="WorldLighting" type="Node" parent="Systems" unique_id=406405696]
+script = ExtResource("lighting_shared")
+Profile = ExtResource("lighting_profile")
+
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1465899038]
 
 [node name="ChunkInfo" type="Label" parent="HUD" unique_id=2034964428]
@@ -110,6 +115,9 @@ theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 script = ExtResource("4_fps")
 
+[node name="PerformanceDebug" type="CanvasLayer" parent="HUD" unique_id=1210516582]
+script = ExtResource("22_t0pjo")
+
 [node name="CollisionDebug" type="Node2D" parent="." unique_id=306949628]
 script = ExtResource("13_collision")
 
@@ -118,7 +126,3 @@ DebugMapPoiRadiusTiles = 384.0
 
 [node name="InfiniteGeneration" type="Node" parent="." unique_id=1419098382]
 script = ExtResource("21_infinite")
-
-[node name="WorldLighting" type="Node" parent="Systems"]
-script = ExtResource("lighting_shared")
-Profile = ExtResource("lighting_profile")

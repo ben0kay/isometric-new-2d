@@ -64,50 +64,72 @@ public partial class GroundShadowWorld : Node
 
     #region Installation
 
-    // =========================================================
-    // Install one updater beside the world's shared lighting.
-    public static GroundShadowWorld Ensure(Node context)
+// =========================================================
+// Return a fully initialized service before accepting shadow registrations.
+public static GroundShadowWorld Ensure(Node context)
+{
+    WorldLighting lighting = WorldLighting.Find(context);
+    if (lighting == null) return null;
+
+    GroundShadowWorld service =
+        lighting.GetNodeOrNull<GroundShadowWorld>("GroundShadowWorld");
+
+    if (service == null)
     {
-        WorldLighting lighting = WorldLighting.Find(context);
-        if (lighting == null) return null;
-
-        GroundShadowWorld service =
-            lighting.GetNodeOrNull<GroundShadowWorld>("GroundShadowWorld");
-        if (service != null) return service;
-
         service = new GroundShadowWorld
         {
             Name = "GroundShadowWorld",
             _lighting = lighting,
             _world = lighting.GetParent().GetParent()
         };
+
         lighting.AddChild(service);
-        return service;
     }
 
-    // =========================================================
-    // Create shared materials and a grouped surface drawing root.
-    public override void _Ready()
+    // The lighting parent may not have completed its own ready sequence.
+    service.Initialize();
+    return service;
+}
+
+// =========================================================
+// Normal scene readiness uses the same guarded initialization.
+public override void _Ready()
+{
+    Initialize();
+}
+
+// =========================================================
+// Create resources and the drawing root once, regardless of ready order.
+private void Initialize()
+{
+    if (GodotObject.IsInstanceValid(_surfaceRoot))
+        return;
+
+    ProcessPriority = 110;
+    SetPhysicsProcess(false);
+
+    _sunMaterial = new ShaderMaterial
     {
-        ProcessPriority = 110;
-        SetPhysicsProcess(false);
+        Shader = GD.Load<Shader>(
+            "res://VISUALS/Shadows/SunShadow.gdshader")
+    };
 
-        _sunMaterial = new ShaderMaterial
-        {
-            Shader = GD.Load<Shader>(
-                "res://VISUALS/Shadows/SunShadow.gdshader")
-        };
+    _contactMaterial = new CanvasItemMaterial
+    {
+        LightMode = CanvasItemMaterial.LightModeEnum.Unshaded
+    };
 
-        _contactMaterial = new CanvasItemMaterial
-        {
-            LightMode = CanvasItemMaterial.LightModeEnum.Unshaded
-        };
+    _contactTexture = GroundShadowTextures.GetContact();
 
-        _contactTexture = GroundShadowTextures.GetContact();
+    Node2D ground = _world.GetNode<Node2D>("GroundChunks");
+    Node2D root = new()
+    {
+        Name = "SharedGroundShadows"
+    };
 
-        _surfaceRoot = new Node2D { Name = "SharedGroundShadows" };
-        _world.GetNode<Node2D>("GroundChunks").AddChild(_surfaceRoot);
-    }
+    ground.AddChild(root);
+    _surfaceRoot = root;
+}
 
     // =========================================================
     // Register data and one removal callback per owner.
