@@ -1,15 +1,9 @@
-[gd_resource type="Resource" script_class="WorldLightingSettings" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WorldLightingSettings" format=3 uid="uid://csyfj5gk345yu"]
 
-[ext_resource type="Script" path="res://VISUALS/Lighting/WorldLightingSettings.cs" id="1"]
+[ext_resource type="Script" uid="uid://dxvwl0fqalyqc" path="res://VISUALS/Lighting/WorldLightingSettings.cs" id="1"]
 
 [resource]
 script = ExtResource("1")
-SunDirection = Vector2(-1, -0.7)
-SunColour = Color(1, 0.94, 0.82, 1)
-SunElevation = 0.65
-SunStrength = 1.15
-AmbientStrength = 0.3
-CaveAmbientStrength = 0.55
-DefaultShapeStrength = 2.8
-ShadowLength = 2.2
-ShadowOpacity = 0.68
+SunElevation = 0.7
+SunStrength = 1.4
+AmbientStrength = 0.4

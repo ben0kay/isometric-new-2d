@@ -79,6 +79,28 @@ public partial class InputModes : Node
         SetProcess(false);
         SetPhysicsProcess(false);
     }
+
+    // =========================================================
+// Toggle fullscreen from gameplay or menus, ignoring held-key repeats.
+public override void _Input(InputEvent input)
+{
+    if (input is not InputEventKey key ||
+        !key.Pressed || key.Echo ||
+        key.PhysicalKeycode != Key.F11)
+        return;
+
+    Window window = GetTree().Root;
+
+    bool fullscreen =
+        window.Mode == Window.ModeEnum.Fullscreen ||
+        window.Mode == Window.ModeEnum.ExclusiveFullscreen;
+
+    window.Mode = fullscreen
+        ? Window.ModeEnum.Windowed
+        : Window.ModeEnum.Fullscreen;
+
+    GetViewport().SetInputAsHandled();
+}
     #endregion
 
     #region Resolution

@@ -47,14 +47,14 @@ public partial class WorldLighting : Node
         Publish(true);
     }
 
-    // =========================================================
-    // Keep illumination active when surface simulation is suspended in caves.
-    public override void _Ready()
-    {
-        ProcessPriority = 80;
-        SetPhysicsProcess(false);
-        WorldEclipse.Install(this);
-    }
+// =========================================================
+// Install the eclipse helper while keeping lighting active across world layers.
+public override void _Ready()
+{
+    ProcessPriority = 80;
+    SetPhysicsProcess(false);
+    WorldEclipse.Install(this);
+}
 
     // =========================================================
     // Refresh profile edits periodically and layer changes immediately.
