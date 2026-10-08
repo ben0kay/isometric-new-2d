@@ -14,6 +14,7 @@ public partial class OreDefinition : WorldObjectDefinition
     #region Extraction
     [ExportGroup("Deposit / Extraction")]
     [Export] public ItemDefinition YieldItem { get; set; }
+    [Export] public string YieldItemId { get; set; } = "";
     [Export] public int TotalUnits { get; set; } = 30;
     [Export] public int UnitsPerBatch { get; set; } = 1;
     [Export] public float WorkPerBatch { get; set; } = 18f;

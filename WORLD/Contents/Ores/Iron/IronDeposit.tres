@@ -1,13 +1,12 @@
 [gd_resource type="Resource" script_class="OreDefinition" format=3 uid="uid://cauv40edxsreh"]
 
-[ext_resource type="Script" uid="uid://ey02ogmwpq7i" path="res://WORLD/Contents/Ores/OreDefinition.cs" id="1"]
-[ext_resource type="Resource" path="res://ITEMS/Materials/IronOre.tres" id="2"]
+[ext_resource type="Script" path="res://WORLD/Contents/Ores/OreDefinition.cs" id="1"]
 [ext_resource type="PackedScene" path="res://VISUALS/Drawings/Ores/IronOreDrawing.tscn" id="3"]
 
 [resource]
 script = ExtResource("1")
 Footprint = Vector2(100, 36)
-YieldItem = ExtResource("2")
+YieldItemId = "iron_ore"
 FallbackDrawing = ExtResource("3")
 Id = "iron_deposit"
 SizeRange = Vector2(0.9, 1.1)
