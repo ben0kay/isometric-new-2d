@@ -1,9 +1,9 @@
-// Holds any entity stationary for a recovery or anticipation period.
+// Holds an entity stationary for a recovery or anticipation period.
 using Godot;
 using System;
 
 [Tool, GlobalClass]
-public partial class WaitEnemyAction : EnemyAction
+public partial class WaitEntityAction : EntityAction
 {
     #region Configuration
     [ExportGroup("Timing")]
@@ -26,7 +26,8 @@ public partial class WaitEnemyAction : EnemyAction
         EntitySequence runner, ref EntityActionState state, double delta)
     {
         return state.Elapsed >= Duration
-            ? EntityActionResult.Completed : EntityActionResult.Running;
+            ? EntityActionResult.Completed
+            : EntityActionResult.Running;
     }
 
     // =========================================================

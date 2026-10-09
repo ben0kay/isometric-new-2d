@@ -1,5 +1,5 @@
-// Adapts existing robot combat resources and sequences to shared EntityCombat.
-// Keeps current scene references and presentation events during migration.
+// Connects existing robot combat settings to shared EntityCombat.
+// Uses the shared entity sequence directly.
 using Godot;
 using System;
 
@@ -9,28 +9,30 @@ public partial class EnemyCombat : Node
     public event Action MeleeExecuted;
 
     private Enemy _actor;
-    private EnemySequence _sequence;
+    private EntitySequence _sequence;
     private EntityCombat _combat;
     private double _checkTimer;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Bind shared combat and preserve the existing robot sequence component.
+    // Bind shared combat and the shared sequence component.
     public override void _Ready()
     {
         _actor = GetParent().GetParent<Enemy>();
-        _sequence = GetNode<EnemySequence>("../Sequence");
+        _sequence = GetNode<EntitySequence>("../Sequence");
+
         _combat = new EntityCombat(
             _actor, GetNode<Weapon>("../Weapon"));
 
         _combat.MeleeExecuted += ForwardMelee;
+
         SetProcess(false);
         SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Release the adapter's shared combat event subscription.
+    // Release the shared combat event subscription.
     public override void _ExitTree()
     {
         if (_combat != null)
@@ -38,7 +40,7 @@ public partial class EnemyCombat : Node
     }
 
     // =========================================================
-    // Preserve the event consumed by existing enemy presentation.
+    // Forward the event consumed by robot presentation.
     private void ForwardMelee()
     {
         MeleeExecuted?.Invoke();

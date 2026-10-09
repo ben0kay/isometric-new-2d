@@ -1,10 +1,10 @@
-// Fires an optional attack through any entity sequence's weapon.
+// Fires an optional attack through the shared entity sequence.
 // Respects weapon cooldown, range and sight.
 using Godot;
 using System;
 
 [Tool, GlobalClass]
-public partial class FireEnemyAction : EnemyAction
+public partial class FireEntityAction : EntityAction
 {
     #region Configuration
     [ExportGroup("Attack")]
@@ -29,10 +29,12 @@ public partial class FireEnemyAction : EnemyAction
     public override EntityActionResult Tick(
         EntitySequence runner, ref EntityActionState state, double delta)
     {
-        if (runner.TryFire(Attack)) return EntityActionResult.Completed;
+        if (runner.TryFire(Attack))
+            return EntityActionResult.Completed;
 
         return state.Elapsed >= MaximumWait
-            ? EntityActionResult.Failed : EntityActionResult.Running;
+            ? EntityActionResult.Failed
+            : EntityActionResult.Running;
     }
 
     // =========================================================

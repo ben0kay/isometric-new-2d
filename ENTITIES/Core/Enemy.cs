@@ -34,7 +34,7 @@ public partial class Enemy : EntityBody
 
     #region Components And Scheduling
     private EnemyCombat _combat;
-    private EnemySequence _sequence;
+    private EntitySequence _sequence;
     private EntityTargeting _targeting;
     private EntityWandering _wandering;
     private EntityCombatMovement _combatMovement;
@@ -83,111 +83,134 @@ public partial class Enemy : EntityBody
         }
     }
 
-// =========================================================
-// Bind shared behaviours, group alerts and existing robot presentation.
-public override async void _Ready()
-{
-    SetPhysicsProcess(false);
-
-    try
+    // =========================================================
+    // Bind shared behaviours, sequence context and robot presentation.
+    public override async void _Ready()
     {
-        BindSharedComponents();
-        _combat = GetNode<EnemyCombat>("Systems/Combat");
-        _sequence = GetNode<EnemySequence>("Systems/Sequence");
-        Health.Died += OnDeath;
+        SetPhysicsProcess(false);
 
-        _rng.Seed = RandomSeed != 0
-            ? RandomSeed : GetInstanceId();
-
-        _targetTimer = _rng.Randf() * Definition.TargetInterval;
-        _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
-
-        Node systems = GetNode("Systems");
-
-        Membership =
-            systems.GetNodeOrNull<EntityGroupMember>("Group");
-
-        if (Membership == null)
+        try
         {
-            Membership = new EntityGroupMember { Name = "Group" };
-            systems.AddChild(Membership);
-        }
+            BindSharedComponents();
 
-        if (!string.IsNullOrWhiteSpace(GroupId))
-            Membership.GroupId = GroupId;
+            _combat = GetNode<EnemyCombat>("Systems/Combat");
+            _sequence = GetNode<EntitySequence>("Systems/Sequence");
+            Health.Died += OnDeath;
 
-        _targeting = new EntityTargeting(
-            this, new[] { "players" }, candidate => candidate is Player);
+            _rng.Seed = RandomSeed != 0
+                ? RandomSeed : GetInstanceId();
 
-        Membership.ThreatActive = () => HasTarget;
+            _targetTimer = _rng.Randf() * Definition.TargetInterval;
+            _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
 
-        _wandering =
-            systems.GetNodeOrNull<EntityWandering>("Wandering");
+            Node systems = GetNode("Systems");
 
-        if (_wandering == null)
-        {
-            _wandering = new EntityWandering { Name = "Wandering" };
-            systems.AddChild(_wandering);
-        }
+            Membership =
+                systems.GetNodeOrNull<EntityGroupMember>("Group");
 
-        _wandering.Bind(this, new EntityWanderSettings
-        {
-            Enabled = Definition.WanderingEnabled,
-            Speed = Definition.WanderSpeed,
-            Radius = Definition.WanderRadius,
-            HomeLeash = Definition.HomeLeash,
-            Wait = Definition.WanderWait,
-            ArrivalDistance = 8f,
-            ReturnDistance = 8f,
-            RequireDirectPath = false,
-            TickMotor = false
-        }, SpawnHome ?? GlobalPosition, Membership,
-            hasThreat: () => HasTarget,
-            random: _rng, initialPause: true);
-
-        _combatMovement = new EntityCombatMovement(
-            this, _wandering, _rng);
-
-        Membership.ThreatReceived += ReactToThreat;
-        Membership.JoinAssignedGroup();
-
-        await PlaceholderAtlas.EnsureReady(this);
-        if (!IsInsideTree() || IsQueuedForDeletion()) return;
-
-        TerrainVisual visual = TerrainVisual.Attach(
-            this, PlaceholderAtlas.EnemyRegion,
-            new Vector2(-48, -64), Vector2.One, true,
-            Definition.VisualOverride);
-
-        CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
-        artwork.Modulate = Definition.VisualTint;
-
-        if (artwork is Node2D node)
-            node.Scale *= Definition.VisualScale;
-
-        EnemyPresentation presentation =
-            systems.GetNodeOrNull<EnemyPresentation>("Presentation");
-
-        if (presentation == null)
-        {
-            presentation = new EnemyPresentation
+            if (Membership == null)
             {
-                Name = "Presentation"
-            };
-            systems.AddChild(presentation);
-        }
+                Membership = new EntityGroupMember { Name = "Group" };
+                systems.AddChild(Membership);
+            }
 
-        presentation.Bind(this, artwork);
-        Initialized = true;
-        if (!SpawnPending) Activate();
+            if (!string.IsNullOrWhiteSpace(GroupId))
+                Membership.GroupId = GroupId;
+
+            _targeting = new EntityTargeting(
+                this, new[] { "players" },
+                candidate => candidate is Player);
+
+            Membership.ThreatActive = () => HasTarget;
+
+            _sequence.Bind(new EntitySequenceBinding
+            {
+                Actor = this,
+                Weapon = GetNode<Weapon>("Systems/Weapon"),
+                RandomSeed = RandomSeed,
+                GetDefinition = () => Definition.Sequence,
+                GetTarget = () => Target,
+                IsActive = () =>
+                    Initialized && IsActivated && !SpawnPending,
+                HasSight = () => HasSight,
+                GetMoveSpeed = () => Definition.MoveSpeed,
+                GetAttackRange = () => Definition.Combat.AttackRange,
+                GetForgetRange = () => Definition.ForgetRange
+            });
+
+            _wandering =
+                systems.GetNodeOrNull<EntityWandering>("Wandering");
+
+            if (_wandering == null)
+            {
+                _wandering = new EntityWandering { Name = "Wandering" };
+                systems.AddChild(_wandering);
+            }
+
+            _wandering.Bind(this, new EntityWanderSettings
+            {
+                Enabled = Definition.WanderingEnabled,
+                Speed = Definition.WanderSpeed,
+                Radius = Definition.WanderRadius,
+                HomeLeash = Definition.HomeLeash,
+                Wait = Definition.WanderWait,
+                ArrivalDistance = 8f,
+                ReturnDistance = 8f,
+                RequireDirectPath = false,
+                TickMotor = false
+            }, SpawnHome ?? GlobalPosition, Membership,
+                hasThreat: () => HasTarget,
+                random: _rng, initialPause: true);
+
+            _combatMovement = new EntityCombatMovement(
+                this, _wandering, _rng);
+
+            Membership.ThreatReceived += ReactToThreat;
+            Membership.JoinAssignedGroup();
+
+            await PlaceholderAtlas.EnsureReady(this);
+
+            if (!IsInsideTree() || IsQueuedForDeletion())
+                return;
+
+            TerrainVisual visual = TerrainVisual.Attach(
+                this, PlaceholderAtlas.EnemyRegion,
+                new Vector2(-48, -64), Vector2.One, true,
+                Definition.VisualOverride);
+
+            CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
+            artwork.Modulate = Definition.VisualTint;
+
+            if (artwork is Node2D node)
+                node.Scale *= Definition.VisualScale;
+
+            EnemyPresentation presentation =
+                systems.GetNodeOrNull<EnemyPresentation>("Presentation");
+
+            if (presentation == null)
+            {
+                presentation = new EnemyPresentation
+                {
+                    Name = "Presentation"
+                };
+
+                systems.AddChild(presentation);
+            }
+
+            presentation.Bind(this, artwork);
+            Initialized = true;
+
+            if (!SpawnPending)
+                Activate();
+        }
+        catch (Exception error)
+        {
+            GD.PushError(
+                $"Enemy '{Definition.Id}' initialization failed: {error}");
+
+            QueueFree();
+        }
     }
-    catch (Exception error)
-    {
-        GD.PushError(
-            $"Enemy '{Definition.Id}' initialization failed: {error}");
-        QueueFree();
-    }
-}
 
 // =========================================================
 // Disconnect health and group alerts before releasing owned resources.

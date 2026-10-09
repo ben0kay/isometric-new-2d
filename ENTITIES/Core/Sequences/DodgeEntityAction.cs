@@ -1,10 +1,10 @@
-// Chooses sideways movement for any entity using the shared sequence runner.
+// Chooses sideways movement through the shared entity sequence.
 // Destination searches occur only when this action starts.
 using Godot;
 using System;
 
 [Tool, GlobalClass]
-public partial class DodgeEnemyAction : EnemyAction
+public partial class DodgeEntityAction : EntityAction
 {
     #region Configuration
     [ExportGroup("Movement")]
@@ -32,8 +32,10 @@ public partial class DodgeEnemyAction : EnemyAction
 
         Vector2 origin = runner.Actor.GlobalPosition;
         Vector2 toward = target.GlobalPosition - origin;
+
         toward = toward.LengthSquared() > 0.001f
-            ? toward.Normalized() : Vector2.Right;
+            ? toward.Normalized()
+            : Vector2.Right;
 
         Vector2 sideways = new(-toward.Y, toward.X);
         float firstSide = runner.RandomSide();
@@ -48,6 +50,7 @@ public partial class DodgeEnemyAction : EnemyAction
                 continue;
 
             state.Destination = destination;
+
             runner.Motor.SetGoal(
                 destination, runner.MoveSpeed * SpeedMultiplier, 6f);
 
@@ -66,7 +69,8 @@ public partial class DodgeEnemyAction : EnemyAction
             return EntityActionResult.Completed;
 
         return state.Elapsed >= Timeout || runner.Motor.IsStuck
-            ? EntityActionResult.Failed : EntityActionResult.Running;
+            ? EntityActionResult.Failed
+            : EntityActionResult.Running;
     }
 
     // =========================================================
@@ -78,7 +82,8 @@ public partial class DodgeEnemyAction : EnemyAction
         if (!float.IsFinite(Distance) || Distance <= 6f ||
             !float.IsFinite(SpeedMultiplier) || SpeedMultiplier <= 0f ||
             !double.IsFinite(Timeout) || Timeout <= 0.0)
-            throw new InvalidOperationException("Invalid dodge settings.");
+            throw new InvalidOperationException(
+                "Invalid dodge settings.");
     }
     #endregion
 }

@@ -1,5 +1,5 @@
-// Defines enemy identity, movement, defense, presentation and combat resources.
-// Awareness and combat ranges are configured together inside Combat.
+// Defines existing robot identity, movement, defense and presentation.
+// Combat sequences use shared entity definitions and actions.
 using Godot;
 using System;
 
@@ -32,7 +32,7 @@ public partial class EnemyDefinition : Resource
     [Export] public Vector2 WanderWait { get; set; } = new(2f, 5f);
     #endregion
 
-      #region Herd
+    #region Herd
     [ExportGroup("Herd")]
 
     [Export(PropertyHint.Range, "1,64,1")]
@@ -52,7 +52,7 @@ public partial class EnemyDefinition : Resource
     #region Combat
     [ExportGroup("Combat")]
     [Export] public EnemyCombatSettings Combat { get; set; }
-    [Export] public EnemySequenceDefinition Sequence { get; set; }
+    [Export] public EntitySequenceDefinition Sequence { get; set; }
 
     // Existing consumers read the single source of range settings.
     public float DetectionRange => Combat?.DetectionRange ?? 0f;
@@ -79,7 +79,7 @@ public partial class EnemyDefinition : Resource
 
     #region Validation
     // =========================================================
-    // Validate enemy settings and their shared combat resources.
+    // Validate robot settings and their shared combat resources.
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Id) ||
