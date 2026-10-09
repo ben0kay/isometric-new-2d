@@ -1,6 +1,11 @@
 # Game development menu. Existing tools stay in this toolbox's Tools folder.
 $tools = @(
     @{
+        Name = "Sprite Splitter"
+        Description = "Preview PNG sheets, edit cut lines, and export separate sprites."
+        Path = "Tools\SpriteSplitter\SpriteSplitter.ps1"
+    }
+    @{
         Name = "Sprite Batch Tool"
         Description = "Resize PNGs, rename variants, and archive originals into RAW."
         Path = "Tools\SpriteBatchTool\SpriteBatchTool.ps1"
