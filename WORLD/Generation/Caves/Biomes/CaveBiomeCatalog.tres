@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BiomeCatalog" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="2_definition"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Caves/Biomes/Definitions/OpenCaverns/OpenCaverns.tres" id="3_open"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Caves/Biomes/Definitions/WindingPassages/WindingPassages.tres" id="4_winding"]
+
+[resource]
+script = ExtResource("1_catalog")
+Biomes = Array[ExtResource("2_definition")]([ExtResource("3_open"), ExtResource("4_winding")])

@@ -28,65 +28,69 @@ public sealed class CaveEntrancePlanner
 
     #region Construction
     // =========================================================
-    // Snapshot a globally consistent chamber lattice and sparse entrance lattice.
-    public CaveEntrancePlanner(
-        Node world, ChunkController chunks, CaveGenerationSettings settings)
+// Reserve a shared chamber lattice large enough for all cave biome profiles.
+public CaveEntrancePlanner(
+    Node world, ChunkController chunks, CaveGenerationSettings settings)
+{
+    _world = world;
+    _chunks = chunks;
+    _config = WorldConfig.Find(world);
+    _ground = world.GetNode<Node2D>("GroundChunks");
+    _basins = WaterBasinWorld.Find(world);
+    _sampler = new CaveSurfaceSampler(world, chunks);
+    _spawn = world.GetNode<Player>("WorldObjects/Player").GlobalPosition;
+
+    Settings = (CaveGenerationSettings)settings.Duplicate();
+    Settings.Validate();
+
+    float minimum = _config.MinimumCaveHoleDistanceTiles;
+    if (!float.IsFinite(minimum) || minimum < 64f)
+        throw new InvalidOperationException(
+            "Minimum cave-hole distance must be at least 64 tiles.");
+
+    float maximumRadius = Settings.MaximumChamberRadius();
+    float maximumWidth = Settings.MaximumTunnelWidth();
+
+    _offset = Mathf.CeilToInt(
+        maximumRadius + maximumWidth * 0.5f + 4f);
+
+    Settings.CellSpacingTiles = Mathf.Max(
+        Settings.CellSpacingTiles,
+        Settings.EntranceTunnelLengthTiles + _offset +
+        Mathf.CeilToInt(maximumWidth * 0.5f) + 6);
+
+    Settings.Validate();
+
+    _reach = new Vector2(
+        _offset, Settings.EntranceTunnelLengthTiles + _offset).Length();
+
+    _stride = Mathf.CeilToInt(
+        (minimum + _reach * 2f) / Settings.CellSpacingTiles);
+    _pitch = _stride * Settings.CellSpacingTiles;
+
+    float maximumClearance = 0f;
+    WorldGenerator generator =
+        world.GetNode<WorldGenerator>("Systems/WorldGenerator");
+
+    foreach (BiomeDefinition biome in generator.Catalog.GetEnabledBiomes())
     {
-        _world = world;
-        _chunks = chunks;
-        _config = WorldConfig.Find(world);
-        _ground = world.GetNode<Node2D>("GroundChunks");
-        _basins = WaterBasinWorld.Find(world);
-        _sampler = new CaveSurfaceSampler(world, chunks);
-        _spawn = world.GetNode<Player>("WorldObjects/Player").GlobalPosition;
+        CaveHoleProfile profile =
+            biome.GetFeature<CaveHoleProfile>("cave_holes");
+        if (profile == null || !profile.Enabled) continue;
 
-        Settings = (CaveGenerationSettings)settings.Duplicate();
-        Settings.Validate();
-
-        float minimum = _config.MinimumCaveHoleDistanceTiles;
-        if (!float.IsFinite(minimum) || minimum < 64f)
-            throw new InvalidOperationException(
-                "Minimum cave-hole distance must be at least 64 tiles.");
-
-        _offset = Mathf.CeilToInt(
-            Settings.ChamberRadiusRange.Y +
-            Settings.TunnelWidthTiles * 0.5f + 4f);
-
-        Settings.CellSpacingTiles = Mathf.Max(
-            Settings.CellSpacingTiles,
-            Settings.EntranceTunnelLengthTiles + _offset +
-            Mathf.CeilToInt(Settings.TunnelWidthTiles * 0.5f) + 6);
-        Settings.Validate();
-
-        _reach = new Vector2(
-            _offset, Settings.EntranceTunnelLengthTiles + _offset).Length();
-
-        _stride = Mathf.CeilToInt(
-            (minimum + _reach * 2f) / Settings.CellSpacingTiles);
-        _pitch = _stride * Settings.CellSpacingTiles;
-
-        float maximumClearance = 0f;
-        WorldGenerator generator =
-            world.GetNode<WorldGenerator>("Systems/WorldGenerator");
-
-        foreach (BiomeDefinition biome in generator.Catalog.GetEnabledBiomes())
-        {
-            CaveHoleProfile profile =
-                biome.GetFeature<CaveHoleProfile>("cave_holes");
-            if (profile == null || !profile.Enabled) continue;
-            profile.Validate();
-            maximumClearance = Mathf.Max(maximumClearance, profile.ClearRadius);
-        }
-
-                _clearTiles = maximumClearance * Mathf.Sqrt(
-            2f / (chunks.TileSize.X * chunks.TileSize.X) +
-            2f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
-
-        _cells = new GenerationCellCache<CaveHole>(CacheLimit, hole =>
-        {
-            if (hole != null) _cave?.RemoveHole(hole);
-        });
+        profile.Validate();
+        maximumClearance = Mathf.Max(maximumClearance, profile.ClearRadius);
     }
+
+    _clearTiles = maximumClearance * Mathf.Sqrt(
+        2f / (chunks.TileSize.X * chunks.TileSize.X) +
+        2f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
+
+    _cells = new GenerationCellCache<CaveHole>(CacheLimit, hole =>
+    {
+        if (hole != null) _cave?.RemoveHole(hole);
+    });
+}
     #endregion
 
     #region Planning

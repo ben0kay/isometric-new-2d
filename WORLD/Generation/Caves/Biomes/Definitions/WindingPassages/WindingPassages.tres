@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="WindingPassagesBiome" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Caves/Biomes/Definitions/WindingPassages/WindingPassagesBiome.cs" id="1_biome"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Caves/Biomes/Definitions/WindingPassages/WindingPassagesContent.tres" id="2_content"]
+
+[resource]
+script = ExtResource("1_biome")
+Id = "winding_passages"
+DisplayName = "Winding Passages"
+Tags = PackedStringArray("Cave", "Narrow", "Rocky")
+SelectionWeight = 1.0
+Content = ExtResource("2_content")
+ChamberRadiusRange = Vector2(3, 4.5)
+WallIrregularityTiles = 0.7
+TunnelWidthTiles = 4.5
+WindingTiles = 5.0
+ExtraConnectionChance = 0.15
+FloorAmplitude = 0.0
+FloorFeatureSizeTiles = 32.0

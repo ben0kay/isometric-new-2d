@@ -30,12 +30,24 @@ public partial class CaveChunk : Node2D
     }
 
 // =========================================================
-// Build floor and exposed walls while leaving every registered mouth open.
+// Sample a floor halo once, then reuse it for geometry and neighbouring walls.
 public IEnumerable<int> BuildSteps()
 {
-
-        foreach (int step in PrepareMetadata())
+    foreach (int step in PrepareMetadata())
         yield return step;
+
+    int stride = _size + 2;
+    bool[] samples = new bool[stride * stride];
+    Vector2I origin = Coordinate * _size;
+
+    for (int y = -1; y <= _size; y++)
+    for (int x = -1; x <= _size; x++)
+    {
+        samples[(x + 1) + (y + 1) * stride] =
+            _world.Generator.IsFloor(origin + new Vector2I(x, y));
+        yield return 0;
+    }
+
     List<Vector3> floorVertices = new();
     List<Vector2> floorUV = new();
     List<Vector3> wallVertices = new();
@@ -52,8 +64,9 @@ public IEnumerable<int> BuildSteps()
     for (int y = 0; y < _size; y++)
     for (int x = 0; x < _size; x++)
     {
-        Vector2I tile = Coordinate * _size + new Vector2I(x, y);
-        bool floor = _world.Generator.IsFloor(tile);
+        Vector2I tile = origin + new Vector2I(x, y);
+        int sample = (x + 1) + (y + 1) * stride;
+        bool floor = samples[sample];
         _floor[x + y * _size] = floor;
 
         if (floor)
@@ -67,22 +80,22 @@ public IEnumerable<int> BuildSteps()
             AddFloor(a, b, c, d, floorVertices, floorUV);
 
             Vector2I neighbour = tile + Vector2I.Left;
-            if (!_world.Generator.IsFloor(neighbour) &&
+            if (!samples[sample - 1] &&
                 !_world.Generator.IsMouthEdge(tile, neighbour))
                 AddWall(a, d, wallVertices, wallColours);
 
             neighbour = tile + Vector2I.Right;
-            if (!_world.Generator.IsFloor(neighbour) &&
+            if (!samples[sample + 1] &&
                 !_world.Generator.IsMouthEdge(tile, neighbour))
                 AddWall(b, c, wallVertices, wallColours);
 
             neighbour = tile + Vector2I.Up;
-            if (!_world.Generator.IsFloor(neighbour) &&
+            if (!samples[sample - stride] &&
                 !_world.Generator.IsMouthEdge(tile, neighbour))
                 AddWall(a, b, wallVertices, wallColours);
 
             neighbour = tile + Vector2I.Down;
-            if (!_world.Generator.IsFloor(neighbour) &&
+            if (!samples[sample + stride] &&
                 !_world.Generator.IsMouthEdge(tile, neighbour))
                 AddWall(d, c, wallVertices, wallColours);
         }

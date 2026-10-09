@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BiomeContent" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Content/BiomeContent.cs" id="1_content"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+PlantPatches = 0
+PlantsPerPatch = 0
+TreesPerChunk = 0
+GrassPatches = 0
+GrassTuftsPerPatch = 0
+
+[resource]
+script = ExtResource("1_content")
+Vegetation = SubResource("Vegetation")
+RocksPerChunk = 0

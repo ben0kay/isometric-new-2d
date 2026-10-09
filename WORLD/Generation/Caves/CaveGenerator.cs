@@ -1,103 +1,107 @@
-// Samples connected seeded chambers and registered entrance tunnels.
-// Every hole connects to its assigned chamber in the same cave coordinate system.
+// Samples connected biome-shaped chambers and winding passages.
+// Caches reusable layout geometry while preserving registered entrance ramps.
 using Godot;
 using System.Collections.Generic;
 
 public sealed class CaveGenerator
 {
-    #region State
-    public CaveGenerationSettings Settings { get; }
-    public float HubX { get; }
+#region State
+public CaveGenerationSettings Settings { get; }
+public CaveBiomeWorld Biomes { get; }
+public float HubX { get; }
 
-    private readonly uint _seed;
-    private readonly float _baseHeight;
-        private readonly CaveWorld _world;
+private const int CacheLimit = 1024;
+private const int PassageSegments = 12;
 
-    private readonly struct Room
-    {
-        public readonly Vector2 Centre, Radius;
-        public Room(Vector2 centre, Vector2 radius)
-        {
-            Centre = centre;
-            Radius = radius;
-        }
-    }
-    #endregion
+private readonly uint _seed;
+private readonly float _baseHeight;
+private readonly float _entranceRadius;
+private readonly CaveWorld _world;
+
+private readonly Dictionary<Vector2I, Room> _rooms = new();
+private readonly Queue<Vector2I> _roomOrder = new();
+
+private sealed class Passage
+{
+    public Vector2[] Points;
+    public float[] Radii;
+    public Rect2 Bounds;
+}
+
+private sealed class Room
+{
+    public Vector2 Centre;
+    public CaveBiomeWorld.Sample Profile;
+    public Passage Horizontal, Vertical;
+}
+#endregion
 
     #region Construction
-    // =========================================================
-    // Use one shared entrance planner and an unbounded chamber coordinate system.
-    public CaveGenerator(
-        CaveGenerationSettings settings, uint worldSeed,
-        CaveWorld world, float baseHeight)
-    {
-        settings.Validate();
-        Settings = settings;
-        _seed = worldSeed ^ settings.SeedOffset;
-        _world = world;
-        _baseHeight = baseHeight;
-        HubX = settings.EntranceTunnelLengthTiles + 8f;
-    }
+// =========================================================
+// Build an independent biome sampler and cache entrance dimensions once.
+public CaveGenerator(
+    CaveGenerationSettings settings, uint worldSeed,
+    CaveWorld world, float baseHeight)
+{
+    settings.Validate();
+    Settings = settings;
+    _seed = worldSeed ^ settings.SeedOffset;
+    _world = world;
+    _baseHeight = baseHeight;
+    _entranceRadius = settings.MaximumTunnelWidth() * 0.5f;
+    HubX = settings.EntranceTunnelLengthTiles + 8f;
+    Biomes = new CaveBiomeWorld(settings, _seed);
+}
     #endregion
 
     #region Floor Sampling
-    // =========================================================
-    // Connect every chamber row, with recurring vertical spines joining all rows.
-    public bool IsFloor(Vector2I tile)
+// =========================================================
+// Preserve entrance ramps, then sample biome-shaped rooms and connected routes.
+public bool IsFloor(Vector2I tile)
+{
+    Vector2 point = new(tile.X, tile.Y);
+
+    foreach (CaveHole hole in _world.NearbyHoles(point))
     {
-        Vector2 point = new(tile.X, tile.Y);
+        Vector2 local = hole.Coordinates(point);
 
-        foreach (CaveHole hole in _world.NearbyHoles(point))
+        if (local.X >= -2f && local.X <= hole.TunnelLength &&
+            Mathf.Abs(local.Y) <= 3f)
         {
-            Vector2 local = hole.Coordinates(point);
-
-            if (local.X >= -2f && local.X <= hole.TunnelLength &&
-                Mathf.Abs(local.Y) <= 3f)
-                return local.X >= 0f && Mathf.Abs(local.Y) <= 1f;
+            return local.X >= 0f && Mathf.Abs(local.Y) <= 1f;
         }
-
-        foreach (CaveHole hole in _world.NearbyHoles(point))
-        {
-            Vector2 end = hole.TileAt(hole.TunnelLength);
-            Vector2 room = GetRoom(
-                hole.AnchorCell.X, hole.AnchorCell.Y).Centre;
-
-            if (InConnection(point, end, room, true))
-                return true;
-        }
-
-        int spacing = Settings.CellSpacingTiles;
-        int cx = Mathf.FloorToInt((point.X - HubX) / spacing + 0.5f);
-        int cy = Mathf.FloorToInt(point.Y / spacing + 0.5f);
-
-        for (int x = cx - 1; x <= cx + 1; x++)
-        for (int y = cy - 1; y <= cy + 1; y++)
-        {
-            Room room = GetRoom(x, y);
-            Vector2 normalized = (point - room.Centre) / room.Radius;
-
-            if (normalized.LengthSquared() <= 1f)
-                return true;
-
-            if (InConnection(
-                point, room.Centre, GetRoom(x - 1, y).Centre,
-                Random(x, y, 5) < 0.5f))
-                return true;
-
-            bool vertical = x % 4 == 0 ||
-                Random(x, y, 6) < Settings.ExtraConnectionChance;
-
-            if (vertical && InConnection(
-                point, room.Centre, GetRoom(x, y - 1).Centre,
-                Random(x, y, 7) < 0.5f))
-                return true;
-        }
-
-        return false;
     }
 
+    foreach (CaveHole hole in _world.NearbyHoles(point))
+    {
+        Vector2 end = hole.TileAt(hole.TunnelLength);
+        Vector2 room = Centre(hole.AnchorCell.X, hole.AnchorCell.Y);
+
+        if (NearSegment(point, end, room, _entranceRadius))
+            return true;
+    }
+
+    float spacing = Settings.CellSpacingTiles;
+    int cx = Mathf.FloorToInt((point.X - HubX) / spacing + 0.5f);
+    int cy = Mathf.FloorToInt(point.Y / spacing + 0.5f);
+
+    for (int x = cx - 1; x <= cx + 1; x++)
+    for (int y = cy - 1; y <= cy + 1; y++)
+    {
+        Room room = GetRoom(x, y);
+
+        if (room.Profile.ChamberDistance(
+            point, room.Centre, x, y) <= 0f ||
+            InPassage(point, room.Horizontal) ||
+            InPassage(point, room.Vertical))
+            return true;
+    }
+
+    return false;
+}
+
     // =========================================================
-    // Leave the outside edge of nearby entrance mouths physically open.
+    // Keep the outside edge of each registered entrance physically open.
     public bool IsMouthEdge(Vector2I tile, Vector2I neighbour)
     {
         Vector2 a = new(tile.X, tile.Y);
@@ -109,8 +113,7 @@ public sealed class CaveGenerator
             Vector2 localB = hole.Coordinates(b);
 
             if (Mathf.Abs(localA.X) < 0.01f &&
-                Mathf.Abs(localA.Y) <= 1f &&
-                localB.X < 0f)
+                Mathf.Abs(localA.Y) <= 1f && localB.X < 0f)
                 return true;
         }
 
@@ -120,9 +123,11 @@ public sealed class CaveGenerator
 
     #region Heights
     // =========================================================
-    // Join each entrance's surface elevation to the shared underground floor.
+    // Join entrance elevation to the local underground floor.
     public float VertexHeight(Vector2 tile)
     {
+        float floor = _baseHeight + Biomes.At(tile).FloorHeight(tile);
+
         foreach (CaveHole hole in _world.NearbyHoles(tile))
         {
             Vector2 local = hole.Coordinates(tile);
@@ -132,14 +137,14 @@ public sealed class CaveGenerator
 
             float t = Mathf.Clamp(local.X / hole.TunnelLength, 0f, 1f);
             t = t * t * (3f - 2f * t);
-            return Mathf.Lerp(hole.RimHeight, _baseHeight, t);
+            return Mathf.Lerp(hole.RimHeight, floor, t);
         }
 
-        return _baseHeight;
+        return floor;
     }
 
     // =========================================================
-    // Match the two floor triangles, including ramps along either tile axis.
+    // Match the rendered floor triangles when sampling actor elevation.
     public float HeightAt(Vector2 tile, float unusedRimHeight)
     {
         Vector2 centre = new(
@@ -160,37 +165,117 @@ public sealed class CaveGenerator
     }
     #endregion
 
-    #region Layout Helpers
-
+    #region Cached Layout
+    // =========================================================
+    // Preserve shared room anchors so every biome and entrance can connect.
+    private Vector2 Centre(int x, int y)
+    {
+        return new Vector2(
+            HubX + x * Settings.CellSpacingTiles,
+            y * Settings.CellSpacingTiles);
+    }
 
     // =========================================================
-    // Keep connecting routes fixed while varying chamber dimensions by seed.
+    // Cache room profiles and curved paths without retaining unlimited world data.
     private Room GetRoom(int x, int y)
     {
-        float spacing = Settings.CellSpacingTiles;
-        Vector2 centre = new(HubX + x * spacing, y * spacing);
-        Vector2 range = Settings.ChamberRadiusRange;
+        Vector2I key = new(x, y);
+        if (_rooms.TryGetValue(key, out Room existing)) return existing;
 
-        return new Room(centre, new Vector2(
-            Mathf.Lerp(range.X, range.Y, Random(x, y, 3)),
-            Mathf.Lerp(range.X, range.Y, Random(x, y, 4))));
+        Vector2 centre = Centre(x, y);
+        CaveBiomeWorld.Sample profile = Biomes.At(centre);
+
+        Room room = new()
+        {
+            Centre = centre,
+            Profile = profile,
+            Horizontal = BuildPassage(
+                centre, Centre(x - 1, y),
+                IsoGrid.Hash(x, y, _seed ^ 5u))
+        };
+
+        float chance = profile.ExtraConnections;
+        bool vertical = x % 4 == 0 ||
+            Random(x, y, 6) < chance;
+
+        if (vertical)
+        {
+            room.Vertical = BuildPassage(
+                centre, Centre(x, y - 1),
+                IsoGrid.Hash(x, y, _seed ^ 7u));
+        }
+
+        if (_rooms.Count >= CacheLimit)
+            _rooms.Remove(_roomOrder.Dequeue());
+
+        _rooms.Add(key, room);
+        _roomOrder.Enqueue(key);
+        return room;
     }
 
     // =========================================================
-    // Connect room centres with a traversable bent passage.
-    private bool InConnection(
-        Vector2 point, Vector2 a, Vector2 b, bool horizontalFirst)
+    // Build one curved route, blending biome width and bend along its length.
+    private Passage BuildPassage(Vector2 a, Vector2 b, uint seed)
     {
-        Vector2 bend = horizontalFirst
-            ? new Vector2(b.X, a.Y) : new Vector2(a.X, b.Y);
+        Passage passage = new()
+        {
+            Points = new Vector2[PassageSegments + 1],
+            Radii = new float[PassageSegments + 1]
+        };
 
-        float radius = Settings.TunnelWidthTiles * 0.5f;
-        return NearSegment(point, a, bend, radius) ||
-            NearSegment(point, bend, b, radius);
+        Vector2 normal = (b - a).Normalized().Orthogonal();
+        Vector2 minimum = a, maximum = a;
+        float maximumRadius = 0f;
+
+        for (int i = 0; i <= PassageSegments; i++)
+        {
+            float t = (float)i / PassageSegments;
+            Vector2 basePoint = a.Lerp(b, t);
+            CaveBiomeWorld.Sample profile = Biomes.At(basePoint);
+
+            Vector2 point = basePoint +
+                normal * profile.PassageOffset(t, seed);
+
+            float radius = profile.TunnelWidth * 0.5f;
+            passage.Points[i] = point;
+            passage.Radii[i] = radius;
+            maximumRadius = Mathf.Max(maximumRadius, radius);
+
+            minimum = new Vector2(
+                Mathf.Min(minimum.X, point.X),
+                Mathf.Min(minimum.Y, point.Y));
+            maximum = new Vector2(
+                Mathf.Max(maximum.X, point.X),
+                Mathf.Max(maximum.Y, point.Y));
+        }
+
+        passage.Bounds = new Rect2(minimum, maximum - minimum)
+            .Grow(maximumRadius + 0.01f);
+        return passage;
     }
 
     // =========================================================
-    // Measure passage distance, including rounded endpoints.
+    // Reject distant routes before testing their short connected segments.
+    private static bool InPassage(Vector2 point, Passage passage)
+    {
+        if (passage == null || !passage.Bounds.HasPoint(point))
+            return false;
+
+        for (int i = 0; i < passage.Points.Length - 1; i++)
+        {
+            float radius = Mathf.Max(
+                passage.Radii[i], passage.Radii[i + 1]);
+
+            if (NearSegment(
+                point, passage.Points[i], passage.Points[i + 1], radius))
+                return true;
+        }
+
+        return false;
+    }
+
+    // =========================================================
+    // Include rounded segment ends so adjacent route sections remain connected.
     private static bool NearSegment(
         Vector2 point, Vector2 a, Vector2 b, float radius)
     {
@@ -203,20 +288,11 @@ public sealed class CaveGenerator
     }
 
     // =========================================================
-    // Produce repeatable coordinate randomness without RNG allocations.
+    // Choose optional links consistently without random-generator allocations.
     private float Random(int x, int y, uint salt)
     {
-        unchecked
-        {
-            uint value = (uint)x * 0x8DA6B343u ^
-                (uint)y * 0xD8163841u ^ _seed ^ salt;
-            value ^= value >> 16;
-            value *= 0x7FEB352Du;
-            value ^= value >> 15;
-            value *= 0x846CA68Bu;
-            value ^= value >> 16;
-            return (value & 0xFFFFFFu) / 16777216f;
-        }
+        uint hash = IsoGrid.Hash(x, y, _seed ^ salt);
+        return (hash & 0xFFFFFFu) / 16777216f;
     }
     #endregion
 }

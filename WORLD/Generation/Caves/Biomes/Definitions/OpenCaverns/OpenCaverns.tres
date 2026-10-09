@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="OpenCavernsBiome" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Generation/Caves/Biomes/Definitions/OpenCaverns/OpenCavernsBiome.cs" id="1_biome"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Caves/Biomes/Definitions/OpenCaverns/OpenCavernsContent.tres" id="2_content"]
+
+[resource]
+script = ExtResource("1_biome")
+Id = "open_caverns"
+DisplayName = "Open Caverns"
+Tags = PackedStringArray("Cave", "Open", "Rocky")
+SelectionWeight = 1.0
+Content = ExtResource("2_content")
+ChamberRadiusRange = Vector2(9, 14)
+WallIrregularityTiles = 1.8
+TunnelWidthTiles = 6.0
+WindingTiles = 3.0
+ExtraConnectionChance = 0.4
+FloorAmplitude = 0.0
+FloorFeatureSizeTiles = 48.0
