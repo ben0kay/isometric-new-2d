@@ -23,7 +23,7 @@ public partial class NotificationManager : CanvasLayer
     private MajorAlertDisplay _major;
     private ToastDisplay _toasts;
     private readonly List<MajorAlertDefinition> _pending = new();
-    private readonly HashSet<string> _onceThisSession = new();
+    private static readonly HashSet<string> _onceThisSession = new();
     private readonly Dictionary<string, double> _lastRequested = new();
     private string _currentId = "";
 #if DEBUG
@@ -181,7 +181,7 @@ public partial class NotificationManager : CanvasLayer
             !key.Pressed || key.Echo || key.PhysicalKeycode != Key.F8)
             return;
 
-        switch (_previewStep++ % 6)
+        switch (_previewStep++ % 7)
         {
             case 0: ShowItem("plant_fibre", "Plant Fibre", 1); break;
             case 1: ShowItem("plant_fibre", "Plant Fibre", 2); break;
@@ -189,6 +189,7 @@ public partial class NotificationManager : CanvasLayer
             case 3: ShowMajor("eclipse_imminent"); break;
             case 4: ShowMajor("boss_detected"); break;
             case 5: ShowMajor("biome_discovered"); break;
+            case 6: ShowMajor("hazard_detected"); break;
         }
 
         GetViewport().SetInputAsHandled();
