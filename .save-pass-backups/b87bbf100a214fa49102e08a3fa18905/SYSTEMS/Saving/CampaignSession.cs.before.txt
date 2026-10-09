@@ -43,8 +43,7 @@ public partial class CampaignSession : Node
             if (continueCampaign)
             {
                 CampaignRecipe.Apply(world, data);
-                // Begin loading at the actual save point, not the original landing site.
-                player.Position = new Vector2(data.Player.X, data.Player.Y);
+                player.Position = new Vector2(data.SpawnX, data.SpawnY);
             }
             else
             {
@@ -70,39 +69,6 @@ public partial class CampaignSession : Node
             tree.Root.AddChild(world);
             tree.CurrentScene = world;
         }).CallDeferred();
-    }
-
-    // =========================================================
-    // Locate this world's campaign without keeping static references to old scenes.
-    private static CampaignSession FindCampaign(Node context)
-    {
-        for (Node node = context; node != null; node = node.GetParent())
-        {
-            CampaignSession campaign = node.GetNodeOrNull<CampaignSession>("CampaignSession");
-            if (campaign != null) return campaign;
-        }
-        return null;
-    }
-
-    // =========================================================
-    // Keep respawning and generation clearance anchored to the original landing site.
-    public static Vector2? OriginalSpawnFor(Node context)
-    {
-        if (context is not Player player) return null;
-        CampaignSession campaign = FindCampaign(player);
-        if (campaign?._data == null) return null;
-        Node2D objects = player.GetParent<Node2D>();
-        return objects.ToGlobal(new Vector2(campaign._data.SpawnX, campaign._data.SpawnY));
-    }
-
-    // =========================================================
-    // Show exactly which coordinates were committed by the manual save action.
-    public static string SavedPositionFor(Node context)
-    {
-        CampaignSession campaign = FindCampaign(context);
-        if (campaign?._data?.Player == null) return "";
-        PlayerSaveData player = campaign._data.Player;
-        return $"Saved position: X {player.X:0.##}, Y {player.Y:0.##} ({player.Layer}).";
     }
 
     // =========================================================
@@ -151,12 +117,7 @@ public partial class CampaignSession : Node
                 _clock.RestoreSave(_data.WorldSeconds);
             }
             else _clock.RestoreSave(0);
-            Camera2D camera = _player.GetNode<Camera2D>("Camera2D");
-            camera.ResetSmoothing();
-            camera.ForceUpdateScroll();
-            if (_restoring)
-                GD.Print($"[CampaignLoad] Profile {_data.ProfileId}: restored " +
-                    $"{_player.GlobalPosition}, saved ({_data.Player.X}, {_data.Player.Y}).");
+            _player.GetNode<Camera2D>("Camera2D").ResetSmoothing();
             PauseMenu.Attach(_player, _player.Controls).BindSave(Save);
             objects.ProcessMode = _objectsMode;
             _finished = true; SetProcess(false);
@@ -206,8 +167,6 @@ public partial class CampaignSession : Node
         _data.WorldSeconds = _clock.ElapsedSeconds;
         _data.SavedUtc = DateTime.UtcNow;
         CampaignStore.Write(_data);
-        GD.Print($"[CampaignSave] Profile {_data.ProfileId}: " +
-            $"({saved.X}, {saved.Y}), original spawn ({_data.SpawnX}, {_data.SpawnY}).");
     }
 
     // =========================================================

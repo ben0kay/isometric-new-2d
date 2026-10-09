@@ -235,7 +235,6 @@ public partial class PauseMenu : CanvasLayer
         {
             _saveAction();
             ShowMessage("Partial campaign saved", "World and player saved to your selected profile.\n" +
-                CampaignSession.SavedPositionFor(this) + "\n" +
                 "Harvesting, world items, containers, buildings and entities are not saved yet.");
         }
         catch (Exception error)

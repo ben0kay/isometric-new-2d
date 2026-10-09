@@ -90,7 +90,7 @@ public partial class ChunkController : Node
 		_player = _objects.GetNode<Player>("Player");
 		_camera = _player.GetNode<Camera2D>("Camera2D");
 		_debug = GetNode<Label>("../../HUD/ChunkInfo");
-		_spawnPoint = CampaignSession.OriginalSpawnFor(_player) ?? _player.GlobalPosition;
+		_spawnPoint = _player.GlobalPosition;
 
 		_previousObjectsMode = _objects.ProcessMode;
 		_objects.ProcessMode = ProcessModeEnum.Disabled;

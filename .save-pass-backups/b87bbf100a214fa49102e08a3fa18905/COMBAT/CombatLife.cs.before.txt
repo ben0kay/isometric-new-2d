@@ -27,7 +27,7 @@ public partial class CombatLife : Node
     {
         _actor = GetParent().GetParent<CharacterBody2D>();
         _health = GetNode<Health>("../Health");
-        _spawn = CampaignSession.OriginalSpawnFor(_actor) ?? _actor.GlobalPosition;
+        _spawn = _actor.GlobalPosition;
         _collisionLayer = _actor.CollisionLayer;
         _health.Hit += OnHit;
         _health.Died += OnDeath;

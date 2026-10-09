@@ -136,7 +136,7 @@ public partial class WaterBasinWorld : Node
         Player player = generator.GetNode<Player>(
             "../../WorldObjects/Player");
         _spawnTile = IsoGrid.WorldToTile(
-            ground.ToLocal(CampaignSession.OriginalSpawnFor(player) ?? player.GlobalPosition), chunks.TileSize);
+            ground.ToLocal(player.GlobalPosition), chunks.TileSize);
 
         if (_enabled)
         {

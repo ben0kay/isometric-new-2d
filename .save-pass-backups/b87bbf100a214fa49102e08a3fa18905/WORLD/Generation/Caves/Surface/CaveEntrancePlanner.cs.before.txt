@@ -42,8 +42,7 @@ public CaveEntrancePlanner(
     _ground = world.GetNode<Node2D>("GroundChunks");
     _basins = WaterBasinWorld.Find(world);
     _sampler = new CaveSurfaceSampler(world, chunks);
-    Player player = world.GetNode<Player>("WorldObjects/Player");
-    _spawn = CampaignSession.OriginalSpawnFor(player) ?? player.GlobalPosition;
+    _spawn = world.GetNode<Player>("WorldObjects/Player").GlobalPosition;
 
     Settings = (CaveGenerationSettings)settings.Duplicate();
     Settings.Validate();
