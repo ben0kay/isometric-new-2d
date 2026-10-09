@@ -39,7 +39,7 @@ public partial class WorldNavigation : Node
 private sealed class RouteJob
 {
     public ulong Id;
-    public EnemyMotor Owner;
+    public EntityMotor Owner;
     public CharacterBody2D Actor;
     public Vector2 Goal;
     public int Padding;
@@ -389,7 +389,7 @@ private sealed class RouteJob
 // =========================================================
 // Queue the same budgeted navigation work for robots and wildlife.
 public void RequestRoute(
-    EnemyMotor owner, CharacterBody2D actor, Vector2 goal)
+    EntityMotor owner, CharacterBody2D actor, Vector2 goal)
 {
     ulong id = owner.GetInstanceId();
     if (_jobs.ContainsKey(id)) return;
@@ -415,14 +415,14 @@ public void RequestRoute(
 
     // =========================================================
     // Test pending state without performing navigation work.
-    public bool HasPending(EnemyMotor owner)
+    public bool HasPending(EntityMotor owner)
     {
         return _jobs.ContainsKey(owner.GetInstanceId());
     }
 
     // =========================================================
     // Consume a completed result once.
-    public bool TryTakeRoute(EnemyMotor owner, out RouteResult result)
+    public bool TryTakeRoute(EntityMotor owner, out RouteResult result)
     {
         ulong id = owner.GetInstanceId();
         if (!_results.TryGetValue(id, out result)) return false;
@@ -432,14 +432,14 @@ public void RequestRoute(
 
     // =========================================================
     // Allow an early retry after relevant local geometry changes.
-    public bool FailedAreaChanged(EnemyMotor owner)
+    public bool FailedAreaChanged(EntityMotor owner)
     {
         return _changedFailures.Contains(owner.GetInstanceId());
     }
 
     // =========================================================
     // Release requests and results when a motor stops or changes layer.
-    public void Cancel(EnemyMotor owner)
+    public void Cancel(EntityMotor owner)
     {
         ulong id = owner.GetInstanceId();
         if (_jobs.TryGetValue(id, out RouteJob job))

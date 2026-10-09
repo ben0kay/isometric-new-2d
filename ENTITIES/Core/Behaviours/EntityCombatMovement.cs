@@ -40,7 +40,7 @@ public sealed class EntityCombatMovement
         EntityCombatMovementSettings settings,
         Vector2? layerGoal = null)
     {
-        EnemyMotor motor = _actor.Motor;
+        EntityMotor motor = _actor.Motor;
 
         if (!GodotObject.IsInstanceValid(target) ||
             !target.IsInsideTree() || target.IsQueuedForDeletion())
@@ -82,7 +82,7 @@ public sealed class EntityCombatMovement
         Vector2 targetPoint, bool hasSight,
         EntityCombatMovementSettings settings)
     {
-        EnemyMotor motor = _actor.Motor;
+        EntityMotor motor = _actor.Motor;
         float chosenDistance = GetRangedDistance(settings);
 
         if (!hasSight)
@@ -117,7 +117,7 @@ public sealed class EntityCombatMovement
     private void DecideRetreat(Vector2 targetPoint, float speed)
     {
         WorldNavigation navigation = _actor.Navigation;
-        EnemyMotor motor = _actor.Motor;
+        EntityMotor motor = _actor.Motor;
 
         if (navigation == null)
         {

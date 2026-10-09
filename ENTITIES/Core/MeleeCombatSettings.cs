@@ -4,7 +4,7 @@ using Godot;
 using System;
 
 [Tool, GlobalClass]
-public partial class MeleeCombatSettings : EnemyCombatSettings
+public partial class MeleeCombatSettings : EntityCombatSettings
 {
     #region Damage
     [ExportGroup("Damage")]

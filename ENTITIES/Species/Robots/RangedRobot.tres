@@ -1,17 +1,35 @@
-[gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://d0lklphub468y"]
+[gd_resource type="Resource" script_class="EntityDefinition" format=3 uid="uid://d0lklphub468y"]
 
-[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/Core/EnemyDefinition.cs" id="1_enemy"]
+[ext_resource type="Script" uid="uid://cv62vuncf01ti" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Resource" uid="uid://tn4471d7ikxh" path="res://ENTITIES/Species/Robots/Combat/RangedRobotCombat.tres" id="3_combat"]
+[ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHitbox.tres" id="4_hitbox"]
 
 [resource]
-script = ExtResource("1_enemy")
-Id = "ranged_robot"
+script = ExtResource("1_definition")
+SpeciesId = "ranged_robot"
 DisplayName = "Ranged Robot"
-MaxVitality = 75
+MaxHealth = 75
 Defense = ExtResource("2_hull")
+BodyCollisionMask = 9
 MoveSpeed = 145.0
 WanderSpeed = 40.0
+WanderRadius = 240.0
+HomeLeash = 1400.0
+WanderWait = Vector2(2, 5)
+WanderArrivalDistance = 8.0
+WanderReturnDistance = 8.0
+RequireDirectWanderPath = false
+ReturnBeforeWaiting = false
+InitialWanderPause = true
+Awareness = 1
 Combat = ExtResource("3_combat")
+DecisionInterval = 0.2
+DeathDelivery = 1
+ArtworkSize = Vector2i(96, 96)
+ArtworkOrigin = Vector2(-48, -64)
+AtlasRegion = Rect2(234, 332, 96, 96)
 VisualTint = Color(1, 0.65, 0.4, 1)
 VisualScale = 1.1
+FaceMovement = false
+Hitbox = ExtResource("4_hitbox")

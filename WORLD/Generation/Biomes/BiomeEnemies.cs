@@ -14,25 +14,25 @@ public partial class BiomeEnemies : Resource
     public int MaximumPerChunk { get; set; } = 2;
 
     [ExportGroup("Species")]
-    [Export] public Godot.Collections.Array<EnemyDefinition> Definitions { get; set; } = new();
+    [Export] public Godot.Collections.Array<EntityDefinition> Definitions { get; set; } = new();
     #endregion
 
     #region Selection
     // =========================================================
     // Choose one eligible definition using its relative spawn weight.
-    public EnemyDefinition Pick(RandomNumberGenerator rng)
+    public EntityDefinition Pick(RandomNumberGenerator rng)
     {
         double total = 0.0;
-        foreach (EnemyDefinition definition in Definitions)
+        foreach (EntityDefinition definition in Definitions)
             if (definition != null && float.IsFinite(definition.SpawnWeight) &&
                 definition.SpawnWeight > 0f)
                 total += definition.SpawnWeight;
 
         if (total <= 0.0) return null;
         double roll = rng.Randf() * total;
-        EnemyDefinition last = null;
+        EntityDefinition last = null;
 
-        foreach (EnemyDefinition definition in Definitions)
+        foreach (EntityDefinition definition in Definitions)
         {
             if (definition == null || !float.IsFinite(definition.SpawnWeight) ||
                 definition.SpawnWeight <= 0f) continue;

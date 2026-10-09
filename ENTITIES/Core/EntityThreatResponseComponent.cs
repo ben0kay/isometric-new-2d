@@ -16,7 +16,7 @@ public partial class EntityThreatResponseComponent : Node
     private readonly RandomNumberGenerator _rng = new();
 
     public bool HasThreat => _targeting?.HasTarget == true;
-    private Node2D Target => _targeting?.Target;
+    public Node2D Target => _targeting?.Target;
     #endregion
 
     #region Lifecycle
@@ -181,7 +181,7 @@ public partial class EntityThreatResponseComponent : Node
 
     #region Responses
     // =========================================================
-    // Choose optional fleeing or shared chasing and melee damage delivery.
+    // Choose fleeing or shared melee settings for defensive combat.
     private void Respond()
     {
         WorldNavigation navigation = _actor.Navigation;
@@ -195,24 +195,31 @@ public partial class EntityThreatResponseComponent : Node
             return;
         }
 
+        if (definition.Combat is not MeleeCombatSettings melee)
+        {
+            _actor.Motor.Stop();
+            return;
+        }
+
         if (_actor.GlobalPosition.DistanceSquaredTo(Target.GlobalPosition) >
-            definition.MeleeRange * definition.MeleeRange)
+            melee.AttackRange * melee.AttackRange)
         {
             _movement.Decide(Target, false,
                 new EntityCombatMovementSettings
                 {
                     Positioning = EntityCombatPositioning.Chase,
-                    Speed = definition.ThreatSpeed,
-                    StopDistance = definition.MeleeRange * 0.8f
+                    Speed = definition.MoveSpeed,
+                    StopDistance = melee.StopDistance
                 });
+
             return;
         }
 
         _actor.Motor.Stop();
 
         _combat.TryMelee(
-            Target, definition.MeleeRange, definition.MeleeDamage,
-            DamageType.Neutral, definition.MeleeCooldown,
+            Target, melee.AttackRange, melee.Damage,
+            melee.DamageType, melee.Cooldown,
             cooldownOnRejectedDamage: true);
     }
 
@@ -240,7 +247,7 @@ public partial class EntityThreatResponseComponent : Node
                     _actor.GlobalPosition, point))
                 continue;
 
-            _actor.Motor.SetGoal(point, definition.ThreatSpeed, 12f);
+            _actor.Motor.SetGoal(point, definition.MoveSpeed, 12f);
             return;
         }
 

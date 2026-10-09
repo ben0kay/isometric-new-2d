@@ -9,7 +9,7 @@ public partial class CaveEnemyPursuit : Node
     #region State
     private sealed class Record
     {
-        public Enemy Actor;
+        public Entity Actor;
         public WorldLayerMember Member;
         public CaveHole Portal;
         public IDisposable Lease;
@@ -23,8 +23,8 @@ public partial class CaveEnemyPursuit : Node
     private InfiniteWorldGeneration _generation;
     private double _timer;
 
-    private readonly Dictionary<Enemy, Record> _records = new();
-    private readonly List<Enemy> _remove = new();
+    private readonly Dictionary<Entity, Record> _records = new();
+    private readonly List<Entity> _remove = new();
     #endregion
 
     #region Lifecycle
@@ -94,7 +94,7 @@ public partial class CaveEnemyPursuit : Node
             UpdateRecord(record);
         }
 
-        foreach (Enemy actor in _remove)
+        foreach (Entity actor in _remove)
             _records.Remove(actor);
     }
 
@@ -125,7 +125,7 @@ public partial class CaveEnemyPursuit : Node
     {
         foreach (Node node in GetTree().GetNodesInGroup("enemies"))
         {
-            if (node is not Enemy actor || _records.ContainsKey(actor) ||
+            if (node is not Entity actor || _records.ContainsKey(actor) ||
                 actor.IsQueuedForDeletion() || !actor.Initialized ||
                 !actor.IsActivated || actor.SpawnPending ||
                 actor.Health?.IsAlive != true)
@@ -150,7 +150,7 @@ public partial class CaveEnemyPursuit : Node
     // Keep hidden pursuers thinking, but disable their physical interaction.
     private void UpdateRecord(Record record)
     {
-        Enemy actor = record.Actor;
+        Entity actor = record.Actor;
         if (actor.Health?.IsAlive != true) return;
 
         if (!actor.HasTarget)
@@ -193,7 +193,7 @@ public partial class CaveEnemyPursuit : Node
 
         foreach (Record record in _records.Values)
         {
-            Enemy actor = record.Actor;
+            Entity actor = record.Actor;
             if (!GodotObject.IsInstanceValid(actor) ||
                 actor.IsQueuedForDeletion() ||
                 !actor.HasTarget || actor.Target != player)
@@ -220,7 +220,7 @@ public partial class CaveEnemyPursuit : Node
 
     // =========================================================
     // Supply a reachable mouth goal instead of the target's other-layer position.
-    public bool TryGetGoal(Enemy actor, out Vector2 goal)
+    public bool TryGetGoal(Entity actor, out Vector2 goal)
     {
         goal = actor.GlobalPosition;
         if (!_records.TryGetValue(actor, out Record record) ||
@@ -238,7 +238,7 @@ public partial class CaveEnemyPursuit : Node
     // Cross only at the mouth and only when destination ground is ready.
     private void TryCross(Record record)
     {
-        Enemy actor = record.Actor;
+        Entity actor = record.Actor;
         CaveHole hole = record.Portal;
         WorldLayer destination = WorldLayerMember.For(actor.Target);
 

@@ -1,5 +1,5 @@
-// Shares wandering between robots, wildlife and future entity types.
-// Grazing and group roaming are optional; membership alone does not move an anchor.
+// Shares wandering, waiting and optional grazing between entity species.
+// The actor owns the single motor tick; group roaming remains optional.
 using Godot;
 using System;
 
@@ -37,27 +37,7 @@ public partial class EntityWandering : Node
 
     #region Lifecycle
     // =========================================================
-    // Adapt the existing wildlife definition to the shared movement behaviour.
-    public void Bind(Entity actor)
-    {
-        EntityDefinition definition = actor.Definition;
-
-        Bind(actor, new EntityWanderSettings
-        {
-            Enabled = true,
-            Speed = definition.WanderSpeed,
-            Radius = definition.WanderRadius,
-            Wait = definition.WanderWait,
-            ArrivalDistance = 12f,
-            ReturnDistance = 16f,
-            RequireDirectPath = true,
-            TickMotor = true
-        }, actor.GlobalPosition, actor.Membership, actor.Grazing,
-            () => actor.HasThreat);
-    }
-
-    // =========================================================
-    // Bind any shared actor with optional grouping, grazing and threat policy.
+    // Bind shared movement with optional membership, grazing and threat policy.
     public void Bind(
         EntityBody actor, EntityWanderSettings settings, Vector2 home,
         EntityGroupMember membership = null,
@@ -115,26 +95,30 @@ public partial class EntityWandering : Node
 
     #region Movement
     // =========================================================
-    // Advance waiting and optionally drive wildlife movement and feeding.
+    // Advance peaceful activity without executing movement a second time.
     public void Tick(double delta)
     {
         _wait -= delta;
 
-        // Robot coordination already ticks its motor after combat sequences.
-        if (!_settings.TickMotor) return;
-
-        if (_grazing?.Tick(delta) == true || !_actor.Motor.HasGoal)
+        if (_grazing?.Tick(delta) == true ||
+            !_actor.Motor.HasGoal)
             return;
 
+        if (HasThreat)
+        {
+            _travelTime = 0.0;
+            return;
+        }
+
         _travelTime += delta;
-        _actor.Motor.Tick(delta);
-        if (HasThreat) return;
 
         if (_actor.Motor.Arrived)
         {
             _actor.Motor.Stop();
             _travelTime = 0.0;
-            if (_grazing?.BeginEating() != true) Pause();
+
+            if (_grazing?.BeginEating() != true)
+                Pause();
         }
         else if (_actor.Motor.IsStuck || _travelTime > 20.0)
         {
@@ -147,7 +131,7 @@ public partial class EntityWandering : Node
     // Choose optional forage or a destination within the current wander area.
     public void Decide()
     {
-        EnemyMotor motor = _actor.Motor;
+        EntityMotor motor = _actor.Motor;
 
         if (!_settings.Enabled)
         {
@@ -176,16 +160,12 @@ public partial class EntityWandering : Node
 
         if (motor.HasGoal)
         {
-            if (_settings.TickMotor ||
-                (!motor.Arrived && !motor.IsStuck))
-                return;
-
+            if (!motor.Arrived && !motor.IsStuck) return;
             motor.Stop();
             Pause();
         }
 
-        // Wildlife returns to its area before waiting; robots preserve their wait.
-        if (_settings.TickMotor &&
+        if (_settings.ReturnBeforeWaiting &&
             position.DistanceSquaredTo(centre) > radius * radius)
         {
             ReturnToCentre();
@@ -217,6 +197,7 @@ public partial class EntityWandering : Node
                 Mathf.Sqrt(_rng.Randf()) * radius;
 
             Vector2 start = _settings.RequireDirectPath ? position : point;
+
             if (!navigation.CanTravelDirectly(start, point))
                 continue;
 
@@ -226,7 +207,7 @@ public partial class EntityWandering : Node
             return;
         }
 
-        _wait = _settings.TickMotor ? 2.0 : 1.0;
+        _wait = 2.0;
     }
 
     // =========================================================

@@ -14,7 +14,7 @@ public struct EntityWanderSettings
     public float ArrivalDistance;
     public float ReturnDistance;
     public bool RequireDirectPath;
-    public bool TickMotor;
+    public bool ReturnBeforeWaiting;
 }
 
 public struct EntityCombatMovementSettings

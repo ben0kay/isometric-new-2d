@@ -7,7 +7,8 @@ public sealed class WorldLightingMaterials
 {
     #region Cache
     private readonly Dictionary<string, ShaderMaterial> _materials = new();
-    private readonly Dictionary<VisualDefinition, ShaderMaterial> _vegetation = new();
+   private readonly Dictionary<(VisualDefinition Definition, int Height),
+    ShaderMaterial> _vegetation = new();
     private Shader _ordinaryShader, _premultShader, _vegetationShader;
     #endregion
 
@@ -36,33 +37,39 @@ public sealed class WorldLightingMaterials
         }
     }
 
-    // =========================================================
-    // Configure sprite bounds once; facing remains handled in the GPU.
-    private void AttachBranch(Node node, VisualDefinition definition)
+// =========================================================
+// Attach surface lighting and wind to single images or folder variants.
+private void AttachBranch(Node node, VisualDefinition definition)
+{
+    if (node is Sprite2D sprite && sprite.Texture != null)
     {
-        if (node is Sprite2D sprite && sprite.Texture != null)
-        {
-            Material source = sprite.Material;
+        Material source = sprite.Material;
 
-            if (definition?.Vegetation != null &&
-                definition.Image != null &&
-                sprite.Texture == definition.Image)
-            {
-                source = GetVegetationMaterial(definition);
-            }
+        string folder = (definition?.ImageFolder ?? "").Trim().TrimEnd('/');
+        string path = sprite.Texture.ResourcePath ?? "";
 
-            Rect2 bounds = sprite.GetRect();
-            Rect2 custom = definition?.Lighting?.DrawingBounds ?? new Rect2();
+        bool folderImage = folder.Length > 0 &&
+            path.StartsWith(folder + "/", System.StringComparison.Ordinal) &&
+            path.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase);
 
-            if (custom.Size.X > 0f && custom.Size.Y > 0f)
-                bounds = custom;
+        bool singleImage = definition?.Image != null &&
+            sprite.Texture == definition.Image;
 
-            sprite.Material = GetMaterial(source, bounds, definition);
-        }
+        if (definition?.Vegetation != null && (singleImage || folderImage))
+            source = GetVegetationMaterial(definition, sprite.Texture);
 
-        foreach (Node child in node.GetChildren())
-            AttachBranch(child, definition);
+        Rect2 bounds = sprite.GetRect();
+        Rect2 custom = definition?.Lighting?.DrawingBounds ?? new Rect2();
+
+        if (custom.Size.X > 0f && custom.Size.Y > 0f)
+            bounds = custom;
+
+        sprite.Material = GetMaterial(source, bounds, definition);
     }
+
+    foreach (Node child in node.GetChildren())
+        AttachBranch(child, definition);
+}
     #endregion
 
     #region Materials
@@ -116,35 +123,38 @@ private Material GetMaterial(
     return material;
 }
 
-    // =========================================================
-    // Create a species-level imported vegetation material without its own sun.
-    private ShaderMaterial GetVegetationMaterial(VisualDefinition definition)
-    {
-        if (_vegetation.TryGetValue(definition, out ShaderMaterial cached))
-            return cached;
+// =========================================================
+// Share wind materials by visual definition and actual sprite height.
+private ShaderMaterial GetVegetationMaterial(
+    VisualDefinition definition, Texture2D texture)
+{
+    int height = Mathf.Max(1, texture.GetHeight());
+    var key = (definition, height);
 
-        _vegetationShader ??= GD.Load<Shader>(
-            "res://VISUALS/Vegetation/ImportedVegetation.gdshader");
+    if (_vegetation.TryGetValue(key, out ShaderMaterial cached))
+        return cached;
 
-        VegetationVisualSettings settings = definition.Vegetation;
-        ShaderMaterial material = new() { Shader = _vegetationShader };
+    _vegetationShader ??= GD.Load<Shader>(
+        "res://VISUALS/Vegetation/ImportedVegetation.gdshader");
 
-        material.SetShaderParameter("wind_enabled", settings.WindEnabled);
-        material.SetShaderParameter("wind_strength",
-            Mathf.Max(0f, settings.WindStrength));
-        material.SetShaderParameter("wind_speed",
-            Mathf.Max(0f, settings.WindSpeed));
-        material.SetShaderParameter("brush_enabled", settings.BrushingEnabled);
-        material.SetShaderParameter("brush_amount",
-            Mathf.Max(0f, settings.BrushStrength));
-        material.SetShaderParameter("image_height",
-            Mathf.Max(1f, definition.Image.GetHeight()));
-        material.SetShaderParameter("image_anchor_y",
-            Mathf.Max(0.001f, definition.ImageAnchor.Y));
+    VegetationVisualSettings settings = definition.Vegetation;
+    ShaderMaterial material = new() { Shader = _vegetationShader };
 
-        _vegetation.Add(definition, material);
-        return material;
-    }
+    material.SetShaderParameter("wind_enabled", settings.WindEnabled);
+    material.SetShaderParameter("wind_strength",
+        Mathf.Max(0f, settings.WindStrength));
+    material.SetShaderParameter("wind_speed",
+        Mathf.Max(0f, settings.WindSpeed));
+    material.SetShaderParameter("brush_enabled", settings.BrushingEnabled);
+    material.SetShaderParameter("brush_amount",
+        Mathf.Max(0f, settings.BrushStrength));
+    material.SetShaderParameter("image_height", (float)height);
+    material.SetShaderParameter("image_anchor_y",
+        Mathf.Max(0.001f, definition.ImageAnchor.Y));
+
+    _vegetation.Add(key, material);
+    return material;
+}
 
     // =========================================================
     // Configure artwork geometry and optional normal maps independently of light.

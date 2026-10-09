@@ -11,8 +11,8 @@ public partial class WorldEnemyRangesDebug : Node, IDebugOptionProvider
     #endregion
 
     #region State
-    private readonly Dictionary<Enemy, EnemyRangeDebug> _helpers = new();
-    private readonly List<Enemy> _removed = new();
+    private readonly Dictionary<Entity, EnemyRangeDebug> _helpers = new();
+    private readonly List<Entity> _removed = new();
     private double _timer;
     #endregion
 
@@ -29,7 +29,7 @@ public IEnumerable<DebugOption> GetDebugOptions()
 {
     yield return new DebugOption
     {
-        Name = "Enemy ranges",
+        Name = "Entity ranges",
         Order = 20,
         Read = () => Enabled,
         Write = SetEnabled,
@@ -73,12 +73,12 @@ public override void _Input(InputEvent input)
                 !GodotObject.IsInstanceValid(pair.Value))
                 _removed.Add(pair.Key);
 
-        foreach (Enemy enemy in _removed)
+        foreach (Entity enemy in _removed)
             _helpers.Remove(enemy);
 
         foreach (Node node in GetTree().GetNodesInGroup("enemies"))
         {
-            if (node is not Enemy enemy ||
+            if (node is not Entity enemy ||
                 enemy.IsQueuedForDeletion() ||
                 enemy.Definition == null)
                 continue;

@@ -2,7 +2,7 @@
 // The default presentation flashes baked artwork; subclasses can play animations.
 using Godot;
 
-public partial class EnemyPresentation : Node
+public partial class EntityPresentation : Node
 {
     #region Configuration
     [ExportGroup("Damage Feedback")]
@@ -11,11 +11,11 @@ public partial class EnemyPresentation : Node
     #endregion
 
     #region State
-    protected Enemy Actor { get; private set; }
+    protected Entity Actor { get; private set; }
     protected CanvasItem Artwork { get; private set; }
     private Health _health;
     private Weapon _weapon;
-    private EnemyCombat _combat;
+    private EntityCombatController _combat;
     private Color _normalTint;
     private Tween _flash;
     private bool _bound, _dead;
@@ -31,22 +31,29 @@ public partial class EnemyPresentation : Node
     }
 
     // =========================================================
-    // Bind after artwork exists; each enemy owns its presentation state.
-    public void Bind(Enemy actor, CanvasItem artwork)
+    // Bind shared health and any optional weapon or combat presentation events.
+    public void Bind(Entity actor, CanvasItem artwork)
     {
         Unbind();
+
         Actor = actor;
         Artwork = artwork;
         _normalTint = artwork.Modulate;
         _dead = false;
-        _health = actor.GetNode<Health>("Systems/Health");
-        _weapon = actor.GetNode<Weapon>("Systems/Weapon");
-        _combat = actor.GetNode<EnemyCombat>("Systems/Combat");
+
+        _health = actor.Health;
+        _weapon = actor.GetNodeOrNull<Weapon>("Systems/Weapon");
+        _combat = actor.GetNodeOrNull<EntityCombatController>("Systems/Combat");
 
         _health.Hit += OnDamageReceived;
         _health.Died += HandleDeath;
-        _weapon.AttackFired += OnAttackFired;
-        _combat.MeleeExecuted += OnMeleeExecuted;
+
+        if (GodotObject.IsInstanceValid(_weapon))
+            _weapon.AttackFired += OnAttackFired;
+
+        if (GodotObject.IsInstanceValid(_combat))
+            _combat.MeleeExecuted += OnMeleeExecuted;
+
         _bound = true;
     }
 

@@ -7,7 +7,7 @@ public abstract partial class EntityBody : CharacterBody2D
 {
     #region Shared Components
     public Health Health { get; protected set; }
-    public EnemyMotor Motor { get; protected set; }
+    public EntityMotor Motor { get; protected set; }
 
     public virtual double NavigationPathInterval => 0.45;
 
@@ -58,7 +58,7 @@ public abstract partial class EntityBody : CharacterBody2D
     protected void BindSharedComponents()
     {
         Health = GetNode<Health>("Systems/Health");
-        Motor = GetNode<EnemyMotor>("Systems/Motor");
+        Motor = GetNode<EntityMotor>("Systems/Motor");
         _layerMember = WorldLayerMember.Attach(
             this, WorldLayerMember.For(this));
 

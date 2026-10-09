@@ -5,7 +5,7 @@ using Godot;
 public partial class EnemyRangeDebug : Node2D
 {
     #region State
-    private Enemy _enemy;
+    private Entity _enemy;
     private Vector3 _ranges = new(-1f, -1f, -1f);
     private Vector2[] _detection, _attack, _forget;
     private bool _enabled;
@@ -39,7 +39,7 @@ public partial class EnemyRangeDebug : Node2D
     #region Configuration
     // =========================================================
     // Cache changed radii while preserving existing drawings during movement.
-    public void Configure(Enemy enemy, bool enabled)
+    public void Configure(Entity enemy, bool enabled)
     {
         _enemy = enemy;
 

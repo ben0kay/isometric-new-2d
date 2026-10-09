@@ -3,7 +3,7 @@
 using Godot;
 using System;
 
-public partial class EnemyMotor : Node
+public partial class EntityMotor : Node
 {
     #region State
 private CharacterBody2D _actor;

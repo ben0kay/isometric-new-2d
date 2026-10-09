@@ -4,7 +4,7 @@ using Godot;
 using System;
 
 [Tool, GlobalClass]
-public partial class RangedCombatSettings : EnemyCombatSettings
+public partial class RangedCombatSettings : EntityCombatSettings
 {
     #region Ranges
     [ExportGroup("Ranges")]

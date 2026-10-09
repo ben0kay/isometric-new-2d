@@ -252,7 +252,7 @@ private void OnNodeAdded(Node node)
 
     for (Node parent = node; parent != null; parent = parent.GetParent())
     {
-        if (parent is Player || parent is Enemy || parent is Projectile)
+        if (parent is Player || parent is Entity || parent is Projectile)
             return;
         if (_roots.ContainsKey(parent)) surface = true;
     }
@@ -342,7 +342,7 @@ private void CaptureSurface()
 
     foreach (Node child in _objects.GetChildren())
     {
-        if (child == _player || child is Enemy || child is Projectile ||
+        if (child == _player || child is Entity || child is Projectile ||
             child.IsQueuedForDeletion())
             continue;
 

@@ -1,12 +1,9 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://ENTITIES/Core/Entity.cs" id="1"]
-[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EnemyMotor.cs" id="3"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityGroupMember.cs" id="4"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityGrazing.cs" id="5"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityWandering.cs" id="6"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityThreatResponseComponent.cs" id="7"]
+[ext_resource type="Script" path="res://ENTITIES/Core/Entity.cs" id="1_entity"]
+[ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Script" path="res://ENTITIES/Core/EntityMotor.cs" id="3_motor"]
+[ext_resource type="Script" path="res://ENTITIES/Core/EntityGroupMember.cs" id="4_group"]
 
 [sub_resource type="CircleShape2D" id="Body"]
 radius = 10.0
@@ -15,7 +12,7 @@ radius = 10.0
 collision_layer = 4
 collision_mask = 13
 motion_mode = 1
-script = ExtResource("1")
+script = ExtResource("1_entity")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("Body")
@@ -23,19 +20,10 @@ shape = SubResource("Body")
 [node name="Systems" type="Node" parent="."]
 
 [node name="Health" type="Node" parent="Systems"]
-script = ExtResource("2")
+script = ExtResource("2_health")
 
 [node name="Motor" type="Node" parent="Systems"]
-script = ExtResource("3")
+script = ExtResource("3_motor")
 
 [node name="Group" type="Node" parent="Systems"]
-script = ExtResource("4")
-
-[node name="Grazing" type="Node" parent="Systems"]
-script = ExtResource("5")
-
-[node name="Wandering" type="Node" parent="Systems"]
-script = ExtResource("6")
-
-[node name="Threats" type="Node" parent="Systems"]
-script = ExtResource("7")
+script = ExtResource("4_group")

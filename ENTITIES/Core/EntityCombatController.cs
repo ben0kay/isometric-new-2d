@@ -3,12 +3,12 @@
 using Godot;
 using System;
 
-public partial class EnemyCombat : Node
+public partial class EntityCombatController : Node
 {
     #region State
     public event Action MeleeExecuted;
 
-    private Enemy _actor;
+    private Entity _actor;
     private EntitySequence _sequence;
     private EntityCombat _combat;
     private double _checkTimer;
@@ -19,7 +19,7 @@ public partial class EnemyCombat : Node
     // Bind shared combat and the shared sequence component.
     public override void _Ready()
     {
-        _actor = GetParent().GetParent<Enemy>();
+        _actor = GetParent().GetParent<Entity>();
         _sequence = GetNode<EntitySequence>("../Sequence");
 
         _combat = new EntityCombat(
@@ -69,7 +69,7 @@ public partial class EnemyCombat : Node
         if (!_actor.HasTarget || !_actor.HasSight)
             return;
 
-        EnemyCombatSettings settings = _actor.Definition.Combat;
+        EntityCombatSettings settings = _actor.Definition.Combat;
         Node2D target = _actor.Target;
 
         if (!_combat.CanAttack(target, settings.AttackRange))

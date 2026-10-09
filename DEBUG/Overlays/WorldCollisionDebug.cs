@@ -157,7 +157,7 @@ public override void _Draw()
 			(owner.CollisionLayer == 0 && owner.CollisionMask == 0))
 			continue;
 
-		if (owner is Enemy enemy && !enemy.IsActivated)
+		if (owner is Entity enemy && !enemy.IsActivated)
 			continue;
 
 		Vector2[] collisionPoints;

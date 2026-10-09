@@ -22,7 +22,7 @@ public partial class EntitySequence : Node
 {
     #region Public State
     public EntityBody Actor => _binding?.Actor;
-    public EnemyMotor Motor => Actor?.Motor;
+    public EntityMotor Motor => Actor?.Motor;
     public WorldNavigation Navigation => Actor?.Navigation;
     public bool IsRunning { get; private set; }
 

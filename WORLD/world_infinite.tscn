@@ -5,7 +5,6 @@
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="3_chunks"]
 [ext_resource type="Script" uid="uid://7qiets80o66t" path="res://UI/FpsLabel.cs" id="4_fps"]
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="5_navigation"]
-[ext_resource type="PackedScene" path="res://ENTITIES/Core/EnemyPopulation.tscn" id="6_enemies"]
 [ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="7_elevation"]
 [ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="8_projectiles"]
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="9_atmosphere"]
@@ -74,7 +73,7 @@ script = ExtResource("3_chunks")
 script = ExtResource("20_surfaces")
 PlaceTestWater = false
 
-[node name="EnemyPopulation" parent="Systems" unique_id=588426670 instance=ExtResource("6_enemies")]
+[node name="EnemyPopulation" parent="Systems" unique_id=588426670]
 
 [node name="ProjectilePool" type="Node" parent="Systems" unique_id=764369652]
 script = ExtResource("8_projectiles")

@@ -1,14 +1,16 @@
-[gd_resource type="Resource" script_class="EnemyDefinition" format=3 uid="uid://dg6k3y10ofscf"]
+[gd_resource type="Resource" script_class="EntityDefinition" format=3 uid="uid://dg6k3y10ofscf"]
 
-[ext_resource type="Script" uid="uid://vgi4tpvjvb5s" path="res://ENTITIES/Core/EnemyDefinition.cs" id="1_enemy"]
-[ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHull.tres" id="2_hull"]
-[ext_resource type="Script" uid="uid://bjrfda2v750sh" path="res://ENTITIES/Core/MeleeCombatSettings.cs" id="3_combat"]
-
-[sub_resource type="Resource" id="MeleeCombat"]
-script = ExtResource("3_combat")
+[ext_resource type="Script" uid="uid://cv62vuncf01ti" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
+[ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHitbox.tres" id="4_hitbox"]
 
 [resource]
-script = ExtResource("1_enemy")
-Defense = ExtResource("2_hull")
-Combat = SubResource("MeleeCombat")
-VisualTint = Color(0.7, 0.9, 1, 1)
+script = ExtResource("1_definition")
+SpeciesId = "melee_robot"
+DisplayName = "Melee Robot"
+MaxHealth = 60
+WanderSpeed = 45.0
+WanderRadius = 240.0
+WanderWait = Vector2(2, 5)
+ArtworkSize = Vector2i(96, 96)
+ArtworkOrigin = Vector2(-48, -64)
+Hitbox = ExtResource("4_hitbox")
