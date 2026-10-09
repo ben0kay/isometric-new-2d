@@ -38,7 +38,7 @@ public override async void _Ready()
                 Definition.BakedKind == PlantArtwork.Shrub, Variant),
             VegetationAtlas.Origin, Vector2.One, false,
             Definition.Visual, VegetationAtlas.Texture,
-            VegetationAtlas.WindMaterial);
+            VegetationAtlas.WindMaterial, Variant);
 
         float size = Mathf.Max(0.1f, SizeMultiplier);
         visual.Scale = new Vector2(Mirror ? -size : size, size);

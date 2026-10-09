@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="VisualDefinition" format=3 uid="uid://cw64u6cvp5vcg"]
+[gd_resource type="Resource" script_class="VisualDefinition" format=3]
 
 [ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
 [ext_resource type="Script" uid="uid://cvie2lx8kmvdy" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="3_settings"]
@@ -8,7 +8,7 @@ script = ExtResource("3_settings")
 
 [resource]
 script = ExtResource("1_visual")
-ImageFolder = "res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01"
+ImageFolder = "res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02"
 ArtworkScale = Vector2(0.12, 0.12)
 ImageAnchor = Vector2(0.5, 0.96)
 Vegetation = SubResource("VegetationEffects")
