@@ -13,10 +13,6 @@ public partial class NotificationManager : CanvasLayer
     [Export(PropertyHint.Range, "1,16,1")]
     public int MaximumPendingAlerts { get; set; } = 8;
 
-#if DEBUG
-    [ExportGroup("Development")]
-    [Export] public bool EnablePreviewKey { get; set; } = true;
-#endif
     #endregion
 
     #region State
@@ -26,9 +22,6 @@ public partial class NotificationManager : CanvasLayer
     private static readonly HashSet<string> _onceThisSession = new();
     private readonly Dictionary<string, double> _lastRequested = new();
     private string _currentId = "";
-#if DEBUG
-    private int _previewStep;
-#endif
     #endregion
 
     #region Installation
@@ -171,29 +164,5 @@ public partial class NotificationManager : CanvasLayer
     }
     #endregion
 
-#if DEBUG
-    #region Preview
-    // =========================================================
-    // F8 cycles through samples in editor/debug builds; never enabled in release.
-    public override void _UnhandledKeyInput(InputEvent input)
-    {
-        if (!EnablePreviewKey || input is not InputEventKey key ||
-            !key.Pressed || key.Echo || key.PhysicalKeycode != Key.F8)
-            return;
 
-        switch (_previewStep++ % 7)
-        {
-            case 0: ShowItem("plant_fibre", "Plant Fibre", 1); break;
-            case 1: ShowItem("plant_fibre", "Plant Fibre", 2); break;
-            case 2: ShowCrafted("iron_plate", "Iron Plate", 2); break;
-            case 3: ShowMajor("eclipse_imminent"); break;
-            case 4: ShowMajor("boss_detected"); break;
-            case 5: ShowMajor("biome_discovered"); break;
-            case 6: ShowMajor("hazard_detected"); break;
-        }
-
-        GetViewport().SetInputAsHandled();
-    }
-    #endregion
-#endif
 }
