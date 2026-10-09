@@ -1,4 +1,4 @@
-// Holds an enemy stationary for a configurable recovery or anticipation period.
+// Holds any entity stationary for a recovery or anticipation period.
 using Godot;
 using System;
 
@@ -12,21 +12,21 @@ public partial class WaitEnemyAction : EnemyAction
 
     #region Execution
     // =========================================================
-    // Stop movement when this waiting step begins.
-    public override EnemyActionResult Begin(
-        EnemySequence runner, ref EnemyActionState state)
+    // Stop movement when the waiting step begins.
+    public override EntityActionResult Begin(
+        EntitySequence runner, ref EntityActionState state)
     {
         runner.Motor.Stop();
-        return EnemyActionResult.Running;
+        return EntityActionResult.Running;
     }
 
     // =========================================================
     // Complete after the configured duration.
-    public override EnemyActionResult Tick(
-        EnemySequence runner, ref EnemyActionState state, double delta)
+    public override EntityActionResult Tick(
+        EntitySequence runner, ref EntityActionState state, double delta)
     {
         return state.Elapsed >= Duration
-            ? EnemyActionResult.Completed : EnemyActionResult.Running;
+            ? EntityActionResult.Completed : EntityActionResult.Running;
     }
 
     // =========================================================
@@ -34,8 +34,10 @@ public partial class WaitEnemyAction : EnemyAction
     public override void Validate()
     {
         base.Validate();
+
         if (!double.IsFinite(Duration) || Duration < 0.0)
-            throw new InvalidOperationException("Wait Duration cannot be negative.");
+            throw new InvalidOperationException(
+                "Wait Duration cannot be negative.");
     }
     #endregion
 }

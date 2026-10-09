@@ -1,50 +1,21 @@
-// Defines a reusable sequence action and its per-instance execution state.
-// Shared resources never store timers, targets, or movement progress.
+// Preserves existing action script references during migration.
+// Shared execution state and behaviour contract live in EntityAction.
 using Godot;
 using System;
 
-public enum EnemyActionResult { Running, Completed, Failed }
-public enum EnemyActionFailure { AbortSequence, SkipAction }
-
-public struct EnemyActionState
-{
-    public double Elapsed;
-    public Vector2 Destination;
-}
-
 [Tool, GlobalClass]
-public partial class EnemyAction : Resource
+public partial class EnemyAction : EntityAction
 {
-    #region Failure
-    [ExportGroup("Failure")]
-    [Export] public EnemyActionFailure OnFailure { get; set; }
-    #endregion
-
-    #region Execution
+    #region Validation
     // =========================================================
-    // Initialize an action using state owned by the sequence runner.
-    public virtual EnemyActionResult Begin(
-        EnemySequence runner, ref EnemyActionState state)
+    // Prevent the compatibility base from being used as a concrete action.
+    public override void Validate()
     {
-        return EnemyActionResult.Running;
-    }
+        base.Validate();
 
-    // =========================================================
-    // Advance one action; concrete action types supply their behaviour.
-    public virtual EnemyActionResult Tick(
-        EnemySequence runner, ref EnemyActionState state, double delta)
-    {
-        return EnemyActionResult.Failed;
-    }
-
-    // =========================================================
-    // Reject a bare base resource or an invalid failure setting.
-    public virtual void Validate()
-    {
-        if (GetType() == typeof(EnemyAction) ||
-            !Enum.IsDefined(typeof(EnemyActionFailure), OnFailure))
+        if (GetType() == typeof(EnemyAction))
             throw new InvalidOperationException(
-                "A sequence requires concrete actions with valid failure settings.");
+                "A sequence requires a concrete action.");
     }
     #endregion
 }

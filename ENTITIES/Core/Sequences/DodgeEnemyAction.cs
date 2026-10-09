@@ -1,5 +1,5 @@
-// Chooses a clear sideways dodge and executes it through the shared enemy motor.
-// Destination searches occur at action start rather than every physics tick.
+// Chooses sideways movement for any entity using the shared sequence runner.
+// Destination searches occur only when this action starts.
 using Godot;
 using System;
 
@@ -17,18 +17,24 @@ public partial class DodgeEnemyAction : EnemyAction
 
     #region Execution
     // =========================================================
-    // Try both sideways directions and shorter alternatives against solid terrain.
-    public override EnemyActionResult Begin(
-        EnemySequence runner, ref EnemyActionState state)
+    // Try both sideways directions and shorter alternatives around obstacles.
+    public override EntityActionResult Begin(
+        EntitySequence runner, ref EntityActionState state)
     {
         runner.Motor.Stop();
+
         WorldNavigation navigation = runner.Navigation;
-        if (navigation == null) return EnemyActionResult.Failed;
+        Node2D target = runner.Target;
+
+        if (navigation == null ||
+            !GodotObject.IsInstanceValid(target))
+            return EntityActionResult.Failed;
 
         Vector2 origin = runner.Actor.GlobalPosition;
-        Vector2 toward = runner.Actor.Target.GlobalPosition - origin;
+        Vector2 toward = target.GlobalPosition - origin;
         toward = toward.LengthSquared() > 0.001f
             ? toward.Normalized() : Vector2.Right;
+
         Vector2 sideways = new(-toward.Y, toward.X);
         float firstSide = runner.RandomSide();
 
@@ -37,33 +43,38 @@ public partial class DodgeEnemyAction : EnemyAction
             float side = i % 2 == 0 ? firstSide : -firstSide;
             float distance = i < 2 ? Distance : Distance * 0.5f;
             Vector2 destination = origin + sideways * side * distance;
-            if (!navigation.CanTravelDirectly(origin, destination)) continue;
+
+            if (!navigation.CanTravelDirectly(origin, destination))
+                continue;
 
             state.Destination = destination;
             runner.Motor.SetGoal(
-                destination, runner.Actor.Definition.MoveSpeed * SpeedMultiplier, 6f);
-            return EnemyActionResult.Running;
+                destination, runner.MoveSpeed * SpeedMultiplier, 6f);
+
+            return EntityActionResult.Running;
         }
-        return EnemyActionResult.Failed;
+
+        return EntityActionResult.Failed;
     }
 
     // =========================================================
-    // Finish at the destination or fail when movement cannot complete in time.
-    public override EnemyActionResult Tick(
-        EnemySequence runner, ref EnemyActionState state, double delta)
+    // Complete on arrival or fail when movement becomes stuck or times out.
+    public override EntityActionResult Tick(
+        EntitySequence runner, ref EntityActionState state, double delta)
     {
         if (runner.Motor.HasGoal && runner.Motor.Arrived)
-            return EnemyActionResult.Completed;
+            return EntityActionResult.Completed;
 
         return state.Elapsed >= Timeout || runner.Motor.IsStuck
-            ? EnemyActionResult.Failed : EnemyActionResult.Running;
+            ? EntityActionResult.Failed : EntityActionResult.Running;
     }
 
     // =========================================================
-    // Require positive finite dodge distances, speed, and timeout.
+    // Require positive finite distance, speed and timeout.
     public override void Validate()
     {
         base.Validate();
+
         if (!float.IsFinite(Distance) || Distance <= 6f ||
             !float.IsFinite(SpeedMultiplier) || SpeedMultiplier <= 0f ||
             !double.IsFinite(Timeout) || Timeout <= 0.0)

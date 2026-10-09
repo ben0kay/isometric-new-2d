@@ -1,5 +1,5 @@
-// Fires one attack through the existing Weapon component.
-// Waits briefly for cooldown, range, and sight rather than bypassing weapon rules.
+// Fires an optional attack through any entity sequence's weapon.
+// Respects weapon cooldown, range and sight.
 using Godot;
 using System;
 
@@ -16,31 +16,34 @@ public partial class FireEnemyAction : EnemyAction
 
     #region Execution
     // =========================================================
-    // Hold position while waiting for this firing step.
-    public override EnemyActionResult Begin(
-        EnemySequence runner, ref EnemyActionState state)
+    // Hold position while waiting for this attack step.
+    public override EntityActionResult Begin(
+        EntitySequence runner, ref EntityActionState state)
     {
         runner.Motor.Stop();
-        return EnemyActionResult.Running;
+        return EntityActionResult.Running;
     }
 
     // =========================================================
-    // Fire when eligible or fail if the step waits too long.
-    public override EnemyActionResult Tick(
-        EnemySequence runner, ref EnemyActionState state, double delta)
+    // Complete after firing or fail when the maximum wait expires.
+    public override EntityActionResult Tick(
+        EntitySequence runner, ref EntityActionState state, double delta)
     {
-        if (runner.TryFire(Attack)) return EnemyActionResult.Completed;
+        if (runner.TryFire(Attack)) return EntityActionResult.Completed;
+
         return state.Elapsed >= MaximumWait
-            ? EnemyActionResult.Failed : EnemyActionResult.Running;
+            ? EntityActionResult.Failed : EntityActionResult.Running;
     }
 
     // =========================================================
-    // Require a finite timeout for blocked or cooling-down attacks.
+    // Require a finite positive timeout.
     public override void Validate()
     {
         base.Validate();
+
         if (!double.IsFinite(MaximumWait) || MaximumWait <= 0.0)
-            throw new InvalidOperationException("Fire MaximumWait must be positive.");
+            throw new InvalidOperationException(
+                "Fire MaximumWait must be positive.");
     }
     #endregion
 }
