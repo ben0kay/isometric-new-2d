@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MajorAlertDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertDefinition.cs" id="1_alert"]
+
+[resource]
+script = ExtResource("1_alert")
+Id = "boss_detected"
+Title = "HOSTILE SIGNATURE DETECTED"
+Description = "A dangerous entity has been detected nearby."
+Footer = "THREAT LEVEL ELEVATED"
+BadgeText = "!"
+Tone = 3
+Priority = 100
+DurationSeconds = 6
+CooldownSeconds = 90
+OncePerSession = false
+VoiceCueId = "boss_detected"
