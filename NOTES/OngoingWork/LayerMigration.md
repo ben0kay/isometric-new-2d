@@ -244,3 +244,5 @@ Current next step: build and test the complete Surface -> Upper Caverns ->
 Deep Caverns round trip, including reversal halfway down both ramps.
 
 Update the status and completion checks after each verified pass.
+
+pass 3 completed and tested  - can delete debug deep cavern test once done testing - later implement procedural versions

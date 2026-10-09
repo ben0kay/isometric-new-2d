@@ -21,11 +21,10 @@
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="20_surfaces"]
 [ext_resource type="Script" uid="uid://deafdno075uwe" path="res://WORLD/Streaming/InfiniteWorldGeneration.cs" id="21_infinite"]
 [ext_resource type="Script" uid="uid://lmyytts0i8f5" path="res://DEBUG/Performance/PerformanceDebug.cs" id="22_t0pjo"]
+[ext_resource type="Script" uid="uid://byixtk33gq1pl" path="res://DEBUG/DeepCavernsTest/DeepCavernsTest.cs" id="deep_caverns_test"]
 [ext_resource type="PackedScene" path="res://ENTITIES/Core/EnemyPopulation.tscn" id="entity_population"]
 [ext_resource type="Resource" uid="uid://csyfj5gk345yu" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
 [ext_resource type="Script" uid="uid://d3v5aarbwxiuf" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
-
-[ext_resource type="Script" path="res://DEBUG/DeepCavernsTest/DeepCavernsTest.cs" id="deep_caverns_test"]
 
 [node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
@@ -130,5 +129,5 @@ DebugMapPoiRadiusTiles = 384.0
 [node name="InfiniteGeneration" type="Node" parent="." unique_id=1419098382]
 script = ExtResource("21_infinite")
 
-[node name="DeepCavernsTest" type="Node" parent="."]
+[node name="DeepCavernsTest" type="Node" parent="." unique_id=1882984839]
 script = ExtResource("deep_caverns_test")
