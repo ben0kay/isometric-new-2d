@@ -61,9 +61,9 @@ public override void _Ready()
     _chunks = GetNode<ChunkController>("../ChunkController");
     _ground = GetNode<Node2D>("../../GroundChunks");
 
-    if (Catalog == null)
-        throw new InvalidOperationException(
-            "WorldGenerator requires a BiomeCatalog.");
+    // Explicit catalogs remain available for sandbox scenes.
+    Catalog ??= WorldConfig.Find(this).GetLayerCatalog()
+        .Get(WorldLayerId.Surface).Biomes;
 
     BiomeDefaults.GetShared();
 

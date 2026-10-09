@@ -80,8 +80,8 @@ public partial class EnemyRangeDebug : Node2D
             return;
         }
 
-        WorldLayer current =
-            WorldLayerController.Find(this)?.Current ?? WorldLayer.Surface;
+        string current =
+            WorldLayerController.Find(this)?.Current ?? WorldLayerId.Surface;
 
         Visible = _enemy.IsActivated && !_enemy.SpawnPending &&
             _enemy.Health?.IsAlive == true &&

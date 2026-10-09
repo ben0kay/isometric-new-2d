@@ -141,9 +141,9 @@ public bool SpawnHarvest(string primaryId, int primaryCount,
 public bool SpawnItemFor(
     Node owner, ItemDefinition item, int count, Vector2 globalPosition)
 {
-    WorldLayer layer = WorldLayerMember.For(owner);
+    string layer = WorldLayerMember.For(owner);
     WorldLayerController layers = WorldLayerController.Find(this);
-    Node2D objects = layer == WorldLayer.Cave
+    Node2D objects = layer == WorldLayerId.Underground1
         ? layers?.Cave?.Objects : _objects;
 
     if (item == null || count <= 0 ||

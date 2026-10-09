@@ -11,7 +11,7 @@ private sealed class DeathWreck
 {
     public string Id;
     public Vector2 Position;
-    public WorldLayer Layer;
+    public string Layer;
     public Node2D Actor;
 }
 
@@ -118,7 +118,7 @@ private double _timer;
 // =========================================================
 // Retain the death's location and layer independently from its visible wreck.
 public void RecordRobotDeath(
-    string id, Vector2 position, WorldLayer layer = WorldLayer.Surface)
+    string id, Vector2 position, string layer = WorldLayerId.Surface)
 {
     if (_wrecks.ContainsKey(id))
     {
@@ -156,7 +156,7 @@ private void RestoreWreck(DeathWreck record)
         return;
 
     WorldLayerController layers = WorldLayerController.Find(this);
-    Node2D root = record.Layer == WorldLayer.Cave
+    Node2D root = record.Layer == WorldLayerId.Underground1
         ? layers.Cave.Objects : _objects;
 
     Node2D wreck = _wreckScene.Instantiate<Node2D>();
@@ -202,11 +202,11 @@ public override void _Process(double delta)
 private bool WreckAvailable(DeathWreck record)
 {
     WorldLayerController layers = WorldLayerController.Find(this);
-    WorldLayer current = layers?.Current ?? WorldLayer.Surface;
+    string current = layers?.Current ?? WorldLayerId.Surface;
 
     if (record.Layer != current) return false;
 
-    return record.Layer == WorldLayer.Cave
+    return record.Layer == WorldLayerId.Underground1
         ? layers?.Cave.Streaming.IsAvailable(record.Position, 0f) == true
         : _chunks.IsNavigationPointAvailable(record.Position);
 }

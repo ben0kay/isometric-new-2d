@@ -111,7 +111,7 @@ public override void _Ready()
         float reach, out string reason)
     {
         reason = "";
-        if (WorldLayerMember.For(player) != WorldLayer.Surface)
+        if (WorldLayerMember.For(player) != WorldLayerId.Surface)
         {
             reason = "Surface placement only";
             return false;

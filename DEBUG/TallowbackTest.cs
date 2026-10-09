@@ -61,7 +61,7 @@ public override void _PhysicsProcess(double delta)
 
     WorldNavigation navigation = WorldNavigation.For(_player);
     if (navigation == null ||
-        WorldLayerMember.For(_player) != WorldLayer.Surface)
+        WorldLayerMember.For(_player) != WorldLayerId.Surface)
         return;
 
     ResourceWorld resources = ResourceWorld.Find(this);

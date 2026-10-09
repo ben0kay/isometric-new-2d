@@ -21,7 +21,7 @@ public partial class GroundShadowWorld : Node
 
     public sealed class Group
     {
-        public (WorldLayer Layer, Vector2I Cell, bool Moving) Key;
+        public (string Layer, Vector2I Cell, bool Moving) Key;
         public readonly List<GroundShadow.Entry> Entries = new();
         public GroundShadowBatch Cast, Contact;
         public bool Dirty, Alive = true;
@@ -41,14 +41,14 @@ public partial class GroundShadowWorld : Node
     private Texture2D _contactTexture;
     private bool _boundEclipse, _stopping;
 
-    private WorldLayer _lastLayer = (WorldLayer)(-1);
+    private string _lastLayer;
     private Vector2 _lastDirection;
     private float _lastLength = float.NaN, _lastOpacity = float.NaN;
     private double _profileTimer;
     private int _movingCursor;
 
     private readonly Dictionary<
-        (WorldLayer Layer, Vector2I Cell, bool Moving), Group> _groups = new();
+        (string Layer, Vector2I Cell, bool Moving), Group> _groups = new();
 
     private readonly Dictionary<Node2D, List<GroundShadow.Entry>> _owners = new();
     private readonly Dictionary<Node2D, Action> _ownerExit = new();
@@ -168,8 +168,8 @@ private void Initialize()
         drawing.TreeExiting += callback;
         drawing.Material = sunlight ? _sunMaterial : _contactMaterial;
 
-        WorldLayer layer = _layers?.Current ?? WorldLayer.Surface;
-        if (sunlight && layer != WorldLayer.Surface)
+        string layer = _layers?.Current ?? WorldLayerId.Surface;
+        if (sunlight && layer != WorldLayerId.Surface)
             drawing.Visible = false;
     }
 
@@ -194,7 +194,7 @@ private void Initialize()
     public override void _Process(double delta)
     {
         _layers ??= WorldLayerController.Find(this);
-        WorldLayer current = _layers?.Current ?? WorldLayer.Surface;
+        string current = _layers?.Current ?? WorldLayerId.Surface;
 
         BindEclipseMaterial();
 
@@ -287,7 +287,7 @@ private void Initialize()
     {
         if (entry.Moving)
         {
-            WorldLayer layer = WorldLayerMember.For(entry.Owner);
+            string layer = WorldLayerMember.For(entry.Owner);
 
             if (layer != entry.Layer)
             {
@@ -341,14 +341,14 @@ private void Initialize()
         {
             group.Contact.Visible = group.Key.Layer == _lastLayer;
             group.Cast.Visible = group.Key.Layer == _lastLayer &&
-                _lastLayer == WorldLayer.Surface;
+                _lastLayer == WorldLayerId.Surface;
         }
 
         foreach (var pair in _existing)
             if (GodotObject.IsInstanceValid(pair.Key))
                 pair.Key.Visible = pair.Value.Visible &&
                     (!pair.Value.Sunlight ||
-                        _lastLayer == WorldLayer.Surface);
+                        _lastLayer == WorldLayerId.Surface);
     }
 
     #endregion
@@ -375,10 +375,10 @@ private void Initialize()
             group.Contact = CreateBatch(group, root, true);
             _groups.Add(key, group);
 
-            WorldLayer current = _layers?.Current ?? WorldLayer.Surface;
+            string current = _layers?.Current ?? WorldLayerId.Surface;
             group.Contact.Visible = entry.Layer == current;
             group.Cast.Visible = entry.Layer == current &&
-                current == WorldLayer.Surface;
+                current == WorldLayerId.Surface;
         }
 
         entry.Group = group;
@@ -388,9 +388,9 @@ private void Initialize()
 
     // =========================================================
     // Keep drawing nodes grouped beneath the appropriate terrain layer.
-    private Node2D RootFor(WorldLayer layer)
+    private Node2D RootFor(string layer)
     {
-        if (layer == WorldLayer.Surface) return _surfaceRoot;
+        if (layer == WorldLayerId.Surface) return _surfaceRoot;
 
         _layers ??= WorldLayerController.Find(this);
         if (_layers?.Cave == null) return _surfaceRoot;

@@ -8,7 +8,6 @@ public partial class InfiniteWorldGeneration : Node
 {
     #region Configuration
     [Export] public bool Enabled { get; set; } = true;
-    [Export] public CaveGenerationSettings GenerationSettings { get; set; }
     #endregion
 
     #region State
@@ -49,12 +48,9 @@ public partial class InfiniteWorldGeneration : Node
 
         if (Enabled && config.GenerateCaves)
         {
-            CaveGenerationSettings settings = GenerationSettings ??
-                GD.Load<CaveGenerationSettings>(
-                    "res://WORLD/Generation/Caves/DefaultCaveGeneration.tres");
-
-            if (settings == null)
-                throw new InvalidOperationException("Missing cave settings.");
+            WorldLayerDefinition definition =
+                config.GetLayerCatalog().Get(WorldLayerId.Underground1);
+            CaveGenerationSettings settings = definition.CreateCaveSettings();
 
             _planner = new CaveEntrancePlanner(_world, chunks, settings);
             Cave = new CaveWorld { Name = "CaveWorld", Planner = _planner };

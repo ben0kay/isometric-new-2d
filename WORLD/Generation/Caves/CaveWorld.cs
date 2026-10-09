@@ -6,6 +6,8 @@ using System.Collections.Generic;
 public partial class CaveWorld : Node2D
 {
     #region State
+    public string LayerId { get; set; } = WorldLayerId.Underground1;
+    public WorldLayerDefinition Definition { get; private set; }
     public CaveGenerationSettings Settings { get; private set; }
     public CaveGenerator Generator { get; private set; }
     public CaveChunkController Streaming { get; private set; }
@@ -43,6 +45,11 @@ public partial class CaveWorld : Node2D
         uint worldSeed, CaveGenerationSettings settings,
         IReadOnlyList<CaveHole> holes)
     {
+        Definition = WorldConfig.Find(this).GetLayerCatalog().Get(LayerId);
+        if (Definition.Kind != WorldLayerKind.Underground)
+            throw new System.InvalidOperationException(
+                $"Layer '{LayerId}' cannot use cave generation.");
+
         Settings = (CaveGenerationSettings)settings.Duplicate();
         Settings.Validate();
         TileSize = tileSize;

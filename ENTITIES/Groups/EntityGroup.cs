@@ -27,7 +27,7 @@ public partial class EntityGroup : Node2D
     public override void _Ready()
     {
         AddToGroup("entity_groups");
-        WorldLayerMember.Attach(this, WorldLayer.Surface);
+        WorldLayerMember.Attach(this, WorldLayerId.Surface);
         Roaming = GetNodeOrNull<GroupRoaming>("Systems/Roaming");
         SetProcess(false);
         SetPhysicsProcess(false);

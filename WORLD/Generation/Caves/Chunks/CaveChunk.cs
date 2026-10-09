@@ -26,7 +26,7 @@ public partial class CaveChunk : Node2D
         _size = world.Settings.ChunkSize;
         _floor = new bool[_size * _size];
         Visible = false;
-        _member = WorldLayerMember.Attach(this, WorldLayer.Cave);
+        _member = WorldLayerMember.Attach(this, world.LayerId);
     }
 
 // =========================================================

@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" uid="uid://c7wkr15nprbq7" path="res://CONFIG/WorldConfig.cs" id="1_config"]
 
+[ext_resource type="Resource" path="res://WORLD/Layers/WorldLayers.tres" id="2_layers"]
+
 [node name="CONFIG" type="Node" unique_id=1964548479]
 script = ExtResource("1_config")
+LayerCatalog = ExtResource("2_layers")
 EclipseDarknessMultiplier = 0.8

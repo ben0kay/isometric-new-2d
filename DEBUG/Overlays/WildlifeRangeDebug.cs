@@ -113,8 +113,8 @@ private void UpdatePresentation()
         return;
     }
 
-    WorldLayer current =
-        WorldLayerController.Find(this)?.Current ?? WorldLayer.Surface;
+    string current =
+        WorldLayerController.Find(this)?.Current ?? WorldLayerId.Surface;
 
     bool alive = _entity == null || _entity.Health?.IsAlive == true;
     Visible = alive && owner.IsVisibleInTree() &&

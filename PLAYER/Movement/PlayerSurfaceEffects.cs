@@ -49,7 +49,7 @@ public void UpdateState(TerrainVisual visual)
 {
     _world ??= SurfaceWorld.Find(this);
 
-    bool surface = WorldLayerMember.For(_player) == WorldLayer.Surface;
+    bool surface = WorldLayerMember.For(_player) == WorldLayerId.Surface;
     SurfaceWorld.SurfaceSample sample = !surface || _world == null
         ? new SurfaceWorld.SurfaceSample(1f, 0f, Colors.White)
         : _world.Sample(_player.GlobalPosition);

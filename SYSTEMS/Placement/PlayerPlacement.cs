@@ -101,7 +101,7 @@ private void GiveStartingItems()
         bool allowed = definition != null && _health.IsAlive &&
             InputModes.For(_player).GameplayAllowed &&
             !_hud.BlocksWorldMovement && !_hud.BlocksWorldAttack() &&
-            WorldLayerMember.For(_player) == WorldLayer.Surface;
+            WorldLayerMember.For(_player) == WorldLayerId.Surface;
 
         if (!allowed)
         {

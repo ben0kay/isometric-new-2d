@@ -103,7 +103,7 @@ public override void _Ready()
     {
         _layers ??= WorldLayerController.Find(this);
         bool surface = _layers == null ||
-            _layers.Current == WorldLayer.Surface;
+            _layers.Current == WorldLayerId.Surface;
 
         _screen.Visible = surface;
         _copy.CopyMode = surface

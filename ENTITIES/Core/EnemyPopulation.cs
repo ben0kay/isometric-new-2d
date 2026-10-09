@@ -307,7 +307,7 @@ private void MaintainActors()
             continue;
         }
 
-        if (WorldLayerMember.For(actor) != WorldLayer.Surface)
+        if (WorldLayerMember.For(actor) != WorldLayerId.Surface)
             continue;
 
         Vector2 point = actor.GlobalPosition;

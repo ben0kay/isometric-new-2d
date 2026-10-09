@@ -146,7 +146,7 @@ public void ReceiveDamage(
 
     // =========================================================
 // Prevent a projectile from damaging an actor in another world layer.
-public bool MatchesLayer(WorldLayer layer)
+public bool MatchesLayer(string layer)
 {
     return GodotObject.IsInstanceValid(_actor) &&
         WorldLayerMember.For(_actor) == layer;

@@ -62,7 +62,7 @@ public override void _Ready()
     {
         _layers ??= WorldLayerController.Find(this);
         bool surface = _layers == null ||
-            _layers.Current == WorldLayer.Surface;
+            _layers.Current == WorldLayerId.Surface;
 
         _remaining -= delta;
         if (surface == _lastSurface && _remaining > 0.0) return;

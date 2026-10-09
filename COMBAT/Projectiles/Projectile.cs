@@ -16,7 +16,7 @@ public partial class Projectile : Node2D
     private Vector2 _direction;
     private float _speed, _remaining, _visualHeight, _launchHeight;
     private float _coverHeight;
-    private WorldLayer _layer;
+    private string _layer;
     private int _damage;
     private DamageType _damageType;
     private bool _active;
@@ -130,7 +130,7 @@ public override void _PhysicsProcess(double delta)
         ProjectilePool pool, Vector2 origin, Vector2 direction,
         ProjectileAttack attack, uint mask, float sourceHeight,
         float coverHeight = CombatCover.DefaultHeight,
-        WorldLayer layer = WorldLayer.Surface)
+        string layer = WorldLayerId.Surface)
     {
         _pool = pool;
         GlobalPosition = origin;

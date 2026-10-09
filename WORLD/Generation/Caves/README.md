@@ -14,7 +14,14 @@ eventually, through multiple progressively deeper underground layers.
 
 ## Current Implementation
 
-The current system supports Surface and Cave layers.
+Pass 1 uses stable string identities: surface and underground_1.
+WorldLayerDefinition supplies display names, depths, generation kinds,
+and biome references. WorldLayerCatalog validates and resolves those IDs.
+The old fixed WorldLayer enum has been removed.
+
+Only the existing surface and first cave are instantiated currently.
+Independent additional layer worlds and generalized connections are
+planned for passes 2 and 3.
 
 Entrances connect surface locations to underground tunnels. Each entrance
 has a transition ramp joining the surface elevation to the cave floor.
@@ -198,14 +205,15 @@ possible contributor, not an established diagnosis.
 
 ## Planned Work Order
 
-1. Measure expensive work during surface/cave transitions.
-2. Improve shared scheduling and destination preparation.
-3. Introduce extensible layer definitions and explicit connections.
-4. Test Surface -> Caves -> Deep Caves and the return journey.
-5. Add richer underground content after traversal is reliable.
+1. Establish layer identities and definitions (pass 1).
+2. Support independent runtime layer worlds (pass 2).
+3. Generalize connections and test two underground depths (pass 3).
+4. Add richer underground content after traversal is reliable.
 
-Multiple underground layers and a shared generation scheduler are planned;
-they are not yet completed features.
+See NOTES/OngoingWork/README.md for the migration handoff.
+Transition profiling and a shared generation scheduler remain separate
+future work. Additional playable underground layers are not implemented
+by pass 1.
 
 ## Maintenance Rules
 

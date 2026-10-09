@@ -131,7 +131,7 @@ public partial class CaveEnemyPursuit : Node
                 actor.Health?.IsAlive != true)
                 continue;
 
-            WorldLayer layer = WorldLayerMember.For(actor);
+            string layer = WorldLayerMember.For(actor);
             WorldLayerMember member = WorldLayerMember.Attach(actor, layer);
 
             // Populate the helper's original collision and presentation snapshot.
@@ -187,7 +187,7 @@ public partial class CaveEnemyPursuit : Node
     // =========================================================
     // Remember the entrance only for enemies already tracking this player.
     public void PlayerCrossed(
-        CaveHole hole, WorldLayer destination, Player player)
+        CaveHole hole, string destination, Player player)
     {
         TrackEnemies();
 
@@ -228,7 +228,7 @@ public partial class CaveEnemyPursuit : Node
             WorldLayerMember.Same(actor, actor.Target))
             return false;
 
-        goal = record.Member.Layer == WorldLayer.Surface
+        goal = record.Member.Layer == WorldLayerId.Surface
             ? record.Portal.SurfacePosition
             : record.Portal.OutsidePosition(_layers.Cave.TileSize);
         return true;
@@ -240,7 +240,7 @@ public partial class CaveEnemyPursuit : Node
     {
         Entity actor = record.Actor;
         CaveHole hole = record.Portal;
-        WorldLayer destination = WorldLayerMember.For(actor.Target);
+        string destination = WorldLayerMember.For(actor.Target);
 
         if (record.Member.Layer == destination)
         {
@@ -248,7 +248,7 @@ public partial class CaveEnemyPursuit : Node
             return;
         }
 
-        Vector2 mouth = record.Member.Layer == WorldLayer.Surface
+        Vector2 mouth = record.Member.Layer == WorldLayerId.Surface
             ? hole.SurfacePosition
             : hole.OutsidePosition(_layers.Cave.TileSize);
 
@@ -256,7 +256,7 @@ public partial class CaveEnemyPursuit : Node
             return;
 
         Vector2 landing;
-        if (destination == WorldLayer.Cave)
+        if (destination == WorldLayerId.Underground1)
         {
             landing = _layers.Cave.TileToWorld(hole.TileAt(0.25f));
             if (!_layers.Cave.Streaming.EntryReady(hole) ||
@@ -301,7 +301,7 @@ public partial class CaveEnemyPursuit : Node
         foreach (Record record in _records.Values)
         {
             if (!IsPursuing(record) ||
-                record.Member.Layer != WorldLayer.Surface ||
+                record.Member.Layer != WorldLayerId.Surface ||
                 record.Portal == null)
                 continue;
 
@@ -331,7 +331,7 @@ public partial class CaveEnemyPursuit : Node
         foreach (Record record in _records.Values)
         {
             if (!IsPursuing(record) ||
-                record.Member.Layer != WorldLayer.Cave)
+                record.Member.Layer != WorldLayerId.Underground1)
                 continue;
 
             Vector2 from = _layers.Cave.WorldToTile(

@@ -13,9 +13,11 @@ public partial class WorldLayerController : Node
     #endregion
 
     #region State
-    public WorldLayer Current { get; private set; } = WorldLayer.Surface;
+    public string Current { get; private set; } = WorldLayerId.Surface;
     public int Epoch { get; private set; }
     public CaveWorld Cave { get; private set; }
+    public WorldLayerDefinition CurrentDefinition =>
+        _config.GetLayerCatalog().Get(Current);
 
     private Node _world;
     private Node2D _ground, _objects;
@@ -88,11 +90,12 @@ public void Configure(Node world, Player player, CaveWorld cave)
     _ground = world.GetNode<Node2D>("GroundChunks");
     _objects = world.GetNode<Node2D>("WorldObjects");
     _config = WorldConfig.Find(world);
+    _config.GetLayerCatalog().Get(Current);
     _surfaceChunks = world.GetNode<ChunkController>("Systems/ChunkController");
     _camera = player.GetNode<Camera2D>("Camera2D");
     _cameraPosition = _camera.Position;
 
-    _underground = WorldLayerMember.Attach(cave.Root, WorldLayer.Cave);
+    _underground = WorldLayerMember.Attach(cave.Root, cave.LayerId);
     _underground.SetActive(false);
     _underground.SetOpacity(0f);
     cave.Streaming.ConfigurePlayer(player);
@@ -116,19 +119,19 @@ public void Configure(Node world, Player player, CaveWorld cave)
     public override void _Process(double delta)
     {
         if (!GodotObject.IsInstanceValid(_player)) return;
-                if (Current == WorldLayer.Cave)
+                if (Current == WorldLayerId.Underground1)
             _surfaceChunks.RetireUnusedChunks();
 
         _landingTimer -= delta;
         _hudTimer -= delta;
 
         Health health = _player.GetNode<Health>("Systems/Health");
-        if (!health.IsAlive && Current == WorldLayer.Cave)
+        if (!health.IsAlive && Current == WorldLayerId.Underground1)
             ReturnToSurface();
 
         Vector2 tile = Cave.WorldToTile(_player.GlobalPosition);
 
-        if (Current == WorldLayer.Surface &&
+        if (Current == WorldLayerId.Surface &&
             health.IsAlive && InputModes.For(_player).GameplayAllowed)
         {
             foreach (CaveHole hole in Cave.Holes)
@@ -145,7 +148,7 @@ public void Configure(Node world, Player player, CaveWorld cave)
             }
         }
 
-        if (Current == WorldLayer.Cave)
+        if (Current == WorldLayerId.Underground1)
         {
             CaveHole approach = Cave.TransitionAt(tile);
 
@@ -245,7 +248,7 @@ public void Configure(Node world, Player player, CaveWorld cave)
 // Queue surface scenery while leaving independently managed actors alone.
 private void OnNodeAdded(Node node)
 {
-    if (Current != WorldLayer.Cave || node is WorldLayerMember)
+    if (Current != WorldLayerId.Underground1 || node is WorldLayerMember)
         return;
 
     bool surface = _ground.IsAncestorOf(node) || _objects.IsAncestorOf(node);
@@ -306,7 +309,7 @@ private void OnNodeAdded(Node node)
             }
         }
 
-        WorldLayerMember member = WorldLayerMember.Attach(node, WorldLayer.Surface);
+        WorldLayerMember member = WorldLayerMember.Attach(node, WorldLayerId.Surface);
         _roots.Add(node, member);
         _surface.Add(member);
         if (inherited) _inheritedFade.Add(member);
@@ -321,7 +324,7 @@ private void OnNodeAdded(Node node)
 
         WorldLayerMember member =
             node.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
-        if (member != null && member.Layer == WorldLayer.Surface)
+        if (member != null && member.Layer == WorldLayerId.Surface)
             RegisterRoot(node);
 
         foreach (Node child in node.GetChildren())
@@ -399,7 +402,7 @@ private void EnterCave(CaveHole hole)
     _underground.SetActive(true);
     _underground.SetOpacity(1f);
     Cave.Streaming.SetActive(true);
-    Current = WorldLayer.Cave;
+    Current = WorldLayerId.Underground1;
     Epoch++;
 
     CaveEnemyPursuit.Find(this)?.PlayerCrossed(
@@ -413,7 +416,7 @@ private void EnterCave(CaveHole hole)
     // Preserve the existing death and respawn integration.
     public void ReturnToSurface()
     {
-        if (Current == WorldLayer.Surface) return;
+        if (Current == WorldLayerId.Surface) return;
         RestoreSurface(_lastEntry != null
             ? _lastEntry.OutsidePosition(Cave.TileSize)
             : _player.GlobalPosition);
@@ -441,7 +444,7 @@ private void RestoreSurface(Vector2 landing)
             member.SetOpacity(_surfaceOpacity);
     }
 
-    Current = WorldLayer.Surface;
+    Current = WorldLayerId.Surface;
     Epoch++;
     _pendingExit = null;
     _exitReady = false;
@@ -512,7 +515,7 @@ private void RestoreSurface(Vector2 landing)
     private void UpdatePresentation(double delta)
     {
         float target = 1f;
-        if (Current == WorldLayer.Cave)
+        if (Current == WorldLayerId.Underground1)
         {
             Vector2 tile = Cave.WorldToTile(_player.GlobalPosition);
             CaveHole ramp = Cave.TransitionAt(tile);
@@ -549,7 +552,7 @@ private void RestoreSurface(Vector2 landing)
         foreach (CaveHole hole in Cave.Holes)
         {
             if (!GodotObject.IsInstanceValid(hole.Marker)) continue;
-            bool visible = Current == WorldLayer.Surface ||
+            bool visible = Current == WorldLayerId.Surface ||
                 hole == _pendingExit || (!_entryDeparted && hole == _lastEntry);
             if (hole.Marker.Visible != visible)
                 hole.Marker.Visible = visible;
@@ -559,16 +562,16 @@ private void RestoreSurface(Vector2 landing)
                 PruneRetiredSurface();
         _hudTimer = 0.2;
 
-        if (Current == WorldLayer.Cave)
+        if (Current == WorldLayerId.Underground1)
             _status.Text =
-                $"CAVE | {Cave.Streaming.ReadyCount}/{Cave.Streaming.LoadedCount} chunks\n" +
+                $"{CurrentDefinition.DisplayName} | {Cave.Streaming.ReadyCount}/{Cave.Streaming.LoadedCount} chunks\n" +
                 (_pendingExit == null ? "Explore the connected network" :
                     $"Hole {_pendingExit.Id}: {_exitStatus}") +
                 " | M map is surface-only";
         else
         {
             CaveHole nearest = Cave.NearestSurfaceHole(_player.GlobalPosition);
-            _status.Text = $"SURFACE | Nearest hole: {nearest?.Id}\n" +
+            _status.Text = $"{CurrentDefinition.DisplayName} | Nearest hole: {nearest?.Id}\n" +
                 (Cave.Streaming.EntryReady(nearest)
                     ? "Cave entrance ready" : "Preparing underground entrance...");
         }
@@ -580,7 +583,7 @@ private void RestoreSurface(Vector2 landing)
     // Restrict cave movement to available floor, allowing axis sliding.
     public Vector2 ConstrainVelocity(Vector2 position, Vector2 velocity, double delta)
     {
-        if (Current != WorldLayer.Cave || delta <= 0) return velocity;
+        if (Current != WorldLayerId.Underground1 || delta <= 0) return velocity;
 
         Vector2 motion = velocity * (float)delta;
         if (CanTravel(position, motion)) return velocity;
@@ -634,7 +637,7 @@ private void RestoreSurface(Vector2 landing)
     public static float HeightFor(Node owner, Vector2 point)
     {
         WorldLayerController controller = Find(owner);
-        if (controller != null && WorldLayerMember.For(owner) == WorldLayer.Cave)
+        if (controller != null && WorldLayerMember.For(owner) == WorldLayerId.Underground1)
             return controller.Cave.Elevation.SampleWorldHeight(point);
 
         TerrainElevation elevation = owner.GetTree().GetFirstNodeInGroup(
@@ -647,7 +650,7 @@ private void RestoreSurface(Vector2 landing)
     public static Node2D DropRoot(Node context, Node2D surfaceRoot)
     {
         WorldLayerController controller = Find(context);
-        return controller?.Current == WorldLayer.Cave
+        return controller?.Current == WorldLayerId.Underground1
             ? controller.Cave.Objects : surfaceRoot;
     }
     #endregion

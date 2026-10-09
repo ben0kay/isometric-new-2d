@@ -49,7 +49,7 @@ public bool Fire(
     Vector2 origin, Vector2 direction, ProjectileAttack attack,
     uint mask, float sourceHeight,
     float coverHeight = CombatCover.DefaultHeight,
-    WorldLayer layer = WorldLayer.Surface,
+    string layer = WorldLayerId.Surface,
     Node2D source = null)
 {
     if (_available.Count == 0 && _created >= Capacity) return false;

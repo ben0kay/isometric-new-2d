@@ -13,7 +13,7 @@ public abstract partial class EntityBody : CharacterBody2D
 
     private WorldLayerMember _layerMember;
     private WorldNavigation _cachedNavigation;
-    private WorldLayer _navigationLayer;
+    private string _navigationLayer;
     private bool _navigationResolved;
     #endregion
 
@@ -34,7 +34,7 @@ public abstract partial class EntityBody : CharacterBody2D
                 _navigationResolved = false;
             }
 
-            WorldLayer layer = _layerMember.Layer;
+            string layer = _layerMember.Layer;
 
             if (!_navigationResolved ||
                 layer != _navigationLayer ||

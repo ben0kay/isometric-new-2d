@@ -92,7 +92,7 @@ public override void _ExitTree()
 			return false;
 
 		float height = CombatCover.HeightFor(target);
-		WorldLayer layer = WorldLayerMember.For(Source);
+		string layer = WorldLayerMember.For(Source);
 
 		// Awareness uses actor ground positions rather than sprite overlap.
 		if (CombatCover.FindHit(

@@ -38,7 +38,7 @@ public partial class PlayerDigging : Node
 // Dig reachable surface deposits and report successful shovel work.
 public bool Dig(DiggingAttack attack)
 {
-    if (WorldLayerMember.For(_player) != WorldLayer.Surface)
+    if (WorldLayerMember.For(_player) != WorldLayerId.Surface)
         return false;
 
     GroundResourceWorld resources = GroundResourceWorld.Find(this);

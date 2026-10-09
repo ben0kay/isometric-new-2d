@@ -34,7 +34,7 @@ public static float HeightFor(Node2D actor)
         PhysicsDirectSpaceState2D space,
         PhysicsRayQueryParameters2D query,
         Godot.Collections.Array<Rid> excluded,
-        Vector2 from, Vector2 to, float height, WorldLayer layer)
+        Vector2 from, Vector2 to, float height, string layer)
     {
         excluded.Clear();
         query.Exclude = excluded;

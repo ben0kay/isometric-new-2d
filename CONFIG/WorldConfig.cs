@@ -21,6 +21,30 @@ public partial class WorldConfig : GlobalConfig
     public float SlopeHeightScale { get; set; } = DefaultSlopeHeightScale;
     #endregion
 
+    #region Layers
+    [ExportGroup("WORLD LAYERS")]
+    [Export] public WorldLayerCatalog LayerCatalog { get; set; }
+
+    private WorldLayerCatalog _resolvedLayers;
+
+    // =========================================================
+    // Resolve and validate this world's layer registry once.
+    public WorldLayerCatalog GetLayerCatalog()
+    {
+        if (_resolvedLayers != null) return _resolvedLayers;
+
+        WorldLayerCatalog catalog = LayerCatalog ?? GD.Load<WorldLayerCatalog>(
+            "res://WORLD/Layers/WorldLayers.tres");
+
+        if (catalog == null)
+            throw new InvalidOperationException("Missing world layer catalog.");
+
+        catalog.Initialize();
+        _resolvedLayers = catalog;
+        return catalog;
+    }
+    #endregion
+
     #region Lookup
     // =========================================================
     // Locate optional CONFIG without relying on scene ready order.

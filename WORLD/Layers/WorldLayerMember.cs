@@ -6,7 +6,7 @@ using System.Collections.Generic;
 public partial class WorldLayerMember : Node
 {
     #region State
-    public WorldLayer Layer { get; private set; }
+    public string Layer { get; private set; } = WorldLayerId.Surface;
 
     private Node _root;
     private bool _active = true;
@@ -22,8 +22,9 @@ public partial class WorldLayerMember : Node
     #region Membership
     // =========================================================
     // Reuse one helper on each independently managed branch.
-    public static WorldLayerMember Attach(Node root, WorldLayer layer)
+    public static WorldLayerMember Attach(Node root, string layer)
     {
+        WorldLayerId.Validate(layer);
         WorldLayerMember member =
             root.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
 
@@ -41,20 +42,20 @@ public partial class WorldLayerMember : Node
 
     // =========================================================
     // Resolve ownership while the shared player follows its current layer.
-    public static WorldLayer For(Node node)
+    public static string For(Node node)
     {
         for (Node current = node; current != null; current = current.GetParent())
         {
             if (current is Player)
                 return WorldLayerController.Find(current)?.Current
-                    ?? WorldLayer.Surface;
+                    ?? WorldLayerId.Surface;
 
             WorldLayerMember member =
                 current.GetNodeOrNull<WorldLayerMember>("WorldLayerMember");
 
             if (member != null) return member.Layer;
         }
-        return WorldLayer.Surface;
+        return WorldLayerId.Surface;
     }
 
     // =========================================================
@@ -73,8 +74,9 @@ public partial class WorldLayerMember : Node
 
 // =========================================================
 // Change an actor's ownership without recreating it or resetting combat state.
-public void SetLayer(WorldLayer layer)
+public void SetLayer(string layer)
 {
+    WorldLayerId.Validate(layer);
     Layer = layer;
 }
 

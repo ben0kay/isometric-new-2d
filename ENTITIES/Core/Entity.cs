@@ -452,7 +452,7 @@ public partial class Entity : EntityBody
 
     // =========================================================
     // Transfer layers and establish the new solo home position.
-    public void CrossWorldLayer(WorldLayer layer, Vector2 position)
+    public void CrossWorldLayer(string layer, Vector2 position)
     {
         ResetPursuitMovement();
 

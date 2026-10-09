@@ -85,7 +85,7 @@ public partial class EntityDeathLoot : Node
     // Preserve the existing persistent robot wreck identity and delivery.
     private void RecordWreck()
     {
-        WorldLayer layer = WorldLayerMember.For(_actor);
+        string layer = WorldLayerMember.For(_actor);
         ulong identity = _actor.RandomSeed != 0
             ? _actor.RandomSeed : _actor.GetInstanceId();
 

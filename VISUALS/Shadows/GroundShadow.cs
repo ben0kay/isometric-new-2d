@@ -87,7 +87,7 @@ public partial class GroundShadow : Node2D
         public GroundShadowSettings Settings;
         public GroundShadowWorld.Group Group;
 
-        public WorldLayer Layer;
+        public string Layer;
         public bool Cast, Contact, Moving;
         public bool Alive = true, Ready, Visible;
 

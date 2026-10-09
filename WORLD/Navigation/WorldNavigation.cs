@@ -9,8 +9,7 @@ public partial class WorldNavigation : Node
 {
     #region Configuration
     public CaveWorld Cave { get; set; }
-    public WorldLayer Layer => Cave == null
-        ? WorldLayer.Surface : WorldLayer.Cave;
+    public string Layer => Cave?.LayerId ?? WorldLayerId.Surface;
 
     public int CellSize { get; private set; } = 32;
     public float AgentClearance { get; private set; } = 12f;
@@ -139,7 +138,7 @@ private sealed class RouteJob
     public static WorldNavigation For(Node actor)
     {
         if (actor == null || !actor.IsInsideTree()) return null;
-        string group = WorldLayerMember.For(actor) == WorldLayer.Cave
+        string group = WorldLayerMember.For(actor) == WorldLayerId.Underground1
             ? "cave_navigation" : "world_navigation";
 
         return actor.GetTree().GetFirstNodeInGroup(group) as WorldNavigation;
@@ -285,7 +284,7 @@ private sealed class RouteJob
             return false;
 
         bool visible = (WorldLayerController.Find(this)?.Current ??
-            WorldLayer.Surface) == Layer;
+            WorldLayerId.Surface) == Layer;
 
         if (Cave != null || !visible)
         {
@@ -329,7 +328,7 @@ private sealed class RouteJob
         if (delta <= 0.0) return Vector2.Zero;
 
         bool visible = (WorldLayerController.Find(this)?.Current ??
-            WorldLayer.Surface) == Layer;
+            WorldLayerId.Surface) == Layer;
         if (Cave == null && visible) return velocity;
 
         Vector2 motion = velocity * (float)delta;
