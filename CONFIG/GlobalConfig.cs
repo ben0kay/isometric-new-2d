@@ -22,17 +22,22 @@ public partial class GlobalConfig : Node
 	public double BasinQueryBudgetMs { get; set; } = 0.25;
 	#endregion
 
-	#region Caves
-	[ExportGroup("CAVES")]
-	[Export] public bool GenerateCaves { get; set; } = true;
-		// Absolute terrain elevation of the main underground network.
-	[Export] public float CaveFloorElevation { get; set; } = -160f;
+#region Caves
+[ExportGroup("CAVES")]
+[Export] public bool GenerateCaves { get; set; } = true;
 
-	// Minimum logical tile distance between surface entrance mouths.
-	// Large tunnel profiles may require a greater safety distance.
-	[Export(PropertyHint.Range, "64,1024,8")]
-	public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;
-	#endregion
+// Scales underground biome regions independently of surface biomes.
+// Does not enlarge individual chambers, passages or entrances.
+[Export(PropertyHint.Range, "0.25,8,0.25")]
+public float CaveBiomeScaleMultiplier { get; set; } = 1f;
+
+// Absolute terrain elevation of the main underground network.
+[Export] public float CaveFloorElevation { get; set; } = -160f;
+
+// Minimum logical tile distance between surface entrance mouths.
+[Export(PropertyHint.Range, "64,1024,8")]
+public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;
+#endregion
 
 	#region Visibility
 	[ExportGroup("VISIBILITY")]

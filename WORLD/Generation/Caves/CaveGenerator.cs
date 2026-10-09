@@ -38,19 +38,32 @@ private sealed class Room
 
     #region Construction
 // =========================================================
-// Build an independent biome sampler and cache entrance dimensions once.
+// Apply global underground biome scale without modifying the shared resource.
 public CaveGenerator(
     CaveGenerationSettings settings, uint worldSeed,
     CaveWorld world, float baseHeight)
 {
     settings.Validate();
-    Settings = settings;
-    _seed = worldSeed ^ settings.SeedOffset;
+
+    float multiplier = WorldConfig.Find(world).CaveBiomeScaleMultiplier;
+    float biomeSize = settings.BiomeSizeTiles * multiplier;
+
+    if (!float.IsFinite(multiplier) || multiplier <= 0f ||
+        !float.IsFinite(biomeSize) || biomeSize <= 0f)
+    {
+        throw new System.InvalidOperationException(
+            "CaveBiomeScaleMultiplier must produce a finite, positive biome size.");
+    }
+
+    Settings = (CaveGenerationSettings)settings.Duplicate();
+    Settings.BiomeSizeTiles = biomeSize;
+
+    _seed = worldSeed ^ Settings.SeedOffset;
     _world = world;
     _baseHeight = baseHeight;
-    _entranceRadius = settings.MaximumTunnelWidth() * 0.5f;
-    HubX = settings.EntranceTunnelLengthTiles + 8f;
-    Biomes = new CaveBiomeWorld(settings, _seed);
+    _entranceRadius = Settings.MaximumTunnelWidth() * 0.5f;
+    HubX = Settings.EntranceTunnelLengthTiles + 8f;
+    Biomes = new CaveBiomeWorld(Settings, _seed);
 }
     #endregion
 
