@@ -25,6 +25,8 @@
 [ext_resource type="Resource" uid="uid://csyfj5gk345yu" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
 [ext_resource type="Script" uid="uid://d3v5aarbwxiuf" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
 
+[ext_resource type="PackedScene" path="res://ENTITIES/Core/EnemyPopulation.tscn" id="entity_population"]
+
 [node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
 [node name="WorldMapDebug" parent="." unique_id=1433222833 instance=ExtResource("2_map")]
@@ -73,7 +75,7 @@ script = ExtResource("3_chunks")
 script = ExtResource("20_surfaces")
 PlaceTestWater = false
 
-[node name="EnemyPopulation" parent="Systems" unique_id=588426670]
+[node name="EnemyPopulation" parent="Systems" unique_id=588426670 instance=ExtResource("entity_population")]
 
 [node name="ProjectilePool" type="Node" parent="Systems" unique_id=764369652]
 script = ExtResource("8_projectiles")

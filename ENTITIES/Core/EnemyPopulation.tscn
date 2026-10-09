@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://ENTITIES/Core/EnemyPopulation.cs" id="1_population"]
+[ext_resource type="PackedScene" path="res://ENTITIES/Core/Entity.tscn" id="2_enemy"]
+
+[node name="EnemyPopulation" type="Node"]
+script = ExtResource("1_population")
+EnemyScene = ExtResource("2_enemy")
+MaximumLiveEnemies = 16
+ScanRadiusChunks = 3
+ChunksPerUpdate = 3
+UpdateInterval = 0.25
+RetireDistance = 2200.0
+MinimumPlayerDistance = 700.0
+ScreenMarginPixels = 128.0
+PlacementAttempts = 4
+PhysicsChecksPerUpdate = 4
