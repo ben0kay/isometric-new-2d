@@ -1,14 +1,15 @@
-[gd_resource type="Resource" script_class="PlantDefinition" format=3]
+[gd_resource type="Resource" script_class="TreeDefinition" format=3]
 
-[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1_plant"]
+[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Trees/TreeDefinition.cs" id="1_tree"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree04/Tree04Visual.tres" id="2_visual"]
 
 [resource]
-script = ExtResource("1_plant")
+script = ExtResource("1_tree")
 Id = "tree04"
 Visual = ExtResource("2_visual")
-ContactShadowScale = Vector2(1, 0.75)
-Spacing = Vector2(112, 64)
 SizeRange = Vector2(0.85, 1.15)
 MirrorChance = 0.5
-HarvestItemId = "plant_fiber"
+TrunkFootprint = Vector2(44, 24)
+VisualHeight = 280.0
+Spacing = Vector2(220, 120)
+GroundClearance = 85.0
