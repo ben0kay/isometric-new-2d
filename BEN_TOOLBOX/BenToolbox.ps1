@@ -23,6 +23,11 @@ $tools = @(
         Description = "Check Godot resource paths and artwork connections. Coming next."
         Path = "Tools\ResourceChecker\ResourceChecker.ps1"
     }
+        @{
+        Name = "Plant Design Prompter"
+        Description = "Build and copy artwork prompts using biome, colour, shape, and style choices."
+        Path = "Tools\PlantDesignPrompter\PlantDesignPrompter.ps1"
+    }
 )
 #endregion
 
