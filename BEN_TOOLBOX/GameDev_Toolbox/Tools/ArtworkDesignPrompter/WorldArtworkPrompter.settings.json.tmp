@@ -229,10 +229,28 @@
                                                                     ]
                                                 },
                                     "Values":  {
-
+                                                   "Biome":  "Generic alien wilderness",
+                                                   "Subject":  "Tall thin alien tree",
+                                                   "MainColour":  "Muted forest green",
+                                                   "AccentColour":  "Subtle cyan",
+                                                   "Shape":  "Thin trunk with a wide flat canopy",
+                                                   "Material":  "Smooth weathered bark",
+                                                   "Details":  "Believable load-bearing branches",
+                                                   "Scale":  "Towering above a person",
+                                                   "Readability":  "Clear silhouette with restrained fine detail",
+                                                   "Style":  "Painted game sprite with convincing three-dimensional volume"
                                                },
                                     "Locks":  {
-
+                                                  "Biome":  true,
+                                                  "Subject":  false,
+                                                  "MainColour":  true,
+                                                  "AccentColour":  true,
+                                                  "Shape":  false,
+                                                  "Material":  false,
+                                                  "Details":  false,
+                                                  "Scale":  false,
+                                                  "Readability":  false,
+                                                  "Style":  true
                                               },
                                     "Notes":  ""
                                 },
@@ -436,7 +454,7 @@
                                        }
                    },
     "Global":  {
-                   "Category":  "Plant",
+                   "Category":  "Tree",
                    "Biome":  "Generic alien wilderness",
                    "Style":  "Painted game sprite with convincing three-dimensional volume",
                    "Variations":  4,

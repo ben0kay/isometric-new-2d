@@ -261,7 +261,7 @@ function Read-Settings {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Lighting & Shadow Inspector — Read Only"
+$form.Text = "Lighting & Shadow Inspector - Read Only"
 $form.Size = New-Object System.Drawing.Size(1250, 780)
 $form.MinimumSize = New-Object System.Drawing.Size(850, 550)
 $form.StartPosition = "CenterScreen"
