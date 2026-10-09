@@ -3,7 +3,7 @@ $tools = @(
     @{
         Name = "Lighting & Shadow Inspector"
         Description = "Read-only sun, lighting and shadow settings with refresh."
-        Path = "Tools\LightingInspector\LightingInspector.ps1"
+        Path = "Tools\Inspectors\LightingInspector\LightingInspector.ps1"
     }
 )
 
