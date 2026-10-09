@@ -35,7 +35,7 @@ $hint.Size = New-Object System.Drawing.Size(755, 40)
 $form.Controls.Add($hint)
 
 # =========================================================
-# Creates a folder input with its own Browse button.
+# Creates a folder input and safely opens its folder picker.
 function Add-FolderInput([string]$Label, [int]$Y) {
     $caption = New-Object System.Windows.Forms.Label
     $caption.Text = $Label
@@ -53,18 +53,33 @@ function Add-FolderInput([string]$Label, [int]$Y) {
     $browse.Location = New-Object System.Drawing.Point(670, ($Y + 26))
     $browse.Size = New-Object System.Drawing.Size(105, 30)
     $browse.Tag = $input
+
     $browse.Add_Click({
         $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
         try {
-            if (Test-Path -LiteralPath $this.Tag.Text -PathType Container) {
-                $dialog.SelectedPath = $this.Tag.Text
+            $dialog.Description = "Select a folder"
+            $dialog.ShowNewFolderButton = $true
+            $current = $this.Tag.Text.Trim()
+
+            if (![string]::IsNullOrWhiteSpace($current)) {
+                if (Test-Path -LiteralPath $current -PathType Container) {
+                    $dialog.SelectedPath = $current
+                }
             }
-            if ($dialog.ShowDialog() -eq "OK") {
+
+            if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
                 $this.Tag.Text = $dialog.SelectedPath
             }
         }
-        finally { $dialog.Dispose() }
+        catch {
+            [void][System.Windows.Forms.MessageBox]::Show(
+                $_.Exception.Message, "Folder Picker")
+        }
+        finally {
+            $dialog.Dispose()
+        }
     })
+
     $form.Controls.Add($browse)
     return $input
 }
