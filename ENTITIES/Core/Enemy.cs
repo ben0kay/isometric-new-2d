@@ -1,5 +1,5 @@
-// Coordinates robot lifecycle, presentation and staggered behaviour updates.
-// Targeting, wandering, combat positioning and attacks have separate owners.
+// Adapts existing robot scenes and definitions to shared entity behaviours.
+// Species-independent movement and targeting live outside this migration adapter.
 using Godot;
 using System;
 
@@ -7,16 +7,19 @@ public partial class Enemy : EntityBody
 {
     #region Configuration
     [Export] public EnemyDefinition Definition { get; set; }
+
+    [ExportGroup("Group")]
+    [Export] public string GroupId { get; set; } = "";
     #endregion
 
     #region Public State
-    public Player Target => _targeting?.Target;
+    public Player Target => _targeting?.Target as Player;
     public bool HasTarget => _targeting?.HasTarget == true;
     public bool HasSight => _targeting?.HasSight == true;
-
     public Vector2 Home =>
         _wandering?.Home ?? (SpawnHome ?? GlobalPosition);
 
+    public EntityGroupMember Membership { get; private set; }
     public Vector2? SpawnHome { get; set; }
     public ulong RandomSeed { get; set; }
     public bool SpawnPending { get; set; }
@@ -32,9 +35,9 @@ public partial class Enemy : EntityBody
     #region Components And Scheduling
     private EnemyCombat _combat;
     private EnemySequence _sequence;
-    private EnemyTargeting _targeting;
-    private EnemyWandering _wandering;
-    private EnemyCombatMovement _combatMovement;
+    private EntityTargeting _targeting;
+    private EntityWandering _wandering;
+    private EntityCombatMovement _combatMovement;
     private readonly RandomNumberGenerator _rng = new();
 
     private double _targetTimer, _decisionTimer;
@@ -51,7 +54,7 @@ public partial class Enemy : EntityBody
 
     #region Lifecycle
     // =========================================================
-    // Apply stats and attack settings before child components initialize.
+    // Apply existing robot stats before child components initialize.
     public override void _EnterTree()
     {
         if (Definition == null)
@@ -62,7 +65,6 @@ public partial class Enemy : EntityBody
         AddToGroup("enemies");
         MotionMode = MotionModeEnum.Floating;
         SetPhysicsProcess(false);
-
         _activeLayer = CollisionLayer;
 
         Health health = GetNode<Health>("Systems/Health");
@@ -82,7 +84,7 @@ public partial class Enemy : EntityBody
     }
 
     // =========================================================
-    // Bind helpers once, then initialize artwork and event-driven presentation.
+    // Bind shared behaviours, optional membership and existing presentation.
     public override async void _Ready()
     {
         SetPhysicsProcess(false);
@@ -100,11 +102,54 @@ public partial class Enemy : EntityBody
             _targetTimer = _rng.Randf() * Definition.TargetInterval;
             _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
 
-            _targeting = new EnemyTargeting(this);
-            _wandering = new EnemyWandering(
-                this, _rng, SpawnHome ?? GlobalPosition);
-            _combatMovement = new EnemyCombatMovement(
+            Node systems = GetNode("Systems");
+
+            Membership =
+                systems.GetNodeOrNull<EntityGroupMember>("Group");
+
+            if (Membership == null)
+            {
+                Membership = new EntityGroupMember { Name = "Group" };
+                systems.AddChild(Membership);
+            }
+
+            if (!string.IsNullOrWhiteSpace(GroupId))
+                Membership.GroupId = GroupId;
+
+            // Existing robot combat targets players; shared targeting is generic.
+            _targeting = new EntityTargeting(
+                this, new[] { "players" }, candidate => candidate is Player);
+
+            Membership.ThreatActive = () => HasTarget;
+
+            _wandering =
+                systems.GetNodeOrNull<EntityWandering>("Wandering");
+
+            if (_wandering == null)
+            {
+                _wandering = new EntityWandering { Name = "Wandering" };
+                systems.AddChild(_wandering);
+            }
+
+            _wandering.Bind(this, new EntityWanderSettings
+            {
+                Enabled = Definition.WanderingEnabled,
+                Speed = Definition.WanderSpeed,
+                Radius = Definition.WanderRadius,
+                HomeLeash = Definition.HomeLeash,
+                Wait = Definition.WanderWait,
+                ArrivalDistance = 8f,
+                ReturnDistance = 8f,
+                RequireDirectPath = false,
+                TickMotor = false
+            }, SpawnHome ?? GlobalPosition, Membership,
+                hasThreat: () => HasTarget,
+                random: _rng, initialPause: true);
+
+            _combatMovement = new EntityCombatMovement(
                 this, _wandering, _rng);
+
+            Membership.JoinAssignedGroup();
 
             await PlaceholderAtlas.EnsureReady(this);
             if (!IsInsideTree() || IsQueuedForDeletion()) return;
@@ -120,7 +165,6 @@ public partial class Enemy : EntityBody
             if (artwork is Node2D node)
                 node.Scale *= Definition.VisualScale;
 
-            Node systems = GetNode("Systems");
             EnemyPresentation presentation =
                 systems.GetNodeOrNull<EnemyPresentation>("Presentation");
 
@@ -146,18 +190,21 @@ public partial class Enemy : EntityBody
     }
 
     // =========================================================
-    // Disconnect health and dispose the actor's reusable native resources.
+    // Release shared targeting and the adapter's owned random stream.
     public override void _ExitTree()
     {
         if (GodotObject.IsInstanceValid(Health))
             Health.Died -= OnDeath;
+
+        if (GodotObject.IsInstanceValid(Membership))
+            Membership.ThreatActive = null;
 
         _targeting?.Dispose();
         _rng.Dispose();
     }
 
     // =========================================================
-    // Activate after the population manager accepts the final spawn checks.
+    // Activate only after population placement checks accept the actor.
     public void Activate()
     {
         if (!Initialized || !Health.IsAlive || IsActivated) return;
@@ -170,7 +217,7 @@ public partial class Enemy : EntityBody
     }
 
     // =========================================================
-    // Run one actor tick with the existing staggered decision schedule.
+    // Drive shared helpers through the existing single staggered actor loop.
     public override void _PhysicsProcess(double delta)
     {
         if (!Initialized || !IsActivated || SpawnPending ||
@@ -204,7 +251,8 @@ public partial class Enemy : EntityBody
                 : Math.Max(Definition.TargetInterval,
                     _aiConfig.EnemyOffScreenTargetInterval);
 
-            if (_targeting.SelectTarget())
+            if (_targeting.SelectTarget(
+                Definition.DetectionRange, Definition.ForgetRange))
             {
                 _sequence.Cancel();
                 _combatMovement.Reset();
@@ -224,7 +272,9 @@ public partial class Enemy : EntityBody
             _targeting.RefreshSight();
 
             if (!_sequence.IsRunning)
-                _combatMovement.Decide();
+                _combatMovement.Decide(
+                    HasTarget ? _targeting.Target : null,
+                    HasSight, GetMovementSettings(), GetPursuitGoal());
         }
 
         _combat.Tick(delta);
@@ -239,7 +289,7 @@ public partial class Enemy : EntityBody
     }
 
     // =========================================================
-    // Create wreckage on the death layer before notifying population listeners.
+    // Preserve existing robot wreckage and population notifications.
     private void OnDeath()
     {
         if (IsQueuedForDeletion()) return;
@@ -252,7 +302,6 @@ public partial class Enemy : EntityBody
         CollisionMask = 0;
 
         WorldLayer layer = WorldLayerMember.For(this);
-        Vector2 deathPosition = GlobalPosition;
         ulong identity = RandomSeed != 0
             ? RandomSeed : GetInstanceId();
 
@@ -262,7 +311,7 @@ public partial class Enemy : EntityBody
         try
         {
             LootWorld.GetOrCreate(this).RecordRobotDeath(
-                wreckId, deathPosition, layer);
+                wreckId, GlobalPosition, layer);
         }
         catch (Exception error)
         {
@@ -275,9 +324,50 @@ public partial class Enemy : EntityBody
     }
     #endregion
 
+    #region Definition Adapter
+    // =========================================================
+    // Translate legacy robot resources into species-independent positioning.
+    private EntityCombatMovementSettings GetMovementSettings()
+    {
+        EnemyCombatSettings combat = Definition.Combat;
+
+        EntityCombatMovementSettings settings = new()
+        {
+            Speed = Definition.MoveSpeed,
+            StopDistance = combat.StopDistance,
+            Positioning = combat is MeleeCombatSettings
+                ? EntityCombatPositioning.Chase
+                : EntityCombatPositioning.None
+        };
+
+        if (combat is RangedCombatSettings ranged)
+        {
+            settings.Positioning = EntityCombatPositioning.KeepDistance;
+            settings.PreferredRange = ranged.PreferredRange;
+            settings.AttackRange = ranged.AttackRange;
+            settings.BackAwayRange = ranged.BackAwayRange;
+            settings.RangeBias = ranged.RangeBias;
+        }
+
+        return settings;
+    }
+
+    // =========================================================
+    // Keep legacy cave pursuit outside shared combat movement.
+    private Vector2? GetPursuitGoal()
+    {
+        if (!HasTarget || WorldLayerMember.Same(this, Target))
+            return null;
+
+        CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+        return pursuit != null &&
+            pursuit.TryGetGoal(this, out Vector2 mouth) ? mouth : null;
+    }
+    #endregion
+
     #region Cave Pursuit
     // =========================================================
-    // Release sequence movement and invalidate sight before entrance pursuit.
+    // Clear transient combat movement before pursuing an entrance.
     public void ResetPursuitMovement()
     {
         _sequence?.Cancel();
@@ -288,7 +378,7 @@ public partial class Enemy : EntityBody
     }
 
     // =========================================================
-    // Transfer layers; shared navigation refreshes from the changed member.
+    // Transfer layers and establish the new solo home position.
     public void CrossWorldLayer(WorldLayer layer, Vector2 position)
     {
         ResetPursuitMovement();
@@ -304,7 +394,7 @@ public partial class Enemy : EntityBody
 
     #region Screen Scheduling
     // =========================================================
-    // Sample visibility on staggered ticks and refresh decisions on entry.
+    // Retain staggered visibility checks and faster decisions on screen entry.
     private void UpdateScreenState()
     {
         _aiConfig ??= WorldConfig.Find(this);
