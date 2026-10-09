@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="RangedCombatSettings" format=3 uid="uid://tn4471d7ikxh"]
 
-[ext_resource type="Script" uid="uid://tyast7b0c1o8" path="res://ENTITIES/Core/RangedCombatSettings.cs" id="1_combat"]
+[ext_resource type="Script" uid="uid://tyast7b0c1o8" path="res://ENTITIES/Combat/RangedCombatSettings.cs" id="1_combat"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotBlaster.tres" id="2_attack"]
 
 [resource]

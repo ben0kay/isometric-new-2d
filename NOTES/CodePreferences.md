@@ -14,3 +14,4 @@ For Similar named files like Biomes and Biome Settings, I like their names to ma
 Any random niche global variables can live in CONFIG/GlobalConfig.cs
 Check out https://github.com/ben0kay/spaceshooter_vector_2026 for old references to how i structured a previous 2D space shooter with good combat modularity
 If an .md file is available in the project for a section/feature/mechanic we are editing, refer to the .md as sometimes it will have extra context. Some might be outdated.
+If there is alot of renaming/moving of items involved that a .ps1 script can save time on, give me a script to run temporarily.

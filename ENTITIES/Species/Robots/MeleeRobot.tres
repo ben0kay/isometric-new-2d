@@ -2,11 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cv62vuncf01ti" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHull.tres" id="2_hull"]
-[ext_resource type="Script" path="res://ENTITIES/Core/MeleeCombatSettings.cs" id="3_combat"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHitbox.tres" id="4_hitbox"]
-
-[sub_resource type="Resource" id="MeleeCombat"]
-script = ExtResource("3_combat")
 
 [resource]
 script = ExtResource("1_definition")
@@ -26,7 +22,6 @@ RequireDirectWanderPath = false
 ReturnBeforeWaiting = false
 InitialWanderPause = true
 Awareness = 1
-Combat = SubResource("MeleeCombat")
 DecisionInterval = 0.2
 DeathDelivery = 1
 ArtworkSize = Vector2i(96, 96)

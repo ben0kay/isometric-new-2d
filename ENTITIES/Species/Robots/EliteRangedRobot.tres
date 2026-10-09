@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cv62vuncf01ti" path="res://ENTITIES/Core/EntityDefinition.cs" id="1_definition"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHull.tres" id="2_hull"]
 [ext_resource type="Resource" uid="uid://djeioihpgb0k8" path="res://ENTITIES/Species/Robots/Combat/EliteRangedRobotCombat.tres" id="3_combat"]
-[ext_resource type="Resource" uid="uid://dsbmsst6x8fq8" path="res://ENTITIES/Core/Sequences/ShootDodgeShoot.tres" id="4_sequence"]
+[ext_resource type="Resource" uid="uid://dsbmsst6x8fq8" path="res://ENTITIES/Sequences/ShootDodgeShoot.tres" id="4_sequence"]
 [ext_resource type="Resource" path="res://ENTITIES/Species/Robots/RobotHitbox.tres" id="5_hitbox"]
 
 [resource]

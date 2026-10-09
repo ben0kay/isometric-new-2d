@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" path="res://ENTITIES/Core/Entity.cs" id="1_entity"]
 [ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityMotor.cs" id="3_motor"]
-[ext_resource type="Script" path="res://ENTITIES/Core/EntityGroupMember.cs" id="4_group"]
+[ext_resource type="Script" path="res://ENTITIES/Movement/EntityMotor.cs" id="3_motor"]
+[ext_resource type="Script" path="res://ENTITIES/Groups/EntityGroupMember.cs" id="4_group"]
 
 [sub_resource type="CircleShape2D" id="Body"]
 radius = 10.0

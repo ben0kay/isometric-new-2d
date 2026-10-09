@@ -5,7 +5,7 @@
 [ext_resource type="Script" path="res://COMBAT/Hitboxes/CombatHitboxDefinition.cs" id="3_hitbox"]
 [ext_resource type="Script" path="res://SYSTEMS/Loot/LootTable.cs" id="4_table"]
 [ext_resource type="Script" path="res://SYSTEMS/Loot/LootEntry.cs" id="5_entry"]
-[ext_resource type="Script" path="res://ENTITIES/Core/MeleeCombatSettings.cs" id="6_combat"]
+[ext_resource type="Script" path="res://ENTITIES/Combat/MeleeCombatSettings.cs" id="6_combat"]
 
 [sub_resource type="Resource" id="TallowEntry"]
 script = ExtResource("5_entry")
