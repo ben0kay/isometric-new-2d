@@ -78,84 +78,89 @@ public override void _Ready()
     #endregion
 
     #region Movement
-    // =========================================================
-    // Follow cached movement every physics tick while planning runs separately.
-    public void Tick(double delta)
+// =========================================================
+// Follow cached movement using the shared actor navigation reference.
+public void Tick(double delta)
+{
+    if (!HasGoal || delta <= 0.0) return;
+
+    WorldNavigation navigation = _actor is EntityBody body
+        ? body.Navigation
+        : WorldNavigation.For(_actor);
+
+    if (navigation != _navigation)
     {
-        if (!HasGoal || delta <= 0.0) return;
+        if (GodotObject.IsInstanceValid(_navigation))
+            _navigation.Cancel(this);
 
-        WorldNavigation navigation = WorldNavigation.For(_actor);
-        if (navigation != _navigation)
-        {
-            if (GodotObject.IsInstanceValid(_navigation))
-                _navigation.Cancel(this);
+        _navigation = navigation;
+        _path = Array.Empty<Vector2>();
+        _pathIndex = 0;
+        _retryTimer = 0.0;
+        _direct = _failed = false;
+        _urgent = true;
+        _stalled = 0f;
+    }
 
-            _navigation = navigation;
-            _path = Array.Empty<Vector2>();
-            _pathIndex = 0;
-            _retryTimer = 0.0;
-            _direct = _failed = false;
-            _urgent = true;
-            _stalled = 0f;
-        }
+    if (_navigation == null || Arrived)
+    {
+        _actor.Velocity = Vector2.Zero;
+        if (_navigation != null) _navigation.Cancel(this);
+        return;
+    }
 
-        if (_navigation == null || Arrived)
+    _retryTimer = Math.Max(0.0, _retryTimer - delta);
+    TakeCompletedRoute();
+    RequestRouteIfDue();
+
+    Vector2 position = _actor.GlobalPosition;
+    Vector2 destination = _goal;
+
+    if (!_direct)
+    {
+        while (_pathIndex < _path.Length &&
+            position.DistanceSquaredTo(_path[_pathIndex]) < 16f)
+            _pathIndex++;
+
+        if (_pathIndex >= _path.Length)
         {
             _actor.Velocity = Vector2.Zero;
-            if (_navigation != null) _navigation.Cancel(this);
+            _urgent = true;
+
+            if (!_navigation.HasPending(this))
+                _stalled += (float)delta;
+
             return;
         }
 
-        _retryTimer = Math.Max(0.0, _retryTimer - delta);
-        TakeCompletedRoute();
-        RequestRouteIfDue();
-
-        Vector2 position = _actor.GlobalPosition;
-        Vector2 destination = _goal;
-
-        if (!_direct)
-        {
-            while (_pathIndex < _path.Length &&
-                position.DistanceSquaredTo(_path[_pathIndex]) < 16f)
-                _pathIndex++;
-
-            if (_pathIndex >= _path.Length)
-            {
-                _actor.Velocity = Vector2.Zero;
-                _urgent = true;
-                if (!_navigation.HasPending(this))
-                    _stalled += (float)delta;
-                return;
-            }
-
-            destination = _path[_pathIndex];
-        }
-
-        Vector2 difference = destination - position;
-        float distance = difference.Length();
-        float remaining = _direct
-            ? Mathf.Max(0f, distance - _stopDistance) : distance;
-        float speed = Mathf.Min(_speed, remaining / (float)delta);
-
-        Vector2 velocity = distance > 0.001f
-            ? difference / distance * speed : Vector2.Zero;
-
-        _actor.Velocity = _navigation.ConstrainVelocity(
-            position, velocity, delta);
-        _actor.MoveAndSlide();
-
-        if (_actor.GlobalPosition.DistanceSquaredTo(position) < 0.01f)
-        {
-            _urgent = true;
-            if (!_navigation.HasPending(this))
-                _stalled += (float)delta;
-        }
-        else
-            _stalled = 0f;
-
-        if (_actor.GetSlideCollisionCount() > 0)
-            _urgent = true;
+        destination = _path[_pathIndex];
     }
+
+    Vector2 difference = destination - position;
+    float distance = difference.Length();
+    float remaining = _direct
+        ? Mathf.Max(0f, distance - _stopDistance) : distance;
+    float speed = Mathf.Min(_speed, remaining / (float)delta);
+
+    Vector2 velocity = distance > 0.001f
+        ? difference / distance * speed : Vector2.Zero;
+
+    _actor.Velocity = _navigation.ConstrainVelocity(
+        position, velocity, delta);
+    _actor.MoveAndSlide();
+
+    if (_actor.GlobalPosition.DistanceSquaredTo(position) < 0.01f)
+    {
+        _urgent = true;
+        if (!_navigation.HasPending(this))
+            _stalled += (float)delta;
+    }
+    else
+        _stalled = 0f;
+
+    if (_actor.GetSlideCollisionCount() > 0)
+        _urgent = true;
+}
     #endregion
 
     #region Route Requests
@@ -191,7 +196,7 @@ public override void _Ready()
     }
 
 // =========================================================
-// Share route scheduling while reading each actor's own planning interval.
+// Read planning settings through the shared actor rather than species checks.
 private void RequestRouteIfDue()
 {
     if (_navigation.HasPending(this)) return;
@@ -207,12 +212,8 @@ private void RequestRouteIfDue()
     if (movedGoal || changedArea || (_failed && _retryTimer <= 0.0))
         _urgent = true;
 
-    double interval = _actor switch
-    {
-        Enemy enemy => enemy.Definition.PathInterval,
-        Entity entity => entity.Definition.PathInterval,
-        _ => 0.45
-    };
+    double interval = _actor is EntityBody body
+        ? body.NavigationPathInterval : 0.45;
 
     bool due = _urgent
         ? StaggeredUpdate.Due(this, _config.NavigationStaggerTicks, 1)

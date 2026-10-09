@@ -3,22 +3,22 @@
 using Godot;
 using System;
 
-public partial class Entity : CharacterBody2D
+public partial class Entity : EntityBody
 {
     #region Configuration
     [Export] public EntityDefinition Definition { get; set; }
     #endregion
 
-    #region Components
-    public Health Health { get; private set; }
-    public EnemyMotor Motor { get; private set; }
-    public EntityGroupMember Membership { get; private set; }
-    public EntityWandering Wandering { get; private set; }
-    public EntityGrazing Grazing { get; private set; }
-    public EntityThreatResponseComponent Threats { get; private set; }
+#region Components
+public EntityGroupMember Membership { get; private set; }
+public EntityWandering Wandering { get; private set; }
+public EntityGrazing Grazing { get; private set; }
+public EntityThreatResponseComponent Threats { get; private set; }
 
-    public bool HasThreat => Threats?.HasThreat == true;
-    #endregion
+public bool HasThreat => Threats?.HasThreat == true;
+public override double NavigationPathInterval =>
+    Definition?.PathInterval ?? 0.45;
+#endregion
 
     #region State
     private TerrainVisual _visual;
@@ -40,46 +40,45 @@ public partial class Entity : CharacterBody2D
         SetPhysicsProcess(false);
     }
 
-    // =========================================================
-    // Bind behaviour components and prepare replaceable artwork.
-    public override async void _Ready()
+   // =========================================================
+// Bind shared actor references before wildlife behaviour and artwork.
+public override async void _Ready()
+{
+    try
     {
-        try
-        {
-            Health = GetNode<Health>("Systems/Health");
-            Motor = GetNode<EnemyMotor>("Systems/Motor");
-            Membership = GetNode<EntityGroupMember>("Systems/Group");
-            Grazing = GetNode<EntityGrazing>("Systems/Grazing");
-            Wandering = GetNode<EntityWandering>("Systems/Wandering");
-            Threats = GetNode<EntityThreatResponseComponent>("Systems/Threats");
+        BindSharedComponents();
 
-            WorldLayerMember.Attach(this, WorldLayer.Surface);
-            Grazing.Bind(this);
-            Wandering.Bind(this);
-            Threats.Bind(this);
-            Membership.JoinAssignedGroup();
+        Membership = GetNode<EntityGroupMember>("Systems/Group");
+        Grazing = GetNode<EntityGrazing>("Systems/Grazing");
+        Wandering = GetNode<EntityWandering>("Systems/Wandering");
+        Threats = GetNode<EntityThreatResponseComponent>("Systems/Threats");
 
-            GetNode("Systems").AddChild(
-                new EntityDeathLoot { Name = "DeathLoot" });
-            Health.Died += OnDeath;
+        Grazing.Bind(this);
+        Wandering.Bind(this);
+        Threats.Bind(this);
+        Membership.JoinAssignedGroup();
 
-            ImageTexture texture = await Definition.GetArtwork(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
+        GetNode("Systems").AddChild(
+            new EntityDeathLoot { Name = "DeathLoot" });
+        Health.Died += OnDeath;
 
-            _visual = TerrainVisual.Attach(
-                this, new Rect2(Vector2.Zero, Definition.ArtworkSize),
-                Definition.ArtworkOrigin, Vector2.One, true,
-                Definition.VisualOverride, texture);
+        ImageTexture texture = await Definition.GetArtwork(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-            _ready = true;
-            SetPhysicsProcess(true);
-        }
-        catch (Exception error)
-        {
-            GD.PushError($"Entity '{Name}' initialization failed: {error}");
-            QueueFree();
-        }
+        _visual = TerrainVisual.Attach(
+            this, new Rect2(Vector2.Zero, Definition.ArtworkSize),
+            Definition.ArtworkOrigin, Vector2.One, true,
+            Definition.VisualOverride, texture);
+
+        _ready = true;
+        SetPhysicsProcess(true);
     }
+    catch (Exception error)
+    {
+        GD.PushError($"Entity '{Name}' initialization failed: {error}");
+        QueueFree();
+    }
+}
 
     // =========================================================
     // Disconnect the actor's lifecycle subscription.

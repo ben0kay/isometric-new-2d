@@ -18,7 +18,7 @@ DisplayName = "Feature Sandbox"
 RollingHeight = 0.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
-RocksPerChunk = 0
+Rocks = Array[ExtResource("2_t3l6k")]([])
 
 [resource]
 script = ExtResource("1_catalog")

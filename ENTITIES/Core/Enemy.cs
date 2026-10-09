@@ -3,25 +3,35 @@
 using Godot;
 using System;
 
-public partial class Enemy : CharacterBody2D
+public partial class Enemy : EntityBody
 {
     #region Configuration
     [Export] public EnemyDefinition Definition { get; set; }
     #endregion
 
-    #region Public State
-    public Health Health { get; private set; }
-    public Player Target { get; private set; }
-    public Vector2 Home { get; private set; }
-    public Vector2? SpawnHome { get; set; }
-    public ulong RandomSeed { get; set; }
-    public bool SpawnPending { get; set; }
-    public bool Initialized { get; private set; }
-    public bool IsActivated { get; private set; }
-    public bool HasSight { get; private set; }
-    public bool HasTarget => IsLiving(Target) && _targetHealth?.IsAlive == true;
-    public event Action Died;
-    #endregion
+#region Public State
+public Player Target { get; private set; }
+public Vector2 Home { get; private set; }
+public Vector2? SpawnHome { get; set; }
+public ulong RandomSeed { get; set; }
+public bool SpawnPending { get; set; }
+public bool Initialized { get; private set; }
+public bool IsActivated { get; private set; }
+public bool HasSight { get; private set; }
+
+public override double NavigationPathInterval =>
+    Definition?.PathInterval ?? 0.45;
+
+// Validate the cached target and health without searching child nodes.
+public bool HasTarget =>
+    GodotObject.IsInstanceValid(Target) &&
+    Target.IsInsideTree() &&
+    !Target.IsQueuedForDeletion() &&
+    GodotObject.IsInstanceValid(_targetHealth) &&
+    _targetHealth.IsAlive;
+
+public event Action Died;
+#endregion
 
 #region Private State
 private EnemyMotor _motor;
@@ -75,60 +85,68 @@ public override void _EnterTree()
     if (SpawnPending) { Hide(); CollisionLayer = 0; }
 }
 
-    // =========================================================
-    // Prepare artwork and bind replaceable presentation before activating the enemy.
-    public override async void _Ready()
+// =========================================================
+// Bind shared actor references before robot behaviour and presentation.
+public override async void _Ready()
+{
+    SetPhysicsProcess(false);
+
+    BindSharedComponents();
+    _motor = Motor;
+    _combat = GetNode<EnemyCombat>("Systems/Combat");
+    _sequence = GetNode<EnemySequence>("Systems/Sequence");
+    Health.Died += OnDeath;
+
+    Home = SpawnHome ?? GlobalPosition;
+    _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
+    _targetTimer = _rng.Randf() * Definition.TargetInterval;
+    _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
+    _wanderTimer = _rng.RandfRange(
+        Definition.WanderWait.X, Definition.WanderWait.Y);
+
+    _sightQuery.CollisionMask = 1u;
+    _sightQuery.CollideWithAreas = false;
+    _sightQuery.HitFromInside = true;
+
+    try
     {
-        SetPhysicsProcess(false);
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
-        Health = GetNode<Health>("Systems/Health");
-        _motor = GetNode<EnemyMotor>("Systems/Motor");
-        _combat = GetNode<EnemyCombat>("Systems/Combat");
-        _sequence = GetNode<EnemySequence>("Systems/Sequence");
-        Health.Died += OnDeath;
-        Home = SpawnHome ?? GlobalPosition;
-        _rng.Seed = RandomSeed != 0 ? RandomSeed : GetInstanceId();
-        _targetTimer = _rng.Randf() * Definition.TargetInterval;
-        _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
-        _wanderTimer = _rng.RandfRange(
-            Definition.WanderWait.X, Definition.WanderWait.Y);
-        _sightQuery.CollisionMask = 1u;
-        _sightQuery.CollideWithAreas = false;
-        _sightQuery.HitFromInside = true;
+        TerrainVisual visual = TerrainVisual.Attach(
+            this, PlaceholderAtlas.EnemyRegion,
+            new Vector2(-48, -64), Vector2.One, true,
+            Definition.VisualOverride);
 
-        try
+        CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
+        artwork.Modulate = Definition.VisualTint;
+        if (artwork is Node2D node)
+            node.Scale *= Definition.VisualScale;
+
+        Node systems = GetNode("Systems");
+        EnemyPresentation presentation =
+            systems.GetNodeOrNull<EnemyPresentation>("Presentation");
+
+        if (presentation == null)
         {
-            await PlaceholderAtlas.EnsureReady(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
-
-            TerrainVisual visual = TerrainVisual.Attach(
-                this, PlaceholderAtlas.EnemyRegion,
-                new Vector2(-48, -64), Vector2.One, true,
-                Definition.VisualOverride);
-            CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
-            artwork.Modulate = Definition.VisualTint;
-            if (artwork is Node2D node)
-                node.Scale *= Definition.VisualScale;
-
-            Node systems = GetNode("Systems");
-            EnemyPresentation presentation =
-                systems.GetNodeOrNull<EnemyPresentation>("Presentation");
-            if (presentation == null)
+            presentation = new EnemyPresentation
             {
-                presentation = new EnemyPresentation { Name = "Presentation" };
-                systems.AddChild(presentation);
-            }
-            presentation.Bind(this, artwork);
+                Name = "Presentation"
+            };
+            systems.AddChild(presentation);
+        }
 
-            Initialized = true;
-            if (!SpawnPending) Activate();
-        }
-        catch (Exception error)
-        {
-            GD.PushError($"Enemy '{Definition.Id}' initialization failed: {error}");
-            QueueFree();
-        }
+        presentation.Bind(this, artwork);
+        Initialized = true;
+        if (!SpawnPending) Activate();
     }
+    catch (Exception error)
+    {
+        GD.PushError(
+            $"Enemy '{Definition.Id}' initialization failed: {error}");
+        QueueFree();
+    }
+}
 
 // =========================================================
 // Remove subscriptions and release reusable awareness resources.
@@ -155,7 +173,7 @@ public override void _ExitTree()
     }
 
 // =========================================================
-// Stagger awareness and decisions while retaining smooth movement and sequences.
+// Use shared cached navigation with the existing robot update schedule.
 public override void _PhysicsProcess(double delta)
 {
     if (!Initialized || !IsActivated || SpawnPending ||
@@ -168,10 +186,9 @@ public override void _PhysicsProcess(double delta)
 
     UpdateScreenState();
 
-    _navigation = WorldNavigation.For(this);
+    _navigation = Navigation;
     if (_navigation == null) return;
 
-    // Cancel actions immediately when their target changes world layer.
     if (HasTarget && !WorldLayerMember.Same(this, Target))
     {
         _sequence.Cancel();
@@ -255,14 +272,20 @@ private void OnDeath()
     #endregion
 
     #region Targeting
-    // =========================================================
-    // Reject freed, departing, and dead players.
-    private static bool IsLiving(Player player)
-    {
-        return GodotObject.IsInstanceValid(player) && player.IsInsideTree() &&
-            !player.IsQueuedForDeletion() &&
-            player.GetNodeOrNull<Health>("Systems/Health")?.IsAlive == true;
-    }
+// =========================================================
+// Reuse target health; resolve other players only during acquisition.
+private bool IsLiving(Player player)
+{
+    if (!GodotObject.IsInstanceValid(player) ||
+        !player.IsInsideTree() || player.IsQueuedForDeletion())
+        return false;
+
+    if (player == Target)
+        return HasTarget;
+
+    Health health = player.GetNodeOrNull<Health>("Systems/Health");
+    return GodotObject.IsInstanceValid(health) && health.IsAlive;
+}
 
 // =========================================================
 // Require sight for acquisition while retaining tracked targets behind cover.
@@ -492,16 +515,17 @@ public void ResetPursuitMovement()
 }
 
 // =========================================================
-// Move ownership at the mouth without recreating or resetting the enemy.
+// Transfer the actor; shared navigation notices the member's changed layer.
 public void CrossWorldLayer(WorldLayer layer, Vector2 position)
 {
     ResetPursuitMovement();
-    WorldLayerMember.Attach(this, WorldLayerMember.For(this)).SetLayer(layer);
+    WorldLayerMember.Attach(
+        this, WorldLayerMember.For(this)).SetLayer(layer);
 
     GlobalPosition = position;
     Velocity = Vector2.Zero;
     Home = position;
-    _navigation = WorldNavigation.For(this);
+    _navigation = Navigation;
     _targetTimer = 0.0;
 }
     #endregion

@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://d4ea7npiw3lyn" path="res://WORLD/Navigation/WorldNavigation.cs" id="4_navigation"]
 [ext_resource type="PackedScene" path="res://ENTITIES/Core/EnemyPopulation.tscn" id="5_enemy_population"]
 [ext_resource type="Script" uid="uid://dqts8njeogk72" path="res://WORLD/Generation/Terrain/TerrainElevation.cs" id="6_elevation"]
-[ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/ProjectilePool.cs" id="7_projectiles"]
+[ext_resource type="Script" uid="uid://c7vj2jlld1k2x" path="res://COMBAT/Projectiles/projectilePool.cs" id="7_projectiles"]
 [ext_resource type="Script" uid="uid://bwcgoo4ovadp7" path="res://VISUALS/Atmosphere/WorldAtmosphere.cs" id="8_atmosphere"]
 [ext_resource type="Script" uid="uid://5wis4ng66vdy" path="res://VISUALS/Atmosphere/Fog/GroundFog.cs" id="9_ground_fog"]
 [ext_resource type="Script" uid="uid://bqr7y0ef0vt2o" path="res://WORLD/Generation/WorldGenerator.cs" id="10_generation"]
@@ -23,8 +23,8 @@
 [ext_resource type="Resource" uid="uid://c2of2h7gwphk" path="res://ITEMS/ItemCatalog.tres" id="23_item_catalog"]
 [ext_resource type="Script" uid="uid://b2a2rgoppb6hu" path="res://WORLD/Contents/Surfaces/SurfaceWorld.cs" id="30_surfaces"]
 [ext_resource type="Resource" uid="uid://nwjy3riw3qui" path="res://WORLD/Contents/Water/Water.tres" id="31_water"]
-[ext_resource type="Script" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
-[ext_resource type="Resource" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
+[ext_resource type="Resource" uid="uid://csyfj5gk345yu" path="res://VISUALS/Lighting/DefaultWorldLighting.tres" id="lighting_profile"]
+[ext_resource type="Script" uid="uid://d3v5aarbwxiuf" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
 
 [node name="WorldTest" type="Node2D" unique_id=809724083]
 
@@ -95,6 +95,10 @@ script = ExtResource("7_projectiles")
 
 [node name="InputModes" parent="Systems" unique_id=269896115 instance=ExtResource("19_x6bit")]
 
+[node name="WorldLighting" type="Node" parent="Systems" unique_id=442357586]
+script = ExtResource("lighting_shared")
+Profile = ExtResource("lighting_profile")
+
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1796982900]
 
 [node name="ChunkInfo" type="Label" parent="HUD" unique_id=1021907104]
@@ -124,10 +128,7 @@ script = ExtResource("3_fps")
 script = ExtResource("16_4857e")
 
 [node name="CONFIG" parent="." unique_id=857453352 instance=ExtResource("20_6li7p")]
+EclipseDarknessMultiplier = 1.0
 
 [node name="CaveLayerTest" type="Node" parent="." unique_id=342114073]
 script = ExtResource("23_7wrb7")
-
-[node name="WorldLighting" type="Node" parent="Systems"]
-script = ExtResource("lighting_shared")
-Profile = ExtResource("lighting_profile")
