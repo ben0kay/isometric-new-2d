@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dr2ff0l4nj320"
-path="res://.godot/imported/MarshPlnnt02c.png-592dce9d8c34175dd0ee4cfbd40c765f.ctex"
+uid="uid://cnb1r10hn12dp"
+path="res://.godot/imported/MarshPlant02c.png-bb3d69579ce1233289140d9e9fefe788.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02/MarshPlnnt02c.png"
-dest_files=["res://.godot/imported/MarshPlnnt02c.png-592dce9d8c34175dd0ee4cfbd40c765f.ctex"]
+source_file="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02/MarshPlant02c.png"
+dest_files=["res://.godot/imported/MarshPlant02c.png-bb3d69579ce1233289140d9e9fefe788.ctex"]
 
 [params]
 

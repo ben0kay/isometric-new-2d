@@ -1,14 +1,61 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://dynmwcmhxu4le"]
 
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="3_entry"]
+[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="4_small"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="5_boulder"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="6_short"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="7_medium"]
+[ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
+[ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
 
-[sub_resource type="CSharpScript" id="CSharpScript_o1w5p"]
+[sub_resource type="Resource" id="SmallRockEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("4_small")
+Weight = 5.0
 
-[sub_resource type="CSharpScript" id="CSharpScript_nupo1"]
+[sub_resource type="Resource" id="BoulderEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("5_boulder")
+Weight = 3.0
 
-[sub_resource type="Resource" id="Resource_oxgcq"]
-script = SubResource("CSharpScript_nupo1")
+[sub_resource type="Resource" id="ShortGrassEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("6_short")
+Weight = 90.0
+
+[sub_resource type="Resource" id="MediumGrassEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("7_medium")
+Weight = 10.0
+
+[sub_resource type="Resource" id="FrondEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("8_frond")
+Weight = 35.0
+
+[sub_resource type="Resource" id="ShrubEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("9_shrub")
+Weight = 65.0
+
+[sub_resource type="Resource" id="TreeEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("10_tree")
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+PlantPatches = 5
+PlantsPerPatch = 5
+Plants = Array[ExtResource("3_entry")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
+TreesPerChunk = 28
+Trees = Array[ExtResource("3_entry")]([SubResource("TreeEntry")])
+GrassPatches = 8
+GrassTuftsPerPatch = 8
+Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry")])
 
 [resource]
 script = ExtResource("1_biome")
@@ -20,7 +67,7 @@ MoistureRange = Vector2(0.45, 1)
 RollingHeight = 12.0
 RollingFeatureSize = 20.0
 PlateausEnabled = false
-Vegetation = SubResource("Resource_oxgcq")
+Vegetation = SubResource("Vegetation")
 RocksPerChunk = 2
-Rocks = Array[SubResource("CSharpScript_o1w5p")]([])
+Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry")])
 Enemies = ExtResource("20_enemies")

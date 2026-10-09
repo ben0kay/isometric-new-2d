@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MeleeCombatSettings" format=3]
+
+[ext_resource type="Script" path="res://ENTITIES/Combat/MeleeCombatSettings.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+DetectionRange = 650.0
+ForgetRange = 1000.0
+AttackRange = 34.0
+StopDistance = 28.0
+Damage = 15
+DamageType = 1
+Cooldown = 0.8

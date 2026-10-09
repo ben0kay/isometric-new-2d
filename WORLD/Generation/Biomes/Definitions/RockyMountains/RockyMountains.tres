@@ -1,15 +1,33 @@
 [gd_resource type="Resource" script_class="RockyMountainsBiome" format=3 uid="uid://c1dm1wu5o1bes"]
 
 [ext_resource type="Script" uid="uid://bqus3341758ox" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/RockyMountainsBiome.cs" id="1_biome"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="3_species"]
+[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="4_small"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="5_boulder"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="6_cliff"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="7_enemies"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/RockyMountains/MountainsBasins.tres" id="30_basins"]
 
-[sub_resource type="CSharpScript" id="CSharpScript_o1w5p"]
+[sub_resource type="Resource" id="SmallRock"]
+script = ExtResource("3_species")
+Definition = ExtResource("4_small")
+Weight = 4.0
 
-[sub_resource type="CSharpScript" id="CSharpScript_nupo1"]
+[sub_resource type="Resource" id="Boulder"]
+script = ExtResource("3_species")
+Definition = ExtResource("5_boulder")
+Weight = 3.0
 
-[sub_resource type="Resource" id="Resource_tywp5"]
-script = SubResource("CSharpScript_nupo1")
+[sub_resource type="Resource" id="CliffRock"]
+script = ExtResource("3_species")
+Definition = ExtResource("6_cliff")
+
+[sub_resource type="Resource" id="Vegetation"]
+script = ExtResource("2_vegetation")
+PlantPatches = 0
+TreesPerChunk = 0
+GrassPatches = 0
 
 [resource]
 script = ExtResource("1_biome")
@@ -20,9 +38,9 @@ Tags = PackedStringArray("Rocky", "Mountains", "Sparse")
 MoistureRange = Vector2(0, 0.65)
 SelectionWeight = 0.7
 PlateausEnabled = false
-Vegetation = SubResource("Resource_tywp5")
+Vegetation = SubResource("Vegetation")
 RocksPerChunk = 5
-Rocks = Array[SubResource("CSharpScript_o1w5p")]([])
+Rocks = Array[ExtResource("3_species")]([SubResource("SmallRock"), SubResource("Boulder"), SubResource("CliffRock")])
 FeatureOverrides = Dictionary[String, Resource]({
 "basins": ExtResource("30_basins")
 })
