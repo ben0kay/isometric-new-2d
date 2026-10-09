@@ -39,10 +39,11 @@ system at the same time.
 
 - Pass 1: Implemented and tested.
 - Pass 2: Implemented; not fully tested yet.
-- Pass 3: Planned; not implemented.
+- Pass 3: Implemented; build and traversal verification pending.
 
 These statuses describe migration passes, not playable depth levels.
-Deep Caverns is registered but is not yet reachable through gameplay.
+Deep Caverns is reachable through the optional DeepCavernsTest connection.
+Natural placement of deeper entrances is separate future work.
 
 ## Current Foundation
 
@@ -56,7 +57,7 @@ The game has:
 - WorldLayerRuntime ownership of independent underground instances.
 
 Pass 2 registers Upper Caverns and Deep Caverns as separate runtime worlds.
-Existing ramps still connect the surface to Upper Caverns only.
+Surface holes and deeper entrances now use shared bidirectional connections.
 
 Dormant underground layers do not build chunks until activated or
 explicitly preloaded.
@@ -132,7 +133,7 @@ Stable identity hashes separate underground seeds. Existing cave layouts
 may therefore change for the same world seed. Surface generation is unchanged.
 
 Adding a layer definition does not automatically create an entrance
-or implement its content. Deep Caverns is not yet reachable.
+or implement its content. Pass 3 adds an optional debug connection to Deep Caverns.
 
 ### Pending Verification
 
@@ -152,7 +153,7 @@ Cross-depth traversal and its interaction checks require Pass 3.
 
 ## Pass 3 — Connections Between Layers
 
-Status: Planned; not implemented.
+Status: Implemented; build and traversal verification pending.
 
 Generalize entrances into explicit connections.
 
@@ -175,6 +176,35 @@ while allowing the departure layer to remain visible during a transition.
 
 Preserve the existing entrance presentation where appropriate.
 Different connection types may receive their own artwork and behaviour later.
+
+### Implemented Structure
+
+- WorldLayerConnection replaces CaveHole; it records both endpoint layer IDs.
+- WorldLayerConnections indexes one shared record into both relevant cave worlds.
+- WorldLayerLanding prepares and checks the exact destination's terrain.
+- WorldLayerSurface owns surface pausing and incremental registration.
+- WorldLayerController coordinates shared crossing and presentation.
+- WorldLayerPursuit replaces CaveEnemyPursuit and follows known connections.
+- CaveGenerator reserves upper approaches and lower ramps/landing connectors.
+
+The optional DeepCavernsTest node lives directly in world_infinite.
+Its isolated script lives under DEBUG/DeepCavernsTest/. It creates one test
+connection near the first surface entrance actually used during that run.
+Follow the first chamber's right-hand passage to its labelled doorway.
+Remove or disable the node and restart to remove this test placement.
+The registry does not automatically scatter deeper entrances yet.
+
+GlobalConfig contains LAYER TRANSITIONS:
+- EntranceLengthMultiplier = 1.0
+- EntranceSlopeMultiplier = 1.1
+
+Final ramp length = base length * length multiplier / slope multiplier.
+With fixed endpoint elevations, longer ramps are shallower. Greater layer
+depth comes from the layer definition's FloorElevation. Restart the world
+after editing generation controls. Final lengths must be 6 to 512 tiles.
+
+CaveHole.cs and CaveEnemyPursuit.cs are removed rather than left as adapters.
+A new shared generation scheduler and save persistence are not part of this pass.
 
 ### Completion Checks
 
@@ -210,6 +240,7 @@ Before continuing:
 4. Review affected scenes and resources as well as C# scripts.
 5. Complete and clean up the current pass before starting the next.
 
-Current next step: finish Pass 2 verification, then prepare Pass 3.
+Current next step: build and test the complete Surface -> Upper Caverns ->
+Deep Caverns round trip, including reversal halfway down both ramps.
 
 Update the status and completion checks after each verified pass.

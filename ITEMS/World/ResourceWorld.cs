@@ -162,14 +162,14 @@ public bool SpawnItemFor(
 }
 
     // =========================================================
-    // Resolve source ownership independently from the player's current depth.
-    private Node2D RootFor(Node owner)
-    {
-        if (owner == null) return WorldLayerController.DropRoot(this, _objects);
-        string layer = WorldLayerMember.For(owner);
-        return layer == WorldLayerId.Surface ? _objects
-            : (WorldLayerRuntime.Find(this) ??
-                throw new InvalidOperationException("Missing layer runtime."))
-                .ObjectsFor(layer);
-    }
+	// Resolve source ownership independently from the player's current depth.
+	private Node2D RootFor(Node owner)
+	{
+		if (owner == null) return WorldLayerController.DropRoot(this, _objects);
+		string layer = WorldLayerMember.For(owner);
+		return layer == WorldLayerId.Surface ? _objects
+			: (WorldLayerRuntime.Find(this) ??
+				throw new InvalidOperationException("Missing layer runtime."))
+				.ObjectsFor(layer);
+	}
 }

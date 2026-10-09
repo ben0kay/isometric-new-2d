@@ -74,7 +74,16 @@ public bool IsFloor(Vector2I tile)
 {
     Vector2 point = new(tile.X, tile.Y);
 
-    foreach (CaveHole hole in _world.NearbyHoles(point))
+    foreach (WorldLayerConnection departure in _world.Departures)
+    {
+        Vector2 local = departure.Coordinates(point);
+        if (local.X >= -2f && local.X <= 1f && Mathf.Abs(local.Y) <= 3f)
+            return local.X <= 0f && Mathf.Abs(local.Y) <= 1f;
+        if (NearSegment(point, departure.UpperAnchor, departure.TileAt(-1f), 2f))
+            return true;
+    }
+
+    foreach (WorldLayerConnection hole in _world.NearbyConnections(point))
     {
         Vector2 local = hole.Coordinates(point);
 
@@ -85,12 +94,13 @@ public bool IsFloor(Vector2I tile)
         }
     }
 
-    foreach (CaveHole hole in _world.NearbyHoles(point))
+    foreach (WorldLayerConnection hole in _world.NearbyConnections(point))
     {
         Vector2 end = hole.TileAt(hole.TunnelLength);
         Vector2 room = Centre(hole.AnchorCell.X, hole.AnchorCell.Y);
 
-        if (NearSegment(point, end, room, _entranceRadius))
+        if (point.DistanceSquaredTo(end) <= 9f ||
+            NearSegment(point, end, room, _entranceRadius))
             return true;
     }
 
@@ -120,12 +130,20 @@ public bool IsFloor(Vector2I tile)
         Vector2 a = new(tile.X, tile.Y);
         Vector2 b = new(neighbour.X, neighbour.Y);
 
-        foreach (CaveHole hole in _world.NearbyHoles(a))
+        foreach (WorldLayerConnection departure in _world.Departures)
+        {
+            Vector2 localA = departure.Coordinates(a);
+            Vector2 localB = departure.Coordinates(b);
+            if (localA.X <= 0f && localA.X > -1.01f && Mathf.Abs(localA.Y) <= 1f &&
+                localB.X > 0f) return true;
+        }
+
+        foreach (WorldLayerConnection hole in _world.NearbyConnections(a))
         {
             Vector2 localA = hole.Coordinates(a);
             Vector2 localB = hole.Coordinates(b);
 
-            if (Mathf.Abs(localA.X) < 0.01f &&
+            if (localA.X >= 0f && localA.X < 1.01f &&
                 Mathf.Abs(localA.Y) <= 1f && localB.X < 0f)
                 return true;
         }
@@ -141,7 +159,15 @@ public bool IsFloor(Vector2I tile)
     {
         float floor = _baseHeight + Biomes.At(tile).FloorHeight(tile);
 
-        foreach (CaveHole hole in _world.NearbyHoles(tile))
+        foreach (WorldLayerConnection departure in _world.Departures)
+        {
+            Vector2 local = departure.Coordinates(tile);
+            if (local.X >= -2f && local.X <= 0.6f && Mathf.Abs(local.Y) <= 2.5f)
+                return Mathf.Lerp(floor, departure.RimHeight,
+                    Mathf.Clamp((local.X + 2f) / 2f, 0f, 1f));
+        }
+
+        foreach (WorldLayerConnection hole in _world.NearbyConnections(tile))
         {
             Vector2 local = hole.Coordinates(tile);
             if (local.X < -2f || local.X > hole.TunnelLength ||
@@ -158,7 +184,7 @@ public bool IsFloor(Vector2I tile)
 
     // =========================================================
     // Match the rendered floor triangles when sampling actor elevation.
-    public float HeightAt(Vector2 tile, float unusedRimHeight)
+    public float HeightAt(Vector2 tile)
     {
         Vector2 centre = new(
             Mathf.Floor(tile.X + 0.5f),
@@ -175,6 +201,20 @@ public bool IsFloor(Vector2I tile)
         return v <= u
             ? a * (1f - u) + b * (u - v) + c * v
             : a * (1f - v) + c * u + d * (v - u);
+    }
+    #endregion
+
+    #region Connection Anchors
+    // =========================================================
+    // Expose the shared chamber lattice for reserved connection approaches.
+    public Vector2 RoomCentre(Vector2I cell) { return Centre(cell.X, cell.Y); }
+
+    // =========================================================
+    // Select a nearby normal chamber for the lower landing connector.
+    public Vector2I RoomCell(Vector2 point)
+    {
+        return new Vector2I(Mathf.RoundToInt((point.X - HubX) / Settings.CellSpacingTiles),
+            Mathf.RoundToInt(point.Y / Settings.CellSpacingTiles));
     }
     #endregion
 

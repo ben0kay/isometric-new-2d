@@ -299,7 +299,7 @@ private void RunRetirementBudget()
 {
 	long started = Stopwatch.GetTimestamp();
 	int steps = 0;
-	CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+	WorldLayerPursuit pursuit = WorldLayerPursuit.Find(this);
 
 	while (steps < Mathf.Max(1, MaxRetireStepsPerFrame) &&
 		ElapsedMs(started) < Math.Max(0.01, RetirementBudgetMs))

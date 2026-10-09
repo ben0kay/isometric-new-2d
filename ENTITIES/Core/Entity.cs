@@ -433,7 +433,7 @@ public partial class Entity : EntityBody
         if (!HasTarget || WorldLayerMember.Same(this, Target))
             return null;
 
-        CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+        WorldLayerPursuit pursuit = WorldLayerPursuit.Find(this);
         return pursuit != null &&
             pursuit.TryGetGoal(this, out Vector2 mouth) ? mouth : null;
     }

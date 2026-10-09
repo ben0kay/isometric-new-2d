@@ -15,9 +15,10 @@ public sealed class CaveEntrancePlanner
     private readonly Node2D _ground;
     private readonly WaterBasinWorld _basins;
     private readonly CaveSurfaceSampler _sampler;
-    private readonly GenerationCellCache<CaveHole> _cells;
+    private readonly GenerationCellCache<WorldLayerConnection> _cells;
     private CaveWorld _cave;
     private readonly float _floorElevation;
+    private readonly float _tunnelLength;
 
     private readonly int _offset, _stride;
     private readonly float _pitch, _reach, _clearTiles;
@@ -45,6 +46,7 @@ public CaveEntrancePlanner(
 
     Settings = (CaveGenerationSettings)settings.Duplicate();
     Settings.Validate();
+    _tunnelLength = WorldLayerConnection.LengthFor(_config, Settings.EntranceTunnelLengthTiles);
 
     float minimum = _config.MinimumCaveHoleDistanceTiles;
     if (!float.IsFinite(minimum) || minimum < 64f)
@@ -59,13 +61,13 @@ public CaveEntrancePlanner(
 
     Settings.CellSpacingTiles = Mathf.Max(
         Settings.CellSpacingTiles,
-        Settings.EntranceTunnelLengthTiles + _offset +
+        Mathf.CeilToInt(_tunnelLength) + _offset +
         Mathf.CeilToInt(maximumWidth * 0.5f) + 6);
 
     Settings.Validate();
 
     _reach = new Vector2(
-        _offset, Settings.EntranceTunnelLengthTiles + _offset).Length();
+        _offset, _tunnelLength + _offset).Length();
 
     _stride = Mathf.CeilToInt(
         (minimum + _reach * 2f) / Settings.CellSpacingTiles);
@@ -89,9 +91,9 @@ public CaveEntrancePlanner(
         2f / (chunks.TileSize.X * chunks.TileSize.X) +
         2f / (chunks.TileSize.Y * chunks.TileSize.Y)) + 3f;
 
-    _cells = new GenerationCellCache<CaveHole>(CacheLimit, hole =>
+    _cells = new GenerationCellCache<WorldLayerConnection>(CacheLimit, hole =>
     {
-        if (hole != null) _cave?.RemoveHole(hole);
+        if (hole != null) WorldLayerRuntime.Find(_world)?.Connections.Remove(hole);
     });
 }
     #endregion
@@ -152,12 +154,14 @@ public CaveEntrancePlanner(
 
             Vector2 mouth = room + new Vector2(
                 sideX * _offset,
-                sideY * (Settings.EntranceTunnelLengthTiles + _offset));
+                sideY * (_tunnelLength + _offset));
+            // Align mouths to the collision tile lattice while keeping ramp length continuous.
+            mouth = new Vector2(Mathf.Round(mouth.X), Mathf.Round(mouth.Y));
             Vector2 direction = sideY > 0f ? Vector2.Up : Vector2.Down;
 
             Vector2 point = _ground.ToGlobal(
                 IsoGrid.TileToWorld(mouth, _chunks.TileSize));
-            CaveHole hole = null;
+            WorldLayerConnection hole = null;
 
             if (point.DistanceSquaredTo(_spawn) >
                 _chunks.SpawnClearRadius * _chunks.SpawnClearRadius)
@@ -180,12 +184,12 @@ public CaveEntrancePlanner(
                 if (result.Accepted &&
                     result.RimHeight > _floorElevation + 32f)
                 {
-                    hole = new CaveHole(
-                        $"C_{x}_{y}", mouth, direction, point,
-                        result.RimHeight, Settings.EntranceTunnelLengthTiles,
+                    hole = new WorldLayerConnection(
+                        $"C_{x}_{y}", WorldLayerId.Surface, cave.LayerId, mouth, direction, point,
+                        result.RimHeight, _tunnelLength,
                         anchor)
                     {
-                        SurfaceClearRadius = result.ClearRadius
+                        ClearRadius = result.ClearRadius
                     };
                 }
             }
@@ -194,15 +198,15 @@ public CaveEntrancePlanner(
 
             if (hole != null)
             {
-                cave.AddHole(hole);
-                GD.Print($"[Caves] {hole.Id}: {hole.SurfacePosition}");
+                WorldLayerRuntime.Find(_world).Connections.Register(hole);
+                GD.Print($"[Caves] {hole.Id}: {hole.UpperPosition}");
             }
         }
     }
 
     // =========================================================
     // Supply only nearby registered mouths to floor and elevation sampling.
-    public IEnumerable<CaveHole> Nearby(Vector2 tile)
+    public IEnumerable<WorldLayerConnection> Nearby(Vector2 tile)
     {
         int firstX = Mathf.FloorToInt((tile.X - HubX - _reach - 4f) / _pitch);
         int lastX = Mathf.CeilToInt((tile.X - HubX + _reach + 4f) / _pitch);
@@ -211,7 +215,7 @@ public CaveEntrancePlanner(
 
         for (int y = firstY; y <= lastY; y++)
         for (int x = firstX; x <= lastX; x++)
-            if (_cells.TryGetValue(new Vector2I(x, y), out CaveHole hole) &&
+            if (_cells.TryGetValue(new Vector2I(x, y), out WorldLayerConnection hole) &&
                 hole != null)
                 yield return hole;
     }

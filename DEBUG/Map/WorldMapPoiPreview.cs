@@ -114,7 +114,7 @@ public sealed class WorldMapPoiPreview : IDisposable
         float squared = Radius * Radius;
 
         if (GodotObject.IsInstanceValid(_cave))
-            foreach (CaveHole hole in _cave.Holes)
+            foreach (WorldLayerConnection hole in _cave.Connections)
                 if (playerTile.DistanceSquaredTo(hole.MouthTile) <= squared)
                     _entries.Add(new Entry(
                         hole.Id, hole.MouthTile,

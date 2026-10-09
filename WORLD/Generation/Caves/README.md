@@ -24,8 +24,12 @@ indexed by exact layer ID. Upper Caverns and Deep Caverns each own their
 generator, seed, elevation, chunks, objects and navigation. Dormant layers
 build no chunks until requested. Definitions own FloorElevation.
 
-The existing surface ramps still connect only to the catalog's
-SurfaceEntranceLayerId. Deeper playable connections are pass 3 work.
+Pass 3 uses WorldLayerConnection records for surface and underground travel.
+The catalog's SurfaceEntranceLayerId remains the surface planner's destination.
+WorldLayerConnections registers both sides, while WorldLayerLanding checks
+ready floor and obstacles in the exact destination. WorldLayerSurface owns
+surface pausing, and WorldLayerPursuit follows known adjacent connections.
+The old CaveHole and CaveEnemyPursuit implementations have been removed.
 Underground chunk metadata is layer-aware; deeper layers do not prepare
 surface basin or entrance metadata. Layer seeds now include a stable
 identity hash, so previous underground layouts may change for the same
@@ -155,7 +159,7 @@ Deep Caverns — Winding Passages
 
 ## Connections Between Layers
 
-Future connections explicitly identify:
+Shared connections explicitly identify:
 
 - Source layer and location.
 - Destination layer and location.
@@ -220,8 +224,7 @@ possible contributor, not an established diagnosis.
 
 See NOTES/OngoingWork/LayerMigration.md for the migration handoff.
 Transition profiling and a shared generation scheduler remain separate
-future work. Additional playable underground layers are not implemented
-until pass 3.
+future work. Pass 3 is implemented but still needs build and gameplay testing.
 
 ## Maintenance Rules
 
@@ -235,3 +238,30 @@ until pass 3.
 - Verify same-seed generation across chunk boundaries and travel directions.
 - Test entering, reversing on a ramp, exiting elsewhere, and returning.
 - Verify that objects cannot interact across different layers.
+
+## Pass 3 Testing And Controls
+
+world_infinite includes an optional DeepCavernsTest node. Its script is isolated
+under DEBUG/DeepCavernsTest/. After the first surface entrance is used, it carves
+a right-hand branch from that entrance's upper cave chamber to a marked descent.
+The lower ramp and its normal-room connector use the same shared metadata.
+Only affected pre-existing chunks are invalidated, then rebuilt under the
+existing streamer budget. Remove the node and restart to remove test placement.
+This is not yet biome-controlled natural placement of deeper entrances.
+
+CONFIG/GlobalConfig.cs, LAYER TRANSITIONS:
+- EntranceLengthMultiplier defaults to 1.0.
+- EntranceSlopeMultiplier defaults to 1.1.
+- Final length = base length * length multiplier / slope multiplier.
+- Allowed resulting lengths are 6 to 512 tiles.
+
+Apply changes before generation and restart after editing these controls.
+Endpoint elevations stay fixed; longer ramps reduce average physical slope.
+Set a deeper FloorElevation for a truly deeper destination.
+
+Test Surface -> Upper Caverns -> Deep Caverns and return through both ramps.
+Also test reversing before either descent finishes, switching at another
+surface entrance, enemy pursuit, drops, mining, shadows and death/respawn.
+Layer IDs isolate interaction eligibility; inactive terrain collision is disabled.
+Departure drawing may fade during a ramp while its simulation stays paused.
+The original surface entrance metadata remains pinned during a deeper journey.

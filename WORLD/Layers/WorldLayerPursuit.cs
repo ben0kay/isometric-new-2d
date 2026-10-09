@@ -1,18 +1,18 @@
-// Keeps existing pursuers active across layer changes.
-// Enemies cross through the player's registered entrance, never through the ground.
+// Manages layer activation for living entities and keeps existing pursuers active.
+// Actors cross known layer connections rather than teleporting through terrain.
 using Godot;
 using System;
 using System.Collections.Generic;
 
-public partial class CaveEnemyPursuit : Node
+public partial class WorldLayerPursuit : Node
 {
     #region State
     private sealed class Record
     {
         public Entity Actor;
         public WorldLayerMember Member;
-        public CaveHole Portal;
-        public CaveWorld PortalWorld;
+        public WorldLayerConnection Portal;
+        public string TargetLayer;
         public IDisposable Lease;
         public bool Simulating = true;
         public bool Colliding = true;
@@ -22,6 +22,8 @@ public partial class CaveEnemyPursuit : Node
     private Node2D _surfaceGround;
     private ChunkController _surfaceChunks;
     private InfiniteWorldGeneration _generation;
+    private WorldLayerLanding _landing;
+    private Node2D _sharedActors;
     private double _timer;
 
     private readonly Dictionary<Entity, Record> _records = new();
@@ -33,7 +35,7 @@ public partial class CaveEnemyPursuit : Node
     // Register the shared pursuit service.
     public override void _EnterTree()
     {
-        AddToGroup("cave_enemy_pursuit");
+        AddToGroup("world_layer_pursuit");
     }
 
     // =========================================================
@@ -42,36 +44,38 @@ public partial class CaveEnemyPursuit : Node
     {
         if (Find(layers) != null) return;
 
-        CaveEnemyPursuit helper = new()
+        WorldLayerPursuit helper = new()
         {
             Name = "EnemyPursuit",
             _layers = layers,
             _surfaceGround = world.GetNode<Node2D>("GroundChunks"),
             _surfaceChunks = world.GetNode<ChunkController>(
                 "Systems/ChunkController"),
-            _generation = InfiniteWorldGeneration.Find(world)
+            _generation = InfiniteWorldGeneration.Find(world),
+            _landing = new WorldLayerLanding(layers.Worlds, world),
+            _sharedActors = world.GetNode<Node2D>("WorldObjects")
         };
         layers.AddChild(helper);
     }
 
     // =========================================================
     // Find the optional service without introducing a second enemy system.
-    public static CaveEnemyPursuit Find(Node context)
+    public static WorldLayerPursuit Find(Node context)
     {
         if (context == null || !context.IsInsideTree()) return null;
         return context.GetTree().GetFirstNodeInGroup(
-            "cave_enemy_pursuit") as CaveEnemyPursuit;
+            "world_layer_pursuit") as WorldLayerPursuit;
     }
 
     // =========================================================
-    // Refresh the small live enemy set and layer presentation at ten hertz.
+    // Refresh the live entity set and layer presentation at ten hertz.
     public override void _Process(double delta)
     {
         _timer -= delta;
         if (_timer > 0.0) return;
         _timer = 0.1;
 
-        TrackEnemies();
+        TrackActors();
         _remove.Clear();
 
         foreach (var pair in _records)
@@ -114,10 +118,10 @@ public partial class CaveEnemyPursuit : Node
 
     #region Ownership And Presentation
     // =========================================================
-    // Capture each activated enemy once, independently from surface scenery.
-    private void TrackEnemies()
+    // Capture each activated entity once, independently from surface scenery.
+    private void TrackActors()
     {
-        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+        foreach (Node node in GetTree().GetNodesInGroup("entities"))
         {
             if (node is not Entity actor || _records.ContainsKey(actor) ||
                 actor.IsQueuedForDeletion() || !actor.Initialized ||
@@ -127,6 +131,8 @@ public partial class CaveEnemyPursuit : Node
 
             string layer = WorldLayerMember.For(actor);
             WorldLayerMember member = WorldLayerMember.Attach(actor, layer);
+            // Living actors use a neutral parent so a hidden departure root cannot hide a pursuer.
+            if (actor.GetParent() != _sharedActors) actor.Reparent(_sharedActors, true);
 
             // Populate the helper's original collision and presentation snapshot.
             member.SetActive(false);
@@ -149,8 +155,12 @@ public partial class CaveEnemyPursuit : Node
 
         if (!actor.HasTarget)
             ClearPortal(record);
-        else if (record.Portal != null)
-            TryCross(record);
+        else
+        {
+            string targetLayer = WorldLayerMember.For(actor.Target);
+            if (record.TargetLayer != targetLayer) SelectPortal(record, targetLayer);
+            if (record.Portal != null) TryCross(record);
+        }
 
         bool visible = record.Member.Layer == _layers.Current;
         bool simulate = visible || actor.HasTarget;
@@ -179,42 +189,36 @@ public partial class CaveEnemyPursuit : Node
 
     #region Entrance Pursuit
     // =========================================================
-    // Remember the entrance only for enemies already tracking this player.
-    public void PlayerCrossed(
-        CaveWorld portalWorld, CaveHole hole, string destination, Player player)
+    // Update pursuit routes for entities already tracking this player.
+    public void PlayerCrossed(WorldLayerConnection connection, string destination, Player player)
     {
-        TrackEnemies();
-
+        TrackActors();
         foreach (Record record in _records.Values)
         {
             Entity actor = record.Actor;
-            if (!GodotObject.IsInstanceValid(actor) ||
-                actor.IsQueuedForDeletion() ||
-                !actor.HasTarget || actor.Target != player)
-                continue;
-
-            ClearPortal(record);
-            actor.ResetPursuitMovement();
-
-            if (hole != null && record.Member.Layer != destination &&
-                (record.Member.Layer == WorldLayerId.Surface ||
-                    record.Member.Layer == portalWorld.LayerId) &&
-                (destination == WorldLayerId.Surface ||
-                    destination == portalWorld.LayerId))
+            if (!GodotObject.IsInstanceValid(actor) || actor.IsQueuedForDeletion()) continue;
+            if (actor.HasTarget && actor.Target == player)
             {
-                record.Portal = hole;
-                record.PortalWorld = portalWorld;
-
-                Vector2 tile = IsoGrid.WorldToTile(
-                    _surfaceGround.ToLocal(hole.SurfacePosition),
-                    portalWorld.TileSize);
-
-                record.Lease = _generation?.PinArea(
-                    new Rect2(tile - Vector2.One * 4f, Vector2.One * 8f));
+                actor.ResetPursuitMovement();
+                ClearPortal(record);
+                if (connection != null) SelectPortal(record, destination);
             }
-
+            // Include passive wildlife immediately, rather than waiting for the next refresh.
             UpdateRecord(record);
         }
+    }
+
+    // =========================================================
+    // Select the next adjacent connection, even when the target has moved two depths away.
+    private void SelectPortal(Record record, string destination)
+    {
+        ClearPortal(record);
+        record.TargetLayer = destination;
+        record.Portal = _layers.Worlds.Connections.Next(record.Member.Layer,
+            destination, record.Actor.GlobalPosition);
+        if (record.Portal?.UpperLayer == WorldLayerId.Surface)
+            record.Lease = _generation.PinArea(new Rect2(
+                record.Portal.MouthTile - Vector2.One * 4f, Vector2.One * 8f));
     }
 
     // =========================================================
@@ -227,62 +231,31 @@ public partial class CaveEnemyPursuit : Node
             WorldLayerMember.Same(actor, actor.Target))
             return false;
 
-        goal = record.Member.Layer == WorldLayerId.Surface
-            ? record.Portal.SurfacePosition
-            : record.Portal.OutsidePosition(record.PortalWorld.TileSize);
+        goal = record.Member.Layer == record.Portal.UpperLayer
+            ? record.Portal.UpperPosition : record.Portal.OutsidePosition(
+                _layers.Worlds.GetUnderground(record.Portal.LowerLayer).TileSize);
         return true;
     }
 
     // =========================================================
-    // Cross only at the mouth and only when destination ground is ready.
+    // Cross one adjacent connection only at its mouth and after safe destination preparation.
     private void TryCross(Record record)
     {
         Entity actor = record.Actor;
-        CaveHole hole = record.Portal;
-        CaveWorld world = record.PortalWorld;
-        string destination = WorldLayerMember.For(actor.Target);
-
-        if (world == null ||
-            (destination != WorldLayerId.Surface && destination != world.LayerId))
-        {
-            ClearPortal(record);
-            return;
-        }
-
-        if (record.Member.Layer == destination)
-        {
-            ClearPortal(record);
-            return;
-        }
-
-        Vector2 mouth = record.Member.Layer == WorldLayerId.Surface
-            ? hole.SurfacePosition
-            : hole.OutsidePosition(world.TileSize);
-
-        if (actor.GlobalPosition.DistanceSquaredTo(mouth) > 20f * 20f)
-            return;
-
-        Vector2 landing;
-        if (destination == world.LayerId)
-        {
-            landing = world.TileToWorld(hole.TileAt(0.25f));
-            if (!world.Streaming.EntryReady(hole) ||
-                !world.Streaming.IsAvailable(landing, 10f))
-                return;
-        }
-        else
-        {
-            landing = hole.OutsidePosition(world.TileSize);
-            WorldNavigation surface = WorldNavigation.ForLayer(
-                this, WorldLayerId.Surface);
-
-            if (!_surfaceChunks.IsNavigationPointAvailable(landing, 10f) ||
-                surface == null || !surface.CanTravelDirectly(landing, landing))
-                return;
-        }
-
-        actor.CrossWorldLayer(destination, landing);
+        WorldLayerConnection connection = record.Portal;
+        string from = record.Member.Layer;
+        if (from != connection.UpperLayer && from != connection.LowerLayer)
+        { ClearPortal(record); return; }
+        if (from == WorldLayerMember.For(actor.Target))
+        { ClearPortal(record); return; }
+        Vector2 mouth = from == connection.UpperLayer ? connection.UpperPosition :
+            connection.OutsidePosition(_layers.Worlds.GetUnderground(connection.LowerLayer).TileSize);
+        if (actor.GlobalPosition.DistanceSquaredTo(mouth) > 20f * 20f) return;
+        if (!_landing.Prepare(connection, from) ||
+            !_landing.TryReady(connection, from, out Vector2 landing)) return;
+        actor.CrossWorldLayer(connection.Other(from), landing);
         ClearPortal(record);
+        actor.ResetPursuitMovement();
     }
 
     // =========================================================
@@ -292,7 +265,7 @@ public partial class CaveEnemyPursuit : Node
         record.Lease?.Dispose();
         record.Lease = null;
         record.Portal = null;
-        record.PortalWorld = null;
+        record.TargetLayer = null;
     }
     #endregion
 
@@ -317,7 +290,7 @@ public partial class CaveEnemyPursuit : Node
                 _surfaceGround.ToLocal(record.Actor.GlobalPosition),
                 _surfaceChunks.TileSize);
             Vector2 to = IsoGrid.WorldToTile(
-                _surfaceGround.ToLocal(record.Portal.SurfacePosition),
+                _surfaceGround.ToLocal(record.Portal.UpperPosition),
                 _surfaceChunks.TileSize);
 
             if (new Rect2(from, Vector2.Zero).Expand(to)
@@ -345,7 +318,8 @@ public partial class CaveEnemyPursuit : Node
             Vector2 from = world.WorldToTile(
                 record.Actor.GlobalPosition);
             Vector2 destination = record.Portal != null
-                ? record.Portal.OutsidePosition(record.PortalWorld.TileSize)
+                ? (record.Member.Layer == record.Portal.UpperLayer ? record.Portal.UpperPosition :
+                    record.Portal.OutsidePosition(_layers.Worlds.GetUnderground(record.Portal.LowerLayer).TileSize))
                 : record.Actor.Target.GlobalPosition;
             Vector2 to = world.WorldToTile(destination);
 

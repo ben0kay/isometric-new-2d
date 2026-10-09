@@ -1,4 +1,4 @@
-// Draws a temporary stone doorway over the existing cave entrance.
+// Draws shared doorway artwork for surface and underground layer connections.
 // Artwork is separate from traversal, collision and surface clearance.
 using Godot;
 
@@ -15,7 +15,7 @@ public partial class CaveEntrance : Node2D
 
     #region State
     public CaveWorld World { get; set; }
-    public CaveHole Hole { get; set; }
+    public WorldLayerConnection Connection { get; set; }
 
     private static readonly Color Outline = new("#20252b");
     private static readonly Color Mouth = new("#080c10");
@@ -26,11 +26,11 @@ public partial class CaveEntrance : Node2D
     // Draw at surface elevation; Godot retains these drawing commands.
     public override void _Draw()
     {
-        if (World == null || Hole == null) return;
+        if (World == null || Connection == null) return;
 
-        Vector2 centre = Vector2.Up * Hole.RimHeight;
+        Vector2 centre = Vector2.Up * Connection.RimHeight;
         Vector2 direction = IsoGrid.TileToWorld(
-            Hole.Direction, World.TileSize).Normalized();
+            Connection.Direction, World.TileSize).Normalized();
 
         float width = Mathf.Max(60f, ArchWidth);
         float height = Mathf.Max(50f, ArchHeight);
@@ -182,7 +182,8 @@ public partial class CaveEntrance : Node2D
         DrawString(
             ThemeDB.FallbackFont,
             centre + new Vector2(-40f, -ArchHeight - 16f),
-            $"HOLE {Hole.Id}",
+            $"TO {WorldConfig.Find(this).GetLayerCatalog().Get(WorldLayerController.Find(this)?.Current == Connection.LowerLayer
+                ? Connection.UpperLayer : Connection.LowerLayer).DisplayName}",
             HorizontalAlignment.Left, -1f, 16, colour);
     }
     #endregion

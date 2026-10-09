@@ -36,6 +36,15 @@ public float CaveBiomeScaleMultiplier { get; set; } = 1f;
 public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;
 #endregion
 
+	#region Layer Transitions
+	[ExportGroup("LAYER TRANSITIONS")]
+	// Generation settings: restart the world after changing either multiplier.
+	[Export(PropertyHint.Range, "0.5,8,0.05")]
+	public float EntranceLengthMultiplier { get; set; } = 1f;
+	[Export(PropertyHint.Range, "0.5,4,0.05")]
+	public float EntranceSlopeMultiplier { get; set; } = 1.1f;
+	#endregion
+
 	#region Visibility
 	[ExportGroup("VISIBILITY")]
 	[Export] public bool ObstructionFadingEnabled { get; set; } = true;

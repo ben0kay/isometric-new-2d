@@ -14,7 +14,7 @@ public partial class CaveTerrainElevation : Node
     public float SampleWorldHeight(Vector2 point)
     {
         return World.Generator.HeightAt(
-            World.WorldToTile(point), World.RimHeight);
+            World.WorldToTile(point));
     }
     #endregion
 }

@@ -9,6 +9,7 @@ public partial class WorldLayerRuntime : Node
     #region State
     public string ActiveLayer { get; private set; } = WorldLayerId.Surface;
     public string SurfaceEntranceLayerId { get; private set; }
+    public WorldLayerConnections Connections { get; private set; }
     public CaveWorld SurfaceUnderground => GetUnderground(SurfaceEntranceLayerId);
 
     private Node2D _surfaceObjects;
@@ -34,6 +35,7 @@ public partial class WorldLayerRuntime : Node
     {
         WorldLayerCatalog catalog = WorldConfig.Find(world).GetLayerCatalog();
         SurfaceEntranceLayerId = catalog.SurfaceEntranceLayerId;
+        Connections = new WorldLayerConnections(this);
         _surfaceObjects = world.GetNode<Node2D>("WorldObjects");
         _surfaceChunks = chunks;
         Node2D ground = world.GetNode<Node2D>("GroundChunks");
@@ -50,11 +52,10 @@ public partial class WorldLayerRuntime : Node
                 Planner = surfaceDestination ? surfacePlanner : null
             };
             AddChild(cave);
-            cave.Build(ground.GlobalPosition, chunks.TileSize, 0f,
+            cave.Build(ground.GlobalPosition, chunks.TileSize,
                 SeedFor(chunks.WorldSeed, definition.Id),
                 surfaceDestination ? surfacePlanner.Settings
-                    : definition.CreateCaveSettings(),
-                Array.Empty<CaveHole>());
+                    : definition.CreateCaveSettings());
             cave.Streaming.ConfigurePlayer(player);
             cave.SetActive(false);
             _underground.Add(definition.Id, cave);
@@ -133,6 +134,7 @@ public partial class WorldLayerRuntime : Node
 
         foreach (CaveWorld cave in _underground.Values)
         {
+            cave.Streaming.CancelPreload();
             cave.SetActive(cave.LayerId == id);
             cave.Streaming.SetEntrancePreloading(
                 id == WorldLayerId.Surface &&

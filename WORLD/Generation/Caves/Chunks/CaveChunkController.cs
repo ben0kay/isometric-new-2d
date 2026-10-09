@@ -70,8 +70,8 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
             else
             {
                 if (!_preloadEntrances) return;
-                CaveHole hole =
-                    _world.NearestSurfaceHole(_player.GlobalPosition);
+                WorldLayerConnection hole =
+                    _world.NearestConnection(_player.GlobalPosition);
                 if (hole == null) return;
                 tile = hole.MouthTile;
             }
@@ -135,20 +135,43 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
     }
 
     // =========================================================
-    // Require a completed buffer around an actual registered mouth.
-    public bool EntryReady(CaveHole hole = null)
+    // Require completed chunk neighbours around either connection endpoint.
+    public bool AreaReady(Vector2 point)
     {
-        if (_failed || hole == null) return false;
-
-        Vector2I centre = CoordinateAt(hole.MouthTile);
-
+        if (_failed) return false;
+        Vector2I centre = CoordinateAt(_world.WorldToTile(point));
         for (int x = centre.X - 1; x <= centre.X + 1; x++)
         for (int y = centre.Y - 1; y <= centre.Y + 1; y++)
             if (!_chunks.TryGetValue(new Vector2I(x, y), out CaveChunk chunk) ||
-                !chunk.Ready)
-                return false;
-
+                !chunk.Ready) return false;
         return true;
+    }
+
+    // =========================================================
+    // Rebuild only affected chunks when a debug connection is added after loading.
+    public void InvalidateArea(Rect2 area)
+    {
+        List<Vector2I> remove = new();
+        foreach (var pair in _chunks)
+        {
+            int size = _world.Settings.ChunkSize;
+            Rect2 bounds = new(new Vector2(pair.Key.X * size, pair.Key.Y * size),
+                Vector2.One * size);
+            if (bounds.Grow(1f).Intersects(area)) remove.Add(pair.Key);
+        }
+        foreach (Vector2I key in remove)
+        {
+            CaveChunk chunk = _chunks[key];
+            if (chunk == _building)
+            {
+                _work?.Dispose(); _work = null; _building = null;
+            }
+            chunk.SetActive(false);
+            chunk.Visible = false;
+            chunk.QueueFree();
+            _chunks.Remove(key);
+            ChunkAvailabilityChanged?.Invoke(key);
+        }
     }
 
     // =========================================================
@@ -172,7 +195,7 @@ private bool PointAvailable(Vector2 point)
 {
     Vector2 tile = _world.WorldToTile(point);
 
-    foreach (CaveHole hole in _world.Holes)
+    foreach (WorldLayerConnection hole in _world.Connections)
     {
         Vector2 local = hole.Coordinates(tile);
         if (local.X >= -1.5f && local.X < 0f &&
@@ -274,7 +297,7 @@ private void RetireDistant()
     int radius = _world.Settings.RetainRadiusChunks;
     int limit = _world.Settings.RetireChunksPerFrame;
     List<Vector2I> remove = new();
-    CaveEnemyPursuit pursuit = CaveEnemyPursuit.Find(this);
+    WorldLayerPursuit pursuit = WorldLayerPursuit.Find(this);
 
     foreach (var pair in _chunks)
     {

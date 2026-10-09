@@ -7,7 +7,7 @@ public partial class CaveChunk : Node2D
 {
     #region State
     public Vector2I Coordinate { get; private set; }
-    public bool Ready { get; private set; }
+    public new bool Ready { get; private set; }
 
     private CaveWorld _world;
     private int _size;
@@ -146,7 +146,8 @@ public IEnumerable<int> BuildSteps()
     {
         if (!Ready) return;
         _member.SetActive(active);
-        _member.SetOpacity(active ? 1f : 0f);
+        // The world root owns opacity; paused chunks can remain visible during a ramp.
+        _member.SetOpacity(1f);
     }
 
     // =========================================================
