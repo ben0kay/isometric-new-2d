@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MajorAlertDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertDefinition.cs" id="1_alert"]
+
+[resource]
+script = ExtResource("1_alert")
+Id = "biome_discovered"
+Title = "REGION DISCOVERED"
+Description = "You have entered an unfamiliar ecological zone."
+Footer = "EXPLORATION UPDATE"
+BadgeText = "+"
+Tone = 1
+Priority = 30
+DurationSeconds = 4.5
+CooldownSeconds = 0
+OncePerSession = true
+VoiceCueId = ""
