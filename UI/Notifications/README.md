@@ -10,6 +10,7 @@ All notification code and configuration resources live inside `UI/Notifications/
 
 - `NotificationManager.cs` — single entry point; major alert queue, priority, cooldown and public API.
 - `NotificationManager.tscn` — instanced automatically by `UI/Inventory/UIInventoryMaster.cs`.
+- `DEBUG/Notifications/NotificationTester.cs` — separate testing script, attached to `WorldInfinite/DEBUG/NotificationTester` (outside this UI folder).
 - `NotificationFrame.cs` — common translucent six-sided frame for both displays.
 - `MajorAlerts/MajorAlertDefinition.cs` — exported Godot Resource fields for alert identity, text, category, duration, priority, cooldown and future voice cue.
 - `MajorAlerts/MajorAlertCatalog.cs` + `.tres` — list of available major alerts, looked up by stable ID.
@@ -28,9 +29,23 @@ All notification code and configuration resources live inside `UI/Notifications/
 - Visuals are made from native Godot UI controls and polygon drawing. No imported sprites, shaders or external fonts.
 - **No inventory, crafting, eclipse or biome events have been connected yet.** The displays and alert resources are ready, but actual gameplay triggers are a later phase.
 
-### Preview in Godot
+### Preview in Godot (isolated debug scene node)
 
-Pull the repository, open Godot so it imports the new C# resources, build the C# project, then start gameplay (including the sandbox player). In a **debug build**, press **F8** repeatedly to preview:
+The production `NotificationManager.cs` no longer reads F8 or contains sample notification code.
+
+The test script is `res://DEBUG/Notifications/NotificationTester.cs`, attached in
+`WORLD/Scenes/world_infinite.tscn` under the new scene-tree branch:
+
+```text
+WorldInfinite
+└── DEBUG (Node)
+    └── NotificationTester (Node, script: NotificationTester.cs)
+```
+
+All pre-existing debug nodes remain in their original locations.
+
+Pull the repository, let Godot import the new script, build the C# project, then run
+`WorldInfinite` in the editor. Press **F8** repeatedly to preview:
 
 1. Plant Fibre +1
 2. Plant Fibre +2 (combines with the previous notice if still visible)
@@ -40,7 +55,14 @@ Pull the repository, open Godot so it imports the new C# resources, build the C#
 6. Region Discovered (cyan)
 7. Hazardous Conditions (amber)
 
-The F8 preview hook is surrounded by `#if DEBUG`, so it is absent from release builds. If F8 is needed by another debug action, change or disable `EnablePreviewKey` on `NotificationManager.tscn`.
+The sample input code is wrapped in `#if DEBUG`, so it does not compile into C# Release
+builds. The tester additionally exposes `Enabled` and `PreviewKey` in the Godot Inspector.
+To unplug the tester at any time, disable its **Enabled** checkbox, set the `DEBUG`
+parent's **Process Mode** to **Disabled**, or remove the `NotificationTester` node.
+None of these require changing the production notification system.
+
+The region discovery sample uses `OncePerSession`; after it has been displayed once
+during a running game, requesting the same preview again will not display it.
 
 ### Calling the system from gameplay
 
