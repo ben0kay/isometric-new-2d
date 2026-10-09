@@ -20,10 +20,10 @@ $tools = @(
         Description = "Build artwork prompts using biome, colour, shape, and style choices."
         Path = "Tools\ArtworkDesignPrompter\ArtworkDesignPrompter.ps1"
     }
-        @{
-        Name = "Lighting & Shadow Inspector"
-        Description = "Read-only sun, lighting and shadow settings with refresh."
-        Path = "Tools\LightingInspector\LightingInspector.ps1"
+    @{
+        Name = "Inspectors"
+        Description = "Open project inspectors for lighting, shadows and future systems."
+        Path = "Inspectors\InspectorsToolbox.ps1"
     }
 )
 
