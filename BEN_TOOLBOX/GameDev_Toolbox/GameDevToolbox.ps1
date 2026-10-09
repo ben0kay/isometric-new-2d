@@ -20,6 +20,11 @@ $tools = @(
         Description = "Build artwork prompts using biome, colour, shape, and style choices."
         Path = "Tools\PlantDesignPrompter\PlantDesignPrompter.ps1"
     }
+        @{
+        Name = "Lighting & Shadow Inspector"
+        Description = "Read-only sun, lighting and shadow settings with refresh."
+        Path = "Tools\LightingInspector\LightingInspector.ps1"
+    }
 )
 
 & "$PSScriptRoot\..\ToolboxMenu.ps1" `
