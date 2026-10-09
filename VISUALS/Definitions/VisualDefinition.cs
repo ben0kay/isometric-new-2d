@@ -4,7 +4,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-[GlobalClass]
+[Tool, GlobalClass]
 public partial class VisualDefinition : Resource
 {
     #region Artwork

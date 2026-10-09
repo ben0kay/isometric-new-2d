@@ -13,7 +13,7 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02/MarshPlant02.tres" id="plant_02"]
+[ext_resource type="Resource" uid="uid://dtsylcixmnuou" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02/MarshPlant02.tres" id="plant_02"]
 
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_species")

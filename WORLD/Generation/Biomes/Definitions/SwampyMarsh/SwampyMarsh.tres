@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c3gvdm3m8q0kn"]
 
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
+[ext_resource type="Resource" uid="uid://btwuqphtsd0nl" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshContent.tres" id="1_wdvnm"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/SwampyMarshGround.tres" id="3_ground"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="3_species"]
@@ -10,8 +11,9 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="9_medium"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="10_tall"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="11_frond"]
+[ext_resource type="Resource" uid="uid://d3xvpx8r8m8rx" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01.tres" id="11_qwgor"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant02/MarshPlant02.tres" id="12_1w8os"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="12_shrub"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01.tres" id="12_wdvnm"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="13_tree"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="14_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="15_enemies"]
@@ -43,8 +45,13 @@ ClumpRadiusTiles = 2.2
 
 [sub_resource type="Resource" id="MarshPlantEntry"]
 script = ExtResource("3_species")
-Definition = ExtResource("12_wdvnm")
+Definition = ExtResource("11_qwgor")
 Weight = 70.0
+
+[sub_resource type="Resource" id="MarshPlant02Entry"]
+script = ExtResource("3_species")
+Definition = ExtResource("12_1w8os")
+Weight = 20.0
 
 [sub_resource type="Resource" id="FrondEntry"]
 script = ExtResource("3_species")
@@ -66,7 +73,7 @@ FrequencyMultiplier = 0.2
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
-Plants = Array[ExtResource("3_species")]([SubResource("MarshPlantEntry"), SubResource("FrondEntry"), SubResource("ShrubEntry")])
+Plants = Array[ExtResource("3_species")]([SubResource("MarshPlantEntry"), SubResource("MarshPlant02Entry"), SubResource("FrondEntry"), SubResource("ShrubEntry")])
 TreesPerChunk = 1
 Trees = Array[ExtResource("3_species")]([SubResource("TreeEntry")])
 TreesPlacement = SubResource("TreePlacement")
@@ -85,6 +92,7 @@ MoistureRange = Vector2(0.65, 1)
 RollingHeight = 2.0
 RollingFeatureSize = 32.0
 PlateausEnabled = false
+Content = ExtResource("1_wdvnm")
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 1
 Rocks = Array[ExtResource("3_species")]([SubResource("RockEntry")])
