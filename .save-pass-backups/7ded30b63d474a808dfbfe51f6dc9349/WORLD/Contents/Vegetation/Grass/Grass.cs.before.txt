@@ -41,20 +41,6 @@ public partial class Grass : Node2D
 
     #endregion
 
-    #region Clearing
-    // =========================================================
-    // Record real consumption/clearing; chunk unloading deliberately does not call this.
-    public void Clear()
-    {
-        if (IsQueuedForDeletion()) return;
-        ResourceChanges changes = ResourceChanges.Ensure(this);
-        changes.BindScene(this, Definition, "grass");
-        changes.Record(this, depleted: true);
-        Hide();
-        QueueFree();
-    }
-    #endregion
-
     #region Lifecycle
 // =========================================================
 // Attach lit grass with the appropriate shared tint and brushing settings.
@@ -66,16 +52,12 @@ public override async void _Ready()
             throw new System.InvalidOperationException(
                 "Grass requires a GrassDefinition.");
 
-        ResourceChanges changes = ResourceChanges.Ensure(this);
-        changes.BindScene(this, Definition, "grass");
-        if (changes.Get(this)?.Depleted == true) { QueueFree(); return; }
-
         VegetationPlacement.Attach(
             this, Definition.PlacementFootprint *
                 Mathf.Max(0.1f, SizeMultiplier), true);
 
         await VegetationAtlas.EnsureReady(this);
-        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
         float tintStrength = Mathf.Clamp(BiomeTintStrength, 0f, 1f);
         bool tinted = tintStrength > 0f;

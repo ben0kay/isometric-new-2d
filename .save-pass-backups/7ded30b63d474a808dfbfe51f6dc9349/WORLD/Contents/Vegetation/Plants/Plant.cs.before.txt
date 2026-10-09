@@ -28,10 +28,9 @@ public override async void _Ready()
                 Mathf.Max(0.1f, SizeMultiplier), false);
 
         ResourceHarvest.Attach(this, Definition, "plant_fiber", true);
-        if (IsQueuedForDeletion()) return;
 
         await VegetationAtlas.EnsureReady(this);
-        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
         TerrainVisual visual = TerrainVisual.Attach(
             this,

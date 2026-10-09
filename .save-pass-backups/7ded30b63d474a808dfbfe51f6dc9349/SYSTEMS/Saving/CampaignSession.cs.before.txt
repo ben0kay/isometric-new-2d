@@ -1,4 +1,4 @@
-// Coordinates world/player restoration and the changed-resource save section.
+// Coordinates the partial world/player save pass; later sections extend this owner.
 using Godot;
 using System;
 using System.Diagnostics;
@@ -56,9 +56,6 @@ public partial class CampaignSession : Node
                 data.SpawnX = player.Position.X; data.SpawnY = player.Position.Y;
                 CampaignRecipe.Capture(world, data);
             }
-            ResourceChanges resources = new() { Name = "ResourceChanges" };
-            resources.Initialize(data);
-            world.AddChild(resources);
             world.AddChild(new CampaignSession
                 { Name = "CampaignSession", _data = data, _restoring = continueCampaign });
         }
@@ -208,8 +205,6 @@ public partial class CampaignSession : Node
         _data.Player = saved;
         _data.WorldSeconds = _clock.ElapsedSeconds;
         _data.SavedUtc = DateTime.UtcNow;
-        ResourceChanges.Find(this).Capture(_data);
-        CampaignRecipe.CaptureResourceDefinitions(_data);
         CampaignStore.Write(_data);
         GD.Print($"[CampaignSave] Profile {_data.ProfileId}: " +
             $"({saved.X}, {saved.Y}), original spawn ({_data.SpawnX}, {_data.SpawnY}).");

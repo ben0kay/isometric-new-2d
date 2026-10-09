@@ -63,7 +63,7 @@ public partial class PauseMenu : CanvasLayer
         _save.Disabled = saveAction == null;
         _save.TooltipText = saveAction == null
             ? "Campaign saving is unavailable in this scene."
-            : "Partial save: surface player/world and changed resources.";
+            : "Partial save: surface world, player, inventory and crafting only.";
     }
     #endregion
 
@@ -234,9 +234,9 @@ public partial class PauseMenu : CanvasLayer
         try
         {
             _saveAction();
-            ShowMessage("Partial campaign saved", "World, player and changed resources saved to your selected profile.\n" +
+            ShowMessage("Partial campaign saved", "World and player saved to your selected profile.\n" +
                 CampaignSession.SavedPositionFor(this) + "\n" +
-                "Drops, containers, buildings, entities and underground restoration are later passes.");
+                "Harvesting, world items, containers, buildings and entities are not saved yet.");
         }
         catch (Exception error)
         {

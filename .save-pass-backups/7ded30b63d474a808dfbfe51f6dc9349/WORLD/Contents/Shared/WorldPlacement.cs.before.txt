@@ -49,8 +49,6 @@ public static bool IsBasinReserved(
     {
         if (IsBasinReserved(context, point, footprint, padding))
             return true;
-        if (ResourceChanges.Find(context)?.Blocks(point, footprint, padding) == true)
-            return true;
 
         foreach (Obstacle obstacle in obstacles)
         {
@@ -94,11 +92,9 @@ public static bool IsBasinReserved(
     // =========================================================
     // Respect both tree species' spacing across currently loaded chunks.
     public static bool NearTree(
-        Node context, Vector2 point, TreeDefinition definition,
+        Vector2 point, TreeDefinition definition,
         float size, List<Obstacle> obstacles)
     {
-        if (ResourceChanges.Find(context)?.NearTree(point, definition.Spacing * size) == true)
-            return true;
         foreach (Obstacle obstacle in obstacles)
         {
             if (!GodotObject.IsInstanceValid(obstacle) ||

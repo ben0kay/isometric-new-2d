@@ -24,7 +24,6 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 
     private float _work;
     private ItemDefinition _yieldItem;
-    private ResourceChanges _changes;
     #endregion
 
     #region Setup
@@ -65,16 +64,7 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 		Footprint = Definition.Footprint * InstanceSize;
 		Height = Definition.Height * InstanceSize;
 		VisualOverride = Definition.Visual;
-        RemainingUnits = Mathf.Max(1, Definition.TotalUnits);
-        _changes = ResourceChanges.Ensure(this);
-        _changes.BindScene(this, Definition, "ore");
-        ResourceChangeData saved = _changes.Get(this);
-        if (saved != null)
-        {
-            RemainingUnits = Math.Min(RemainingUnits, saved.Units);
-            _work = Mathf.Min(Mathf.Max(0.1f, Definition.WorkPerBatch), saved.Work);
-            if (saved.Depleted || RemainingUnits == 0) QueueFree();
-        }
+		RemainingUnits = Mathf.Max(1, Definition.TotalUnits);
 	}
 	#endregion
 
@@ -85,12 +75,11 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 		float power, Func<ItemDefinition, int, bool> collect)
 	{
 		if (IsQueuedForDeletion() || RemainingUnits <= 0 ||
-			power <= 0f || !float.IsFinite(power) || collect == null)
+			power <= 0f || collect == null)
 			return false;
 
 		float required = Mathf.Max(0.1f, Definition.WorkPerBatch);
-        _work = Mathf.Min(required, _work + power);
-        _changes.Record(this, _work, RemainingUnits);
+		_work = Mathf.Min(required, _work + power);
 
 		if (_work < required) return true;
 
@@ -100,8 +89,7 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 		if (!collect(_yieldItem, units)) return false;
 
 		_work = 0f;
-        RemainingUnits -= units;
-        _changes.Record(this, _work, RemainingUnits, RemainingUnits == 0);
+		RemainingUnits -= units;
 
 		if (RemainingUnits == 0)
 		{
@@ -126,7 +114,7 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 		if (visual == null)
 		{
 			ImageTexture texture = await OreArtwork.Get(this, Definition);
-			if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+			if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
 			visual = TerrainVisual.Attach(
 				this,

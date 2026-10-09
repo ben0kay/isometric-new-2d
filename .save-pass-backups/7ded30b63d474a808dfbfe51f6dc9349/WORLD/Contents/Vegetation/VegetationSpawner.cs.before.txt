@@ -24,7 +24,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
 {
     if (_plants.ContainsKey(coordinate)) yield break;
 
-    ResourceChanges changes = ResourceChanges.Ensure(objects);
     List<Plant> plants = new();
     List<Tree> trees = new();
     List<Vector2> placed = new();
@@ -63,7 +62,7 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             WorldPlacement.IsBlocked(
                 objects, globalPoint, footprint,
                 obstacles, new Vector2(16, 12)) ||
-            WorldPlacement.NearTree(objects, globalPoint, definition, size, obstacles))
+            WorldPlacement.NearTree(globalPoint, definition, size, obstacles))
             continue;
 
         Tree tree = new()
@@ -77,11 +76,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Mirror = definition.RollMirror(treeRng)
         };
 
-        if (!changes.BindGenerated(tree, definition, "tree", coordinate, candidate.Index))
-        {
-            tree.Free();
-            continue;
-        }
         objects.AddChild(tree);
         trees.Add(tree);
         obstacles.Add(tree);
@@ -129,12 +123,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Mirror = definition.RollMirror(rng)
         };
 
-        if (!changes.BindGenerated(plant, definition, "plant", coordinate, candidate.Index))
-        {
-            placed.Add(localPoint);
-            plant.Free();
-            continue;
-        }
         objects.AddChild(plant);
         plants.Add(plant);
         placed.Add(localPoint);

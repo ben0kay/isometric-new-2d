@@ -45,7 +45,7 @@ public partial class Rock : Obstacle
     protected override async Task AttachArtworkAsync()
     {
         await PlaceholderAtlas.EnsureReady(this);
-        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
         int variant = RockVariant;
         if (variant < 0)

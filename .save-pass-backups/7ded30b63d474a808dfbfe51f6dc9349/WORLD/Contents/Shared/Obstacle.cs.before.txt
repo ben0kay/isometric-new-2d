@@ -31,7 +31,6 @@ public override async void _Ready()
 	try
 	{
 		ConfigureInstance();
-        if (IsQueuedForDeletion()) return;
 		Footprint = new Vector2(
 			Mathf.Max(1f, Footprint.X), Mathf.Max(1f, Footprint.Y));
 		CollisionLayer = 1;
@@ -44,7 +43,7 @@ public override async void _Ready()
 		});
 
 		await AttachArtworkAsync();
-		if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
 		WorldAtmosphere atmosphere = GetTree().GetFirstNodeInGroup(
 			"world_atmosphere") as WorldAtmosphere;
@@ -55,7 +54,7 @@ public override async void _Ready()
 			if (!systems.IsNodeReady())
 				await ToSignal(systems, Node.SignalName.Ready);
 
-			if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion() ||
+			if (!IsInsideTree() || IsQueuedForDeletion() ||
 				!GodotObject.IsInstanceValid(atmosphere)) return;
 
 			atmosphere.CreateObstacleShadow(this);
@@ -82,7 +81,7 @@ public override async void _Ready()
 	protected virtual async Task AttachArtworkAsync()
 	{
 		await PlaceholderAtlas.EnsureReady(this);
-		if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+		if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
 		int variant = RockVariant;
 		if (variant < 0)

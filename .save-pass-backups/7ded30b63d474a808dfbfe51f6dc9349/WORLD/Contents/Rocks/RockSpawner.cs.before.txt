@@ -17,7 +17,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
     Node2D groundRoot, Node2D objects, Vector2 spawnPoint,
     float spawnClearRadius, List<Obstacle> owned)
 {
-    ResourceChanges changes = ResourceChanges.Ensure(objects);
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
 
     using RandomNumberGenerator rng = new();
@@ -72,11 +71,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             RockVariant = rng.RandiRange(0, RockDrawing.VariantCount - 1)
         };
 
-        if (!changes.BindGenerated(rock, definition, "rock", coordinate, candidate.Index))
-        {
-            rock.Free();
-            continue;
-        }
         objects.AddChild(rock);
         owned.Add(rock);
         obstacles.Add(rock);

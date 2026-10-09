@@ -241,21 +241,3 @@ Do not assume a light is cheap because its visual effect looks simple.
 - Build and local gameplay verification must be completed before marking tested.
 
 Checks: two separate profiles; pause/save/quit/Continue; same surface position, original respawn location, seed/layout, reserves, inventory, selected hotbar, crafting progress and eclipse time; second save backup; rejected incompatible recipe; no save creation from Sandbox/F6.
-
-
-## Save Pass 3 — Changed Resources
-
-- One world-owned ResourceChanges helper; no frame processing or references to retired nodes.
-- Stable generated IDs use world layer, resource family, chunk coordinate and original scatter candidate index. Scene resources use world-relative node paths. Ground deposits use chunk/slot IDs.
-- Only changed resources are recorded: unfinished harvesting/mining work, remaining ore, depleted rocks/trees/plants/ore, removed grass, extracted ground-deposit units and unfinished shovel work.
-- Grazing and successful building grass clearing share Grass.Clear. Normal chunk retirement never records grass as consumed.
-- Removed solids retain lightweight generation-only footprint/spacing reservations. They have no collision, navigation blockers, artwork or shadows.
-- Resource artwork callbacks check that their hosts still exist after awaiting a bake, so harvesting/unloading during initialization cannot access a freed node.
-- Spawners draw original variation values and retain plant/grass spacing before skipping removed candidates.
-- Change records load before world initialization, remain after chunks unload and are included by the existing pause Save action.
-- Version 1 world/player saves still load with empty resource history. The next successful save writes version 2 with the named resource-changes section. Old game code cannot load version 2.
-- Changes made before installing this pass cannot be reconstructed from older saves.
-- Persistence remains partial: loose drops, containers, structures and entities are subsequent passes. A harvested source is now saved as removed, but its uncollected loose reward is not yet saved; collect rewards before quitting until Pass 4.
-- Saving underground is still blocked until the layer restoration pass. Generated identities are layer-scoped for future extension.
-- Local gameplay check: partially mine one rock/ore; completely harvest another rock/tree/plant; clear/graze grass; extract ground material; leave until chunks unload and return; save/quit/Continue with the same profile. Check another profile remains separate.
-- Automated verification passed: production C# compilation, version 1 save loading, mutation/save, chunk retirement/regeneration, separate-process restore, profile separation, invalid resource-section rejection and installer conflict protection/idempotence. Runtime tests use headless artwork substitutes and controlled ore/ground-deposit fixtures; local visual gameplay verification remains required.

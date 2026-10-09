@@ -33,16 +33,11 @@ public static class CampaignStore
         if (new FileInfo(path).Length > 32 * 1024 * 1024)
             throw new InvalidDataException("Campaign file exceeds this pass's size limit.");
         CampaignData data = JsonSerializer.Deserialize<CampaignData>(File.ReadAllText(path));
-        if (data == null ||
-            !(data.Version == 1 && data.Coverage == "world-player-only" ||
-              data.Version == 2 && data.Coverage == "world-player-resources") ||
+        if (data == null || data.Version != 1 || data.Coverage != "world-player-only" ||
             data.ProfileId != profile || !Guid.TryParseExact(data.CampaignId, "N", out _) ||
             data.Player == null || data.Settings == null || data.Resources == null ||
-            data.Sections == null ||
-            (data.Version == 1 ? data.Sections.Count != 0 :
-                data.Sections.Count != 1 || !data.Sections.ContainsKey(ResourceChanges.Section)))
+            data.Sections == null || data.Sections.Count != 0)
             throw new InvalidDataException("Unsupported or invalid campaign save.");
-        ResourceChanges.ReadSection(data);
         return data;
     }
 

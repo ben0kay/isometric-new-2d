@@ -290,7 +290,8 @@ private void ClearGrass(Vector2I anchor, Vector2I cells)
                 vegetation.Host.IsQueuedForDeletion())
                 continue;
 
-            if (vegetation.Host is Grass grass) grass.Clear();
+            vegetation.Host.Hide();
+            vegetation.Host.QueueFree();
         }
     }
     finally

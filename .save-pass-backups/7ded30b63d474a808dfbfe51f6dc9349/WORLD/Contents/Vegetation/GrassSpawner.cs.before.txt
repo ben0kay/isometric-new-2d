@@ -22,7 +22,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
 {
     if (_grass.ContainsKey(coordinate)) yield break;
 
-    ResourceChanges changes = ResourceChanges.Ensure(objects);
     List<Grass> tufts = new();
     List<Vector2> placed = new();
     List<Obstacle> obstacles = WorldPlacement.CollectObstacles(objects);
@@ -72,12 +71,6 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             BiomeTintStrength = tintStrength
         };
 
-        if (!changes.BindGenerated(grass, definition, "grass", coordinate, candidate.Index))
-        {
-            placed.Add(localPoint);
-            grass.Free();
-            continue;
-        }
         objects.AddChild(grass);
         tufts.Add(grass);
         placed.Add(localPoint);

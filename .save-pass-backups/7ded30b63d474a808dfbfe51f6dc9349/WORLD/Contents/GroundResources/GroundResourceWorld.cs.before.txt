@@ -28,7 +28,7 @@ public partial class GroundResourceWorld : Node
     }
 
     private readonly Dictionary<Vector2I, ChunkData> _loaded = new();
-    private ResourceChanges _changes;
+    private readonly Dictionary<Vector3I, int> _removed = new();
     private GroundResourceCatalog _catalog;
     private ChunkController _chunks;
     private TerrainElevation _elevation;
@@ -45,7 +45,6 @@ public partial class GroundResourceWorld : Node
         _elevation = GetNode<TerrainElevation>("../TerrainElevation");
         _ground = GetNode<Node2D>("../../GroundChunks");
         _resources = ResourceWorld.Find(this);
-        _changes = ResourceChanges.Ensure(this);
 _catalog = GD.Load<GroundResourceCatalog>(
     "res://WORLD/Contents/GroundResources/GroundResourceCatalog.tres");
 
@@ -92,6 +91,7 @@ _catalog = GD.Load<GroundResourceCatalog>(
         foreach (ChunkData data in _loaded.Values)
             data.Material?.Dispose();
         _loaded.Clear();
+        _removed.Clear();
     }
     #endregion
 
@@ -147,17 +147,13 @@ _catalog = GD.Load<GroundResourceCatalog>(
                     continue;
 
                 Vector3I key = new(chunk.Coordinate.X, chunk.Coordinate.Y, slot);
-                ResourceChangeData saved = _changes.Ground(key);
-                if (saved != null && saved.Definition != definition.ResourcePath)
-                    throw new InvalidOperationException("Saved ground deposit recipe changed.");
-                int removed = saved?.Units ?? 0;
+                _removed.TryGetValue(key, out int removed);
                 data.Deposits.Add(new Deposit
                 {
                     Definition = definition,
                     Centre = centre,
                     Radius = radius,
                     Phase = phase,
-                    Work = Mathf.Min(definition.WorkPerUnit, saved?.Work ?? 0),
                     Remaining = Math.Max(0, definition.UnitsPerDeposit - removed),
                     Key = key
                 });
@@ -271,8 +267,6 @@ private static float ShapeRadius(Deposit deposit, Vector2 difference)
 
             float required = deposit.Definition.WorkPerUnit;
             deposit.Work = Mathf.Min(required, deposit.Work + power);
-            _changes.RecordGround(deposit.Key, deposit.Definition,
-                deposit.Definition.UnitsPerDeposit - deposit.Remaining, deposit.Work);
             if (deposit.Work < required) return true;
 
             if (!_resources.Spawn(deposit.Definition.ItemId, 1, globalPoint, this))
@@ -280,8 +274,8 @@ private static float ShapeRadius(Deposit deposit, Vector2 difference)
 
             deposit.Work = 0f;
             deposit.Remaining--;
-            _changes.RecordGround(deposit.Key, deposit.Definition,
-                deposit.Definition.UnitsPerDeposit - deposit.Remaining, deposit.Work);
+            _removed[deposit.Key] =
+                deposit.Definition.UnitsPerDeposit - deposit.Remaining;
             UpdateMaterial(data);
             return true;
         }

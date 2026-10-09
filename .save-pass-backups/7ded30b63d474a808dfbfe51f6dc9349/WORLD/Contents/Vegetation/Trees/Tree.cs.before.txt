@@ -36,7 +36,7 @@ public partial class Tree : Obstacle
     protected override async Task AttachArtworkAsync()
     {
         await TreeAtlas.EnsureReady(this);
-        if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
         TerrainVisual visual = TerrainVisual.Attach(
             this, TreeAtlas.GetRegion(Variant), TreeAtlas.Origin,
