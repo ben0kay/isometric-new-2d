@@ -1,6 +1,5 @@
-[gd_resource type="Resource" script_class="BiomeContent" format=3]
+[gd_resource type="Resource" script_class="BiomeContent" format=3 uid="uid://byoql5qs8spjo"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Content/BiomeContent.cs" id="content_script"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="3_entry"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="6_tree"]
@@ -10,6 +9,11 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="10_medium"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
+[ext_resource type="Script" uid="uid://bwfdkn22kvm5v" path="res://WORLD/Generation/Biomes/Content/BiomeContent.cs" id="content_script"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree01/Tree01.tres" id="wild_tree_01"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree02/Tree02.tres" id="wild_tree_02"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree03/Tree03.tres" id="wild_tree_03"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree04/Tree04.tres" id="wild_tree_04"]
 
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_entry")
@@ -39,13 +43,33 @@ Weight = 40.0
 script = ExtResource("3_entry")
 Definition = ExtResource("6_tree")
 
+[sub_resource type="Resource" id="WildTree01Entry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("wild_tree_01")
+Weight = 25.0
+
+[sub_resource type="Resource" id="WildTree02Entry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("wild_tree_02")
+Weight = 25.0
+
+[sub_resource type="Resource" id="WildTree03Entry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("wild_tree_03")
+Weight = 25.0
+
+[sub_resource type="Resource" id="WildTree04Entry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("wild_tree_04")
+Weight = 25.0
+
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
 PlantPatches = 8
 PlantsPerPatch = 6
 Plants = Array[ExtResource("3_entry")]([SubResource("FrondEntry"), SubResource("ShrubEntry")])
 TreesPerChunk = 18
-Trees = Array[ExtResource("3_entry")]([SubResource("TreeEntry")])
+Trees = Array[ExtResource("3_entry")]([SubResource("WildTree01Entry"), SubResource("WildTree02Entry"), SubResource("WildTree03Entry"), SubResource("WildTree04Entry")])
 GrassPatches = 10
 Grass = Array[ExtResource("3_entry")]([SubResource("ShortEntry"), SubResource("MediumEntry")])
 

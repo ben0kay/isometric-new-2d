@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="VisualDefinition" format=3]
+[gd_resource type="Resource" script_class="VisualDefinition" format=3 uid="uid://c7bfj48btut5a"]
 
-[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
-[ext_resource type="Script" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="2_effects"]
+[ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
+[ext_resource type="Script" uid="uid://cvie2lx8kmvdy" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="2_effects"]
 
 [sub_resource type="Resource" id="Effects"]
 script = ExtResource("2_effects")
