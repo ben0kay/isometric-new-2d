@@ -1,5 +1,6 @@
-[gd_resource type="Resource" format=3 uid="uid://dsbmsst6x8fq8"]
+[gd_resource type="Resource" script_class="EntitySequenceDefinition" format=3 uid="uid://dsbmsst6x8fq8"]
 
+[ext_resource type="Script" uid="uid://d3kg8jcbhjcim" path="res://ENTITIES/Sequences/EntityAction.cs" id="1_3lint"]
 [ext_resource type="Script" uid="uid://xjgnh2o6sbm2" path="res://ENTITIES/Sequences/EntitySequenceDefinition.cs" id="2_sequence"]
 [ext_resource type="Script" uid="uid://c7j0d1lu7ac8" path="res://ENTITIES/Sequences/FireEntityAction.cs" id="3_fire"]
 [ext_resource type="Script" uid="uid://ctorw172sioe8" path="res://ENTITIES/Sequences/DodgeEntityAction.cs" id="4_dodge"]
@@ -17,4 +18,4 @@ script = ExtResource("5_wait")
 
 [resource]
 script = ExtResource("2_sequence")
-Actions = [SubResource("Fire"), SubResource("Dodge"), SubResource("Fire"), SubResource("Wait")]
+Actions = Array[ExtResource("1_3lint")]([SubResource("Fire"), SubResource("Dodge"), SubResource("Fire"), SubResource("Wait")])

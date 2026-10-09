@@ -1,6 +1,6 @@
 [gd_scene format=3]
 
-[ext_resource type="PackedScene" path="res://WORLD/world_test.tscn" id="1_world"]
+[ext_resource type="PackedScene" path="res://WORLD/Scenes/world_test.tscn" id="1_world"]
 [ext_resource type="Script" path="res://DEBUG/DebugBiomeLauncher/DebugBiomeWorld.cs" id="2_debug_world"]
 [ext_resource type="Script" path="res://DEBUG/DebugBiomeLauncher/DebugBiomeChunkController.cs" id="3_debug_chunks"]
 

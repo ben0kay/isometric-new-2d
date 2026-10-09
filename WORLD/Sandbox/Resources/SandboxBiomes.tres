@@ -2,14 +2,13 @@
 
 [ext_resource type="Script" uid="uid://be04bm6jg8ojw" path="res://WORLD/Generation/Biomes/BiomeCatalog.cs" id="1_catalog"]
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="2_biome"]
-[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/BiomeSpecies.cs" id="2_t3l6k"]
-[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/BiomeVegetation.cs" id="3_vegetation"]
 
-[sub_resource type="Resource" id="Vegetation"]
-script = ExtResource("3_vegetation")
-PlantPatches = 0
-TreesPerChunk = 0
-GrassPatches = 0
+[sub_resource type="CSharpScript" id="CSharpScript_o1w5p"]
+
+[sub_resource type="CSharpScript" id="CSharpScript_nupo1"]
+
+[sub_resource type="Resource" id="Resource_t3l6k"]
+script = SubResource("CSharpScript_nupo1")
 
 [sub_resource type="Resource" id="SandboxBiome"]
 script = ExtResource("2_biome")
@@ -17,9 +16,9 @@ Id = "sandbox_flat"
 DisplayName = "Feature Sandbox"
 RollingHeight = 0.0
 PlateausEnabled = false
-Vegetation = SubResource("Vegetation")
+Vegetation = SubResource("Resource_t3l6k")
 RocksPerChunk = 8
-Rocks = Array[ExtResource("2_t3l6k")]([])
+Rocks = Array[SubResource("CSharpScript_o1w5p")]([])
 
 [resource]
 script = ExtResource("1_catalog")

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="BiomeGroundProfile" format=3]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/BiomeGroundProfile.cs" id="1_ground"]
+[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Profiles/BiomeGroundProfile.cs" id="1_ground"]
 
 [resource]
 script = ExtResource("1_ground")

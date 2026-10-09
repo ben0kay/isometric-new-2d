@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="BiomeDefaults" format=3 uid="uid://c2ste68wnrj5x"]
 
 [ext_resource type="Script" uid="uid://b8baj35qrgr7u" path="res://WORLD/Generation/Biomes/BiomeDefaults.cs" id="1_defaults"]
-[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/BiomePlacementSettings.cs" id="2_placement"]
+[ext_resource type="Script" uid="uid://dpbfo2mrx1r3t" path="res://WORLD/Generation/Biomes/Placement/BiomePlacementSettings.cs" id="2_placement"]
 [ext_resource type="Resource" path="res://CONFIG/Biomes/DefaultGround.tres" id="3_ground"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Caves/Surface/DefaultCaveHoles.tres" id="4_holes"]
 
