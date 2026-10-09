@@ -51,6 +51,9 @@ public partial class UIInventoryMaster : CanvasLayer
 		GetViewport().SizeChanged += FitWindow;
 		RefreshHotbar();
 		FitWindow();
+
+		// The shared notification layer is installed once for this player's HUD.
+		NotificationManager.Attach(this);
 	}
 
 // =========================================================
