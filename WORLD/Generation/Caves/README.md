@@ -122,3 +122,115 @@ Important design limits
 - The grey test cave proves traversal and separation first. It does not guarantee the final cave art direction or procedural layout quality.
 Next action
 Present the detailed pass-1 implementation plan and confirm its exact integration points from the latest push. Then provide the code for pass 1 only. Test it before proceeding to pass 2.
+
+
+UPDATE
+
+# Cave System
+
+## Purpose
+
+This folder owns cave generation and underground-specific systems.
+
+Caves exist within the same world as the surface. Entering a cave changes
+the active world layer rather than loading a separate gameplay scene.
+
+The player can travel underground and return to the surface through
+another connected cave entrance.
+
+## World Layers
+
+Surface and cave layers have separate drawing and collision behaviour.
+
+The surface remains briefly visible with reduced opacity during entrance
+transitions. Once underground, cave visibility follows the player rather
+than revealing the surface above.
+
+Surface generation and cave generation share world coordinates so
+entrances can connect the layers consistently.
+
+## Cave Entrances
+
+Cave holes connect surface locations to underground tunnels.
+
+Cave systems may connect multiple entrances or form isolated areas with
+only one entrance.
+
+Entrance placement must account for surface suitability. Flat ground
+alone is not enough: water, reserved areas, and other blocking features
+also matter.
+
+Surface objects should not obstruct entrance and exit areas.
+
+## Cave Biomes
+
+Cave biomes are independent of surface biomes.
+
+A single underground biome can extend beneath several different surface
+biomes. Underground biome boundaries do not need to match surface
+boundaries.
+
+Surface information may influence specific underground features where
+useful, without determining the cave biome itself.
+
+## Organisation
+
+Keep cave-specific generation, biome definitions, settings, and related
+resources inside WORLD/Generation/Caves.
+
+Give each cave biome its own folder containing its related resources.
+
+Reuse existing shared biome tools where they fit. Avoid copying surface
+systems solely to give caves a separate implementation.
+
+Shared ground shaders remain in the shared ground folder. Cave biome
+resources reference those shaders rather than owning duplicate copies.
+
+GreyRockSurface is the initial shared cave surface.
+
+## Generation and Streaming
+
+Caves should generate consistently from the world seed and absolute
+world coordinates.
+
+Keep lightweight surface information available when underground systems
+need to evaluate potential entrances. Full surface objects and visuals
+should be prepared as needed near a surface transition.
+
+Budget expensive generation and landing checks across frames to avoid
+freezes when entering or leaving caves.
+
+## Ore Direction
+
+Underground ore will use the shared ore deposit and artwork systems.
+
+The intended distinction is:
+
+- Surface deposits: poorer deposits with lower available quantities.
+- Underground deposits: richer deposits with greater available quantities.
+- Artwork: distinct appearances that communicate deposit richness.
+
+These are planned content differences, not separate mining systems.
+
+Cave biomes will eventually determine which ores appear and their
+frequency. Ore placement is a later pass.
+
+## Next Planned Pass
+
+Introduce two cave biomes to test underground variety.
+
+Each should have a clear visual identity and independently configurable
+generation settings. Their exact terrain, surfaces, and distribution
+will be discussed before implementation.
+
+The first goal is to verify that underground biome regions can extend
+beneath multiple surface biomes and remain consistent while exploring.
+
+## Maintenance Rules
+
+- Keep drawing, collision, and transitions coordinated by the active layer.
+- Keep biome settings data-driven where practical.
+- Keep species and ore artwork separate from generation rules.
+- Preserve existing surface terrain blending.
+- Avoid full surface generation merely to query a biome above a cave.
+- Test entrance A, underground travel, and exit B after generation changes.

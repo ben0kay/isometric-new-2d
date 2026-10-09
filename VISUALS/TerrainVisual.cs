@@ -13,8 +13,8 @@ public partial class TerrainVisual : Node2D
     #endregion
 
     #region Creation
-// =========================================================
-// Attach artwork, lighting, shared shadows, hitboxes and obstruction fading.
+/// =========================================================
+// Attach replacement artwork or an already prepared fallback texture.
 public static TerrainVisual Attach(
     Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
     bool followMovement, VisualDefinition definition = null,
@@ -50,6 +50,39 @@ public static TerrainVisual Attach(
         }
     }
 
+    CompleteAttachment(host, visual, definition);
+    return visual;
+}
+
+// =========================================================
+// Try replacement artwork before the caller prepares a baked fallback.
+public static TerrainVisual AttachCustom(
+    Node2D host, bool followMovement,
+    VisualDefinition definition, int imageVariant = 0)
+{
+    if (definition == null) return null;
+
+    TerrainVisual visual = new()
+    {
+        Name = "Visual",
+        FollowMovement = followMovement
+    };
+
+    if (!visual.TryAttachCustom(definition, imageVariant))
+    {
+        visual.Free();
+        return null;
+    }
+
+    CompleteAttachment(host, visual, definition);
+    return visual;
+}
+
+// =========================================================
+// Apply the same shared presentation systems to either artwork source.
+private static void CompleteAttachment(
+    Node2D host, TerrainVisual visual, VisualDefinition definition)
+{
     host.AddChild(visual);
 
     WorldLightingMaterials.Attach(
@@ -62,8 +95,6 @@ public static TerrainVisual Attach(
         ?? (host is Tree || host is Plant);
 
     PlayerObstructionFade.Attach(host, visual, fade);
-
-    return visual;
 }
 
 // =========================================================
