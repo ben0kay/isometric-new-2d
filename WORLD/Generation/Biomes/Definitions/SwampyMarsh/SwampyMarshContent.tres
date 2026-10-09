@@ -8,11 +8,11 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="6_medium"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="7_tall"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01.tres" id="8_yqvfx"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="10_tree"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="11_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="12_enemies"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.tres" id="13_marsh"]
 
 [sub_resource type="Resource" id="RockEntry"]
 script = ExtResource("3_species")
@@ -41,7 +41,7 @@ ClumpRadiusTiles = 2.2
 
 [sub_resource type="Resource" id="MarshPlantEntry"]
 script = ExtResource("3_species")
-Definition = ExtResource("13_marsh")
+Definition = ExtResource("8_yqvfx")
 Weight = 70.0
 
 [sub_resource type="Resource" id="FrondEntry"]

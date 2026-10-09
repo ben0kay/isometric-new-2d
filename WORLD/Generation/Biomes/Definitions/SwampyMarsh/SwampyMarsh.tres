@@ -11,7 +11,7 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="10_tall"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="11_frond"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="12_shrub"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.tres" id="12_wdvnm"]
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01.tres" id="12_wdvnm"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="13_tree"]
 [ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="14_rock"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="15_enemies"]

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="VisualDefinition" format=3 uid="uid://cw64u6cvp5vcg"]
 
 [ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
-[ext_resource type="Texture2D" uid="uid://b5uvcpiis4exs" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01.png" id="2_image"]
+[ext_resource type="Texture2D" uid="uid://b5uvcpiis4exs" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01a.png" id="2_image"]
 [ext_resource type="Script" uid="uid://cvie2lx8kmvdy" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="3_settings"]
 
 [sub_resource type="Resource" id="VegetationEffects"]

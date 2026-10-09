@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="PlantDefinition" format=3]
 
-[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1_plant"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01Visual.tres" id="2_visual"]
+[ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1_plant"]
+[ext_resource type="Resource" uid="uid://cw64u6cvp5vcg" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01Visual.tres" id="2_visual"]
 
 [resource]
 script = ExtResource("1_plant")
