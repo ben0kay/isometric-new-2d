@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MajorAlertCatalog" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertDefinition.cs" id="2_definition"]
+[ext_resource type="Resource" path="res://UI/Notifications/MajorAlerts/Definitions/EclipseImminent.tres" id="3_eclipse"]
+[ext_resource type="Resource" path="res://UI/Notifications/MajorAlerts/Definitions/BossDetected.tres" id="4_boss"]
+[ext_resource type="Resource" path="res://UI/Notifications/MajorAlerts/Definitions/BiomeDiscovered.tres" id="5_biome"]
+
+[resource]
+script = ExtResource("1_catalog")
+Alerts = Array[ExtResource("2_definition")]([ExtResource("3_eclipse"), ExtResource("4_boss"), ExtResource("5_biome")])
