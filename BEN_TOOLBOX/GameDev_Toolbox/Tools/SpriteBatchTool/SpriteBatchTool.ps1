@@ -1,6 +1,6 @@
 ﻿param([string]$InputFolder = "")
 # Batch-resizes PNG sprites and names the output copies.
-# After all copies succeed, originals move into RAW beside this script.
+# Original sources remain intact; backup copies go into RAW.
 # Existing files are never overwritten.
 $ErrorActionPreference = "Stop"
 
@@ -83,7 +83,7 @@ $speciesFolders.Size = New-Object System.Drawing.Size(680, 25)
 $form.Controls.Add($speciesFolders)
 
 $resources = New-Object System.Windows.Forms.CheckBox
-$resources.Text = "Generate plant .tres + Visual.tres (requires destination inside Godot project)"
+$resources.Text = "Generate species .tres + Visual.tres (requires destination inside Godot project)"
 $resources.Checked = $true
 $resources.Location = New-Object System.Drawing.Point(15, 290)
 $resources.Size = New-Object System.Drawing.Size(680, 25)
@@ -92,12 +92,41 @@ $artScale = Add-Input "Artwork scale" "0.5878125" 325 120
 $anchor = Add-Input "Anchor Y (0 to 1)" "0.96" 360 120
 $sizeMin = Add-Input "Random size minimum" "0.85" 395 120
 $sizeMax = Add-Input "Random size maximum" "1.15" 430 120
-$hint = New-Object System.Windows.Forms.Label
-$hint.Text = "Sources are COPIED to a unique RAW run folder beside this tool; originals stay in Source."
-$hint.Location = New-Object System.Drawing.Point(315, 330)
-$hint.Size = New-Object System.Drawing.Size(385, 110)
-$form.Controls.Add($hint)
 
+$resourceKind = New-Object System.Windows.Forms.ComboBox
+$resourceKind.DropDownStyle = "DropDownList"
+$resourceKind.Items.AddRange([object[]]@("Plant", "Tree"))
+$resourceKind.SelectedIndex = 0
+$resourceKind.Location = New-Object System.Drawing.Point(350, 220)
+$resourceKind.Size = New-Object System.Drawing.Size(340, 25)
+$form.Controls.Add($resourceKind)
+function Add-TreeInput($label, $value, $y) {
+    $caption = New-Object System.Windows.Forms.Label
+    $caption.Text = $label
+    $caption.Location = New-Object System.Drawing.Point(315, ($y + 4))
+    $caption.Size = New-Object System.Drawing.Size(185, 22)
+    $form.Controls.Add($caption)
+    $box = New-Object System.Windows.Forms.TextBox
+    $box.Text = $value
+    $box.Location = New-Object System.Drawing.Point(510, $y)
+    $box.Size = New-Object System.Drawing.Size(180, 25)
+    $form.Controls.Add($box)
+    return $box
+}
+$trunk = Add-TreeInput "Tree trunk X,Y" "44,24" 325
+$treeHeight = Add-TreeInput "Tree visual height" "280" 360
+$treeSpacing = Add-TreeInput "Tree spacing X,Y" "220,120" 395
+$treeClearance = Add-TreeInput "Tree ground clearance" "85" 430
+function Update-ResourceType {
+    $enabled = $resources.Checked -and $resourceKind.SelectedItem -eq "Tree"
+    foreach ($box in @($trunk, $treeHeight, $treeSpacing, $treeClearance)) { $box.Enabled = $enabled }
+    $resourceKind.Enabled = $resources.Checked
+    if ($resourceKind.SelectedItem -eq "Tree" -and $prefix.Text -eq "Plant") { $prefix.Text = "Tree" }
+    elseif ($resourceKind.SelectedItem -eq "Plant" -and $prefix.Text -eq "Tree") { $prefix.Text = "Plant" }
+}
+$resourceKind.Add_SelectedIndexChanged({ Update-ResourceType })
+$resources.Add_CheckedChanged({ Update-ResourceType })
+Update-ResourceType
 $preview = New-Object System.Windows.Forms.ListBox
 $preview.Location = New-Object System.Drawing.Point(15, 475)
 $preview.Size = New-Object System.Drawing.Size(685, 180)
@@ -204,7 +233,7 @@ function Get-Plan {
 
 
     if ($resources.Checked -and !$speciesFolders.Checked) {
-        throw "Enable species folders to generate plant resources."
+        throw "Enable species folders to generate species resources."
     }
     $script:ResourcePlan = @()
     $script:ArchiveRun = Join-Path $script:RawFolder ([Guid]::NewGuid().ToString("N"))
@@ -213,8 +242,12 @@ function Get-Plan {
         while ($projectRoot -and !(Test-Path -LiteralPath (Join-Path $projectRoot "project.godot"))) {
             $projectRoot = Split-Path -Parent $projectRoot
         }
-        if (!$projectRoot) { throw "Plant resources require a destination within a Godot project." }
-        foreach ($required in @("WORLD/Contents/Vegetation/Plants/PlantDefinition.cs",
+        if (!$projectRoot) { throw "Species resources require a destination within a Godot project." }
+        $script:ExportKind = [string]$resourceKind.SelectedItem
+        $definitionPath = if ($script:ExportKind -eq "Tree") {
+            "WORLD/Contents/Vegetation/Trees/TreeDefinition.cs"
+        } else { "WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" }
+        foreach ($required in @($definitionPath,
             "VISUALS/Definitions/VisualDefinition.cs",
             "VISUALS/Vegetation/VegetationVisualSettings.cs")) {
             if (!(Test-Path -LiteralPath (Join-Path $projectRoot $required))) {
@@ -227,6 +260,12 @@ function Get-Plan {
         $script:MinValue = Read-Number $sizeMin.Text 0.1 10
         $script:MaxValue = Read-Number $sizeMax.Text 0.1 10
         if ([double]$script:MaxValue -lt [double]$script:MinValue) { throw "Maximum size must be at least minimum size." }
+    }
+    if ($resources.Checked -and $script:ExportKind -eq "Tree") {
+        $script:TrunkValue = Read-Pair $trunk.Text
+        $script:TreeHeightValue = Read-Number $treeHeight.Text 1 10000
+        $script:TreeSpacingValue = Read-Pair $treeSpacing.Text
+        $script:TreeClearanceValue = Read-Number $treeClearance.Text 0 10000
     }
     $seen = @{}
     $index = 0
@@ -370,6 +409,13 @@ function Read-Number([string]$text, [double]$minimum, [double]$maximum) {
     }
     return $value.ToString("0.########", [Globalization.CultureInfo]::InvariantCulture)
 }
+function Read-Pair([string]$text) {
+    $parts = $text.Split(',')
+    if ($parts.Count -ne 2) { throw "Enter X,Y values such as 44,24." }
+    $x = Read-Number ($parts[0].Trim()) 0.1 10000
+    $y = Read-Number ($parts[1].Trim()) 0.1 10000
+    return "$x, $y"
+}
 function Write-NewText([string]$path, [string]$text, $written) {
     $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
     $written.Add($path)
@@ -379,7 +425,7 @@ function Write-NewText([string]$path, [string]$text, $written) {
         $stream.Write($bytes, 0, $bytes.Length)
     } finally { $stream.Dispose() }
 }
-function Write-PlantResources($entry, $written) {
+function Write-SpeciesResources($entry, $written) {
     $species = $entry.Species
     $folder = $entry.ResFolder
     $id = ([regex]::Replace($species, '([a-z0-9])([A-Z])', '$1_$2')).ToLowerInvariant()
@@ -415,6 +461,27 @@ SizeRange = Vector2($script:MinValue, $script:MaxValue)
 MirrorChance = 0.5
 HarvestItemId = "plant_fiber"
 "@
+
+    if ($script:ExportKind -eq "Tree") {
+    $plant = @"
+[gd_resource type="Resource" script_class="TreeDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Trees/TreeDefinition.cs" id="1_tree"]
+[ext_resource type="Resource" path="$folder/${species}Visual.tres" id="2_visual"]
+
+[resource]
+script = ExtResource("1_tree")
+Id = "$id"
+Visual = ExtResource("2_visual")
+TrunkFootprint = Vector2($script:TrunkValue)
+VisualHeight = $script:TreeHeightValue
+Spacing = Vector2($script:TreeSpacingValue)
+GroundClearance = $script:TreeClearanceValue
+SizeRange = Vector2($script:MinValue, $script:MaxValue)
+MirrorChance = 0.5
+"@
+
+    }
     Write-NewText (Join-Path $entry.Folder "${species}Visual.tres") $visual $written
     Write-NewText (Join-Path $entry.Folder "$species.tres") $plant $written
 }
@@ -462,7 +529,7 @@ $processButton.Add_Click({
             $written.Add($entry.Output)
         }
         foreach ($entry in $script:ResourcePlan) {
-            Write-PlantResources $entry $written
+            Write-SpeciesResources $entry $written
         }
         $preview.Items.Clear()
         foreach ($entry in $plan) { [void]$preview.Items.Add($entry.Description) }
