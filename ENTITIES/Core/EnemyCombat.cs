@@ -1,87 +1,94 @@
-// Checks attack eligibility and starts optional enemy sequences.
-// Ranged attacks aim at visible actor hitboxes; melee uses ground distance.
+// Adapts existing robot combat resources and sequences to shared EntityCombat.
+// Keeps current scene references and presentation events during migration.
 using Godot;
 using System;
 
 public partial class EnemyCombat : Node
 {
     #region State
-    private Enemy _actor;
-    private Weapon _weapon;
-    private EnemySequence _sequence;
-    private WorldNavigation _navigation;
-    private double _timer;
     public event Action MeleeExecuted;
+
+    private Enemy _actor;
+    private EnemySequence _sequence;
+    private EntityCombat _combat;
+    private double _checkTimer;
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Resolve sibling components without depending on ready order.
+    // Bind shared combat and preserve the existing robot sequence component.
     public override void _Ready()
     {
         _actor = GetParent().GetParent<Enemy>();
-        _weapon = GetNode<Weapon>("../Weapon");
         _sequence = GetNode<EnemySequence>("../Sequence");
+        _combat = new EntityCombat(
+            _actor, GetNode<Weapon>("../Weapon"));
+
+        _combat.MeleeExecuted += ForwardMelee;
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Release the adapter's shared combat event subscription.
+    public override void _ExitTree()
+    {
+        if (_combat != null)
+            _combat.MeleeExecuted -= ForwardMelee;
+    }
+
+    // =========================================================
+    // Preserve the event consumed by existing enemy presentation.
+    private void ForwardMelee()
+    {
+        MeleeExecuted?.Invoke();
     }
     #endregion
 
     #region Combat
-// =========================================================
-// Stagger attack eligibility while keeping cooldowns and final checks accurate.
-public void Tick(double delta)
-{
-    if (!_actor.Initialized || !_actor.IsActivated ||
-        _actor.SpawnPending || _actor.IsQueuedForDeletion() ||
-        _actor.Health?.IsAlive != true)
-        return;
-
-    _weapon.Tick(delta);
-    _timer -= delta;
-
-    if (_sequence.IsRunning || _timer > 0.0 ||
-        !StaggeredUpdate.Due(_actor, _actor.AiStaggerTicks, 13))
-        return;
-
-    _timer = 0.1;
-
-    if (!_actor.HasTarget || !_actor.HasSight ||
-        !WorldLayerMember.Same(_actor, _actor.Target))
-        return;
-
-    EnemyCombatSettings combat = _actor.Definition.Combat;
-    Vector2 point = _actor.Target.GlobalPosition;
-
-    if (_actor.GlobalPosition.DistanceSquaredTo(point) >
-        combat.AttackRange * combat.AttackRange)
-        return;
-
-    if (_sequence.IsConfigured)
+    // =========================================================
+    // Preserve staggered attack checks and exclusive sequence movement.
+    public void Tick(double delta)
     {
-        _sequence.TryStart();
-        return;
+        if (!_actor.Initialized || !_actor.IsActivated ||
+            _actor.SpawnPending || _actor.IsQueuedForDeletion() ||
+            _actor.Health?.IsAlive != true)
+            return;
+
+        _combat.Tick(delta);
+        _checkTimer -= delta;
+
+        if (_sequence.IsRunning || _checkTimer > 0.0 ||
+            !StaggeredUpdate.Due(_actor, _actor.AiStaggerTicks, 13))
+            return;
+
+        _checkTimer = 0.1;
+
+        if (!_actor.HasTarget || !_actor.HasSight)
+            return;
+
+        EnemyCombatSettings settings = _actor.Definition.Combat;
+        Node2D target = _actor.Target;
+
+        if (!_combat.CanAttack(target, settings.AttackRange))
+            return;
+
+        if (_sequence.IsConfigured)
+        {
+            _sequence.TryStart();
+            return;
+        }
+
+        if (settings is RangedCombatSettings)
+        {
+            _combat.TryWeapon(target, settings.AttackRange);
+            return;
+        }
+
+        if (settings is MeleeCombatSettings melee)
+            _combat.TryMelee(
+                target, melee.AttackRange, melee.Damage,
+                melee.DamageType, melee.Cooldown);
     }
-
-    if (combat is RangedCombatSettings)
-    {
-        _weapon.TryFireAtActor(_actor.Target);
-        return;
-    }
-
-    if (combat is not MeleeCombatSettings melee) return;
-
-    _navigation = WorldNavigation.For(_actor);
-    if (_navigation == null ||
-        !_navigation.CanTravelDirectly(_actor.GlobalPosition, point))
-        return;
-
-    Health targetHealth = _actor.Target.GetNodeOrNull<Health>(
-        "Systems/Health");
-
-    if (targetHealth?.Damage(melee.Damage, melee.DamageType) != true)
-        return;
-
-    _timer = Math.Max(0.1, melee.Cooldown);
-    MeleeExecuted?.Invoke();
-}
     #endregion
 }

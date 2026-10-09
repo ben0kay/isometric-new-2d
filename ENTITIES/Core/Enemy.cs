@@ -83,125 +83,153 @@ public partial class Enemy : EntityBody
         }
     }
 
-    // =========================================================
-    // Bind shared behaviours, optional membership and existing presentation.
-    public override async void _Ready()
+// =========================================================
+// Bind shared behaviours, group alerts and existing robot presentation.
+public override async void _Ready()
+{
+    SetPhysicsProcess(false);
+
+    try
     {
-        SetPhysicsProcess(false);
+        BindSharedComponents();
+        _combat = GetNode<EnemyCombat>("Systems/Combat");
+        _sequence = GetNode<EnemySequence>("Systems/Sequence");
+        Health.Died += OnDeath;
 
-        try
+        _rng.Seed = RandomSeed != 0
+            ? RandomSeed : GetInstanceId();
+
+        _targetTimer = _rng.Randf() * Definition.TargetInterval;
+        _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
+
+        Node systems = GetNode("Systems");
+
+        Membership =
+            systems.GetNodeOrNull<EntityGroupMember>("Group");
+
+        if (Membership == null)
         {
-            BindSharedComponents();
-            _combat = GetNode<EnemyCombat>("Systems/Combat");
-            _sequence = GetNode<EnemySequence>("Systems/Sequence");
-            Health.Died += OnDeath;
-
-            _rng.Seed = RandomSeed != 0
-                ? RandomSeed : GetInstanceId();
-
-            _targetTimer = _rng.Randf() * Definition.TargetInterval;
-            _decisionTimer = _rng.Randf() * Definition.DecisionInterval;
-
-            Node systems = GetNode("Systems");
-
-            Membership =
-                systems.GetNodeOrNull<EntityGroupMember>("Group");
-
-            if (Membership == null)
-            {
-                Membership = new EntityGroupMember { Name = "Group" };
-                systems.AddChild(Membership);
-            }
-
-            if (!string.IsNullOrWhiteSpace(GroupId))
-                Membership.GroupId = GroupId;
-
-            // Existing robot combat targets players; shared targeting is generic.
-            _targeting = new EntityTargeting(
-                this, new[] { "players" }, candidate => candidate is Player);
-
-            Membership.ThreatActive = () => HasTarget;
-
-            _wandering =
-                systems.GetNodeOrNull<EntityWandering>("Wandering");
-
-            if (_wandering == null)
-            {
-                _wandering = new EntityWandering { Name = "Wandering" };
-                systems.AddChild(_wandering);
-            }
-
-            _wandering.Bind(this, new EntityWanderSettings
-            {
-                Enabled = Definition.WanderingEnabled,
-                Speed = Definition.WanderSpeed,
-                Radius = Definition.WanderRadius,
-                HomeLeash = Definition.HomeLeash,
-                Wait = Definition.WanderWait,
-                ArrivalDistance = 8f,
-                ReturnDistance = 8f,
-                RequireDirectPath = false,
-                TickMotor = false
-            }, SpawnHome ?? GlobalPosition, Membership,
-                hasThreat: () => HasTarget,
-                random: _rng, initialPause: true);
-
-            _combatMovement = new EntityCombatMovement(
-                this, _wandering, _rng);
-
-            Membership.JoinAssignedGroup();
-
-            await PlaceholderAtlas.EnsureReady(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
-
-            TerrainVisual visual = TerrainVisual.Attach(
-                this, PlaceholderAtlas.EnemyRegion,
-                new Vector2(-48, -64), Vector2.One, true,
-                Definition.VisualOverride);
-
-            CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
-            artwork.Modulate = Definition.VisualTint;
-
-            if (artwork is Node2D node)
-                node.Scale *= Definition.VisualScale;
-
-            EnemyPresentation presentation =
-                systems.GetNodeOrNull<EnemyPresentation>("Presentation");
-
-            if (presentation == null)
-            {
-                presentation = new EnemyPresentation
-                {
-                    Name = "Presentation"
-                };
-                systems.AddChild(presentation);
-            }
-
-            presentation.Bind(this, artwork);
-            Initialized = true;
-            if (!SpawnPending) Activate();
+            Membership = new EntityGroupMember { Name = "Group" };
+            systems.AddChild(Membership);
         }
-        catch (Exception error)
+
+        if (!string.IsNullOrWhiteSpace(GroupId))
+            Membership.GroupId = GroupId;
+
+        _targeting = new EntityTargeting(
+            this, new[] { "players" }, candidate => candidate is Player);
+
+        Membership.ThreatActive = () => HasTarget;
+
+        _wandering =
+            systems.GetNodeOrNull<EntityWandering>("Wandering");
+
+        if (_wandering == null)
         {
-            GD.PushError(
-                $"Enemy '{Definition.Id}' initialization failed: {error}");
-            QueueFree();
+            _wandering = new EntityWandering { Name = "Wandering" };
+            systems.AddChild(_wandering);
         }
+
+        _wandering.Bind(this, new EntityWanderSettings
+        {
+            Enabled = Definition.WanderingEnabled,
+            Speed = Definition.WanderSpeed,
+            Radius = Definition.WanderRadius,
+            HomeLeash = Definition.HomeLeash,
+            Wait = Definition.WanderWait,
+            ArrivalDistance = 8f,
+            ReturnDistance = 8f,
+            RequireDirectPath = false,
+            TickMotor = false
+        }, SpawnHome ?? GlobalPosition, Membership,
+            hasThreat: () => HasTarget,
+            random: _rng, initialPause: true);
+
+        _combatMovement = new EntityCombatMovement(
+            this, _wandering, _rng);
+
+        Membership.ThreatReceived += ReactToThreat;
+        Membership.JoinAssignedGroup();
+
+        await PlaceholderAtlas.EnsureReady(this);
+        if (!IsInsideTree() || IsQueuedForDeletion()) return;
+
+        TerrainVisual visual = TerrainVisual.Attach(
+            this, PlaceholderAtlas.EnemyRegion,
+            new Vector2(-48, -64), Vector2.One, true,
+            Definition.VisualOverride);
+
+        CanvasItem artwork = visual.GetNode<CanvasItem>("Artwork");
+        artwork.Modulate = Definition.VisualTint;
+
+        if (artwork is Node2D node)
+            node.Scale *= Definition.VisualScale;
+
+        EnemyPresentation presentation =
+            systems.GetNodeOrNull<EnemyPresentation>("Presentation");
+
+        if (presentation == null)
+        {
+            presentation = new EnemyPresentation
+            {
+                Name = "Presentation"
+            };
+            systems.AddChild(presentation);
+        }
+
+        presentation.Bind(this, artwork);
+        Initialized = true;
+        if (!SpawnPending) Activate();
+    }
+    catch (Exception error)
+    {
+        GD.PushError(
+            $"Enemy '{Definition.Id}' initialization failed: {error}");
+        QueueFree();
+    }
+}
+
+// =========================================================
+// Disconnect health and group alerts before releasing owned resources.
+public override void _ExitTree()
+{
+    if (GodotObject.IsInstanceValid(Health))
+        Health.Died -= OnDeath;
+
+    if (GodotObject.IsInstanceValid(Membership))
+    {
+        Membership.ThreatReceived -= ReactToThreat;
+        Membership.ThreatActive = null;
     }
 
-    // =========================================================
-    // Release shared targeting and the adapter's owned random stream.
-    public override void _ExitTree()
+    _targeting?.Dispose();
+    _rng.Dispose();
+}
+
+// =========================================================
+// Accept local damage and squad alerts without starting group roaming.
+private void ReactToThreat(Node2D attacker)
+{
+    if (!Initialized || !IsActivated || SpawnPending ||
+        IsQueuedForDeletion() || Health?.IsAlive != true ||
+        attacker is not Player player ||
+        !EntityCombat.IsLiving(player) ||
+        !WorldLayerMember.Same(this, player) ||
+        GlobalPosition.DistanceSquaredTo(player.GlobalPosition) >
+            Definition.ForgetRange * Definition.ForgetRange)
+        return;
+
+    if (_targeting.SetTarget(player))
     {
-        if (GodotObject.IsInstanceValid(Health))
-            Health.Died -= OnDeath;
-
-        if (GodotObject.IsInstanceValid(Membership))
-            Membership.ThreatActive = null;
-
-        _targeting?.Dispose();
-        _rng.Dispose();
+        _sequence.Cancel();
+        _combatMovement.Reset();
+        _wandering.Interrupt(false);
     }
+
+    // Final sight and attack checks still happen before attacking.
+    _targetTimer = Definition.TargetInterval;
+    _decisionTimer = 0.0;
+}
 
     // =========================================================
     // Activate only after population placement checks accept the actor.
