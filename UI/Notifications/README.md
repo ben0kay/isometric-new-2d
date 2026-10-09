@@ -38,6 +38,7 @@ Pull the repository, open Godot so it imports the new C# resources, build the C#
 4. Eclipse Imminent (amber)
 5. Hostile Signature Detected (red)
 6. Region Discovered (cyan)
+7. Hazardous Conditions (amber)
 
 The F8 preview hook is surrounded by `#if DEBUG`, so it is absent from release builds. If F8 is needed by another debug action, change or disable `EnablePreviewKey` on `NotificationManager.tscn`.
 
@@ -60,13 +61,13 @@ Use **stable IDs/keys**: the item ID for pickups, recipe/output ID for crafting,
 3. Add that definition resource to `MajorAlerts/MajorAlertCatalog.tres` → `Alerts` array.
 4. Trigger it from gameplay with `NotificationManager.Find(this)?.ShowMajor("your_alert_id");`.
 
-`VoiceCueId` is only a **future integration hook**; it does not play audio. `OncePerSession` is not save-persistent. If it becomes a first-time-ever campaign alert, the discovery state must eventually be saved outside this UI.
+`VoiceCueId` is only a **future integration hook**; it does not play audio. `OncePerSession` persists across scene reloads during the current running game, but is not save-persistent. If it becomes a first-time-ever campaign alert, the discovery state must eventually be saved outside this UI.
 
 ## Later phases (planned; not yet implemented)
 
 **Phase 2 — Inventory and crafting:** subscribe to structured successful item additions and completed crafts instead of parsing the inventory's existing text-only `Notice`. Ensure crafting material consumption is not misrepresented as collection. Add appropriate feedback for inventory full, failed actions, and item removal when useful.
 
-**Phase 3 — World events:** a small eclipse threshold detector requests `eclipse_imminent`; player-biome transitions request discovery notices; boss/hazard systems emit alerts at their own detection points. Persist *first-ever* discoveries through the campaign save system in that phase.
+**Phase 3 — World events:** a small eclipse threshold detector requests `eclipse_imminent`; player-biome transitions request discovery notices; boss/hazard systems emit `boss_detected` / `hazard_detected` at their own detection points. Persist *first-ever* discoveries through the campaign save system in that phase.
 
 **Phase 4 — Polish and accessibility:** optional sounds/companion voice cues, scaling and opacity controls, duration settings, notification history, localization and HUD-safe-area adjustments.
 
