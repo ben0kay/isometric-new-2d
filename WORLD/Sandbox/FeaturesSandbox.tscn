@@ -45,11 +45,6 @@ Catalog = ExtResource("23_items")
 
 [node name="Atmosphere" type="Node" parent="Systems" unique_id=1987920342]
 script = ExtResource("8_atmosphere")
-SunTint = Color(1, 0.94, 0.82, 1)
-FaceAmbient = 0.24
-FaceSunStrength = 1.65
-ShadowLength = 2.2
-ShadowOpacity = 0.68
 FogColor = Color(0.16, 0.31, 0.43, 1)
 FogDensity = 0.72
 FogNoiseScale = 0.0012
@@ -71,8 +66,6 @@ script = ExtResource("4_navigation")
 
 [node name="ChunkController" type="Node" parent="Systems" unique_id=1992397435]
 script = ExtResource("2_chunks")
-WorldChunksPerAxis = 8
-CratesPerChunk = 0
 
 [node name="Surfaces" type="Node" parent="Systems" unique_id=1564959950]
 script = ExtResource("30_surfaces")
@@ -108,6 +101,5 @@ script = ExtResource("3_fps")
 
 [node name="CollisionDebug" type="Node2D" parent="." unique_id=192847062]
 script = ExtResource("16_debug")
-Enabled = false
 
 [node name="WorldMapDebug" parent="." unique_id=872969464 instance=ExtResource("17_3f6fk")]
