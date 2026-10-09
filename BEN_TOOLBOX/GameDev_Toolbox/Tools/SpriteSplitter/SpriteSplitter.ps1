@@ -1,3 +1,131 @@
+# Windows PowerShell 5.1. Launch through Ben Toolbox or powershell.exe -STA -File.
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+if (-not ('BenSprites.SplitterWindow' -as [type])) {
+Add-Type -ReferencedAssemblies System.Windows.Forms,System.Drawing -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+
+namespace BenSprites {
+public class SheetView : Panel {
+    public SheetView() { DoubleBuffered = true; ResizeRedraw = true; TabStop = true; SetStyle(ControlStyles.Selectable, true); }
+}
+public class SplitterWindow : Form {
+    Bitmap sheet;
+    byte[] pixels;
+    string sourcePath;
+    readonly List<int> cuts = new List<int>();
+    readonly List<Bitmap> outputs = new List<Bitmap>();
+    readonly SheetView view = new SheetView();
+    readonly FlowLayoutPanel previews = new FlowLayoutPanel();
+    readonly NumericUpDown sensitivity = new NumericUpDown();
+    readonly NumericUpDown gap = new NumericUpDown();
+    readonly NumericUpDown padding = new NumericUpDown();
+    readonly ComboBox canvas = new ComboBox();
+    readonly TextBox destination = new TextBox();
+    readonly TextBox prefix = new TextBox();
+    readonly Label status = new Label();
+    RectangleF displayed;
+    int selected = -1;
+    bool dragging;
+
+    public SplitterWindow(string root) {
+        Text = "Sprite Splitter"; Width = 1220; Height = 900;
+        MinimumSize = new Size(900, 700); StartPosition = FormStartPosition.CenterScreen;
+        Font = new Font("Segoe UI", 10); KeyPreview = true;
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6 };
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 205));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 65));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45));
+        Controls.Add(layout);
+        var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill };
+        AddButton(toolbar, "Open PNG", OpenSheet);
+        AddButton(toolbar, "Suggest cuts", Detect);
+        AddButton(toolbar, "Remove selected", RemoveSelected);
+        AddButton(toolbar, "Clear cuts", delegate { cuts.Clear(); selected = -1; RefreshPreviews(); });
+        toolbar.Controls.Add(new Label { Text = "Click: add/select | Drag: move | Delete/right-click: remove", AutoSize = true, Margin = new Padding(12, 12, 0, 0) });
+        layout.Controls.Add(toolbar, 0, 0);
+        var options = new FlowLayoutPanel { Dock = DockStyle.Fill };
+        AddNumber(options, "Detection alpha", sensitivity, 0, 254, 12);
+        AddNumber(options, "Min gap px", gap, 1, 1000, 8);
+        AddNumber(options, "Padding px", padding, 0, 512, 8);
+        options.Controls.Add(new Label { Text = "Canvas", AutoSize = true, Margin = new Padding(10, 12, 0, 0) });
+        canvas.DropDownStyle = ComboBoxStyle.DropDownList; canvas.Width = 245;
+        canvas.Items.AddRange(new object[] { "Tight crop", "Shared rectangle, bottom aligned", "Shared square, bottom aligned" });
+        canvas.SelectedIndex = 1; options.Controls.Add(canvas);
+        layout.Controls.Add(options, 0, 1);
+        view.Dock = DockStyle.Fill; view.BackColor = Color.FromArgb(40,40,40);
+        view.Paint += PaintSheet; view.MouseDown += MouseDownSheet;
+        view.MouseMove += MouseMoveSheet;
+        view.MouseUp += delegate { if (dragging) { dragging = false; view.Capture = false; cuts.Sort(); RefreshPreviews(); } };
+        layout.Controls.Add(view, 0, 2);
+        previews.Dock = DockStyle.Fill; previews.AutoScroll = true; previews.WrapContents = false;
+        layout.Controls.Add(previews, 0, 3);
+        var export = new FlowLayoutPanel { Dock = DockStyle.Fill };
+        export.Controls.Add(new Label { Text = "Output folder", AutoSize = true, Margin = new Padding(5,12,0,0) });
+        destination.Text = root; destination.Width = 360; export.Controls.Add(destination);
+        AddButton(export, "Browse", delegate {
+            using (var d = new FolderBrowserDialog()) {
+                if (Directory.Exists(destination.Text)) d.SelectedPath = destination.Text;
+                if (d.ShowDialog(this) == DialogResult.OK) destination.Text = d.SelectedPath;
+            }
+        });
+        export.Controls.Add(new Label { Text = "Name", AutoSize = true, Margin = new Padding(5,12,0,0) });
+        prefix.Text = "Sprite"; prefix.Width = 170; export.Controls.Add(prefix);
+        AddButton(export, "Export PNGs", Export);
+        layout.Controls.Add(export, 0, 4);
+        status.Dock = DockStyle.Fill; status.Text = "Open a transparent PNG. Vertical lines divide the sheet into sprites.";
+        layout.Controls.Add(status, 0, 5);
+        padding.ValueChanged += delegate { RefreshPreviews(); };
+        canvas.SelectedIndexChanged += delegate { RefreshPreviews(); };
+        sensitivity.ValueChanged += delegate { status.Text = "Detection alpha changed. Click Suggest cuts to apply; export preserves faint pixels."; };
+        KeyDown += delegate(object sender, KeyEventArgs e) {
+            if (e.KeyCode == Keys.Delete && view.Focused) { RemoveSelected(); e.Handled = true; }
+        };
+        FormClosed += delegate { ClearOutputs(); if (sheet != null) sheet.Dispose(); };
+    }
+    void AddButton(Control parent, string text, Action action) {
+        var b = new Button { Text = text, AutoSize = true, Height = 32, Margin = new Padding(5) };
+        b.Click += delegate { try { action(); } catch (Exception ex) { MessageBox.Show(this, ex.Message, "Sprite Splitter"); } };
+        parent.Controls.Add(b);
+    }
+    void AddNumber(Control parent, string text, NumericUpDown number, int min, int max, int value) {
+        parent.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(8,12,0,0) });
+        number.Minimum = min; number.Maximum = max; number.Value = value; number.Width = 65;
+        parent.Controls.Add(number);
+    }
+    void OpenSheet() {
+        using (var d = new OpenFileDialog { Filter = "PNG images|*.png" }) {
+            if (d.ShowDialog(this) != DialogResult.OK) return;
+            Bitmap loaded;
+            using (var original = Image.FromFile(d.FileName)) {
+                if ((long)original.Width * original.Height > 40000000) throw new Exception("Please use an image under 40 million pixels.");
+                loaded = new Bitmap(original.Width, original.Height, PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(loaded)) {
+                    g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceCopy;
+                    g.DrawImageUnscaled(original, 0, 0);
+                }
+            }
+            if (sheet != null) sheet.Dispose(); sheet = loaded; sourcePath = d.FileName;
+            prefix.Text = Path.GetFileNameWithoutExtension(sourcePath); cuts.Clear(); selected = -1;
+            pixels = new byte[sheet.Width * sheet.Height * 4];
+            var data = sheet.LockBits(new Rectangle(0,0,sheet.Width,sheet.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+            try { for (int y=0;y<sheet.Height;y++) Marshal.Copy(IntPtr.Add(data.Scan0,y*data.Stride),pixels,y*sheet.Width*4,sheet.Width*4); }
+            finally { sheet.UnlockBits(data); }
+            Detect();
+        }
+    }
+    int Alpha(int x, int y) { return pixels[(y * sheet.Width + x)*4+3]; }
+    void Detect() {
         if (sheet == null) return;
         cuts.Clear(); selected = -1; int start = -1; bool seenContent = false;
         for (int x=0; x<sheet.Width; x++) {
@@ -126,3 +254,6 @@
 }
 '@
 }
+[System.Windows.Forms.Application]::EnableVisualStyles()
+$form = New-Object BenSprites.SplitterWindow($PSScriptRoot)
+try { [void]$form.ShowDialog() } finally { $form.Dispose() }
