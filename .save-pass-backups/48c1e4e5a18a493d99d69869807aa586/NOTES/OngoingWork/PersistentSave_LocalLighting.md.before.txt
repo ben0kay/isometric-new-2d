@@ -1,4 +1,4 @@
-# Planned Work â€” Menus, Persistence and Local Lighting
+# Planned Work — Menus, Persistence and Local Lighting
 
 ## Purpose
 
@@ -14,7 +14,7 @@ inventory systems and shared visual settings where appropriate.
 
 ---
 
-## 1 â€” Main Menu, Pause Menu and Persistent Saves
+## 1 — Main Menu, Pause Menu and Persistent Saves
 
 ### Goal
 
@@ -25,9 +25,9 @@ quit and continue without losing world changes.
 
 Initial options:
 
-- Continue â€” available when a valid save exists.
-- New Campaign â€” create a new world and player.
-- Load Campaign â€” choose an existing save.
+- Continue — available when a valid save exists.
+- New Campaign — create a new world and player.
+- Load Campaign — choose an existing save.
 - Change Profile - can switch between profiles
 - Sandbox - my testing
 - Options. - placeholder
@@ -127,7 +127,7 @@ changes survive quitting and loading.
 
 ---
 
-## 2 â€” Local Light Sources
+## 2 — Local Light Sources
 
 ### Goal
 
@@ -227,17 +227,3 @@ Do not assume a light is cheap because its visual effect looks simple.
 - Provide complete replacement files or functions.
 - Remove temporary test nodes and obsolete implementations after testing.
 - Update this document with actual implementation and verification status.
-
-## Save Passes 1â€“2 â€” Applied, Verification Pending
-
-- One current campaign slot per stable profile ID; manual pause-menu saving only.
-- Versioned JSON, temporary-file replacement, previous-save backup and recovery.
-- Fresh campaign seeds, exported world settings and resource recipe compatibility checks.
-- Surface player position, original spawn, stats/modifiers, vitals, inventory, equipment, hotbar, crafting and world clock.
-- Resource definition edits are detected and incompatible loads are refused; resource migrations remain future work.
-- Save while alive, grounded and on the surface. Underground restore is a later pass.
-- Not yet saved: harvested resources, grass changes, loose drops, containers, loot, buildings, entities, basin changes or connections.
-- Debug herd and deep-cave test systems are unchanged and outside this pass.
-- Build and local gameplay verification must be completed before marking tested.
-
-Checks: two separate profiles; pause/save/quit/Continue; same surface position, original respawn location, seed/layout, reserves, inventory, selected hotbar, crafting progress and eclipse time; second save backup; rejected incompatible recipe; no save creation from Sandbox/F6.

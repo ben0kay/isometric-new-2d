@@ -1,0 +1,190 @@
+// Coordinates the partial world/player save pass; later sections extend this owner.
+using Godot;
+using System;
+using System.Diagnostics;
+using System.IO;
+
+public partial class CampaignSession : Node
+{
+    private CampaignData _data;
+    private bool _restoring, _finished;
+    private Node _world;
+    private Player _player;
+    private ChunkController _chunks;
+    private WorldClock _clock;
+    private ProcessModeEnum _objectsMode;
+    private readonly Stopwatch _startup = new();
+
+    // =========================================================
+    // Instantiate a detached world and apply its recipe before Ready runs.
+    public static void Launch(Node menu, bool continueCampaign)
+    {
+        PlayerProfile profile = ProfileStore.Selected
+            ?? throw new InvalidOperationException("Select a profile first.");
+        CampaignData data = continueCampaign ? CampaignStore.Load(profile.Id) : new CampaignData
+        {
+            ProfileId = profile.Id, CampaignId = Guid.NewGuid().ToString("N")
+        };
+        if (continueCampaign)
+        {
+            CampaignRecipe.Validate(data);
+            if (data.Player.Layer != WorldLayerId.Surface ||
+                !float.IsFinite(data.Player.X) || !float.IsFinite(data.Player.Y) ||
+                !float.IsFinite(data.SpawnX) || !float.IsFinite(data.SpawnY))
+                throw new InvalidDataException("This pass restores surface campaigns only.");
+        }
+        PackedScene scene = GD.Load<PackedScene>(MenuNavigation.CampaignScene)
+            ?? throw new IOException("Campaign scene is unavailable.");
+        Node world = scene.Instantiate();
+        try
+        {
+            Player player = world.GetNode<Player>("WorldObjects/Player");
+            ChunkController chunks = world.GetNode<ChunkController>("Systems/ChunkController");
+            if (continueCampaign)
+            {
+                CampaignRecipe.Apply(world, data);
+                player.Position = new Vector2(data.SpawnX, data.SpawnY);
+            }
+            else
+            {
+                // A campaign uses a fresh seed rather than the scene's fixed test seed.
+                using RandomNumberGenerator random = new();
+                random.Randomize();
+                chunks.WorldSeed = random.Randi();
+                data.Seed = chunks.WorldSeed;
+                data.SpawnX = player.Position.X; data.SpawnY = player.Position.Y;
+                CampaignRecipe.Capture(world, data);
+            }
+            world.AddChild(new CampaignSession
+                { Name = "CampaignSession", _data = data, _restoring = continueCampaign });
+        }
+        catch { world.Free(); throw; }
+        SceneTree tree = menu.GetTree();
+        // Retire the old scene before activating the detached campaign.
+        Callable.From(() =>
+        {
+            Node previous = tree.CurrentScene;
+            if (previous != null) { tree.Root.RemoveChild(previous); previous.QueueFree(); }
+            tree.Paused = false;
+            tree.Root.AddChild(world);
+            tree.CurrentScene = world;
+        }).CallDeferred();
+    }
+
+    // =========================================================
+    // Let terrain startup run while player actions and item collection remain frozen.
+    public override void _Ready()
+    {
+        _world = GetParent();
+        _player = _world.GetNode<Player>("WorldObjects/Player");
+        _chunks = _world.GetNode<ChunkController>("Systems/ChunkController");
+        _objectsMode = ProcessModeEnum.Inherit;
+        ProcessPriority = 1000;
+        _startup.Start();
+    }
+
+    // =========================================================
+    // Wait for terrain, player artwork and the deferred world clock, then restore once.
+    public override void _Process(double delta)
+    {
+        if (_finished) return;
+        Node objects = _world.GetNode("WorldObjects");
+        objects.ProcessMode = ProcessModeEnum.Disabled;
+        try
+        {
+            _clock ??= WorldEclipse.Find(this)?.GetNodeOrNull<WorldClock>("WorldClock");
+            if (!_chunks.WorldReady || _player.Controls == null || !_player.IsPhysicsProcessing() || _clock == null)
+            {
+                if (_startup.Elapsed.TotalSeconds > 120)
+                    throw new IOException("Campaign initialization did not finish; check Godot's errors.");
+                return;
+            }
+            if (_restoring)
+            {
+                Vector2 position = new(_data.Player.X, _data.Player.Y);
+                _player.GlobalPosition = position;
+                if (!_chunks.PrepareDestination(position))
+                {
+                    if (_startup.Elapsed.TotalSeconds > 120)
+                        throw new IOException("Saved destination could not be prepared.");
+                    return;
+                }
+                if (!_chunks.IsNavigationPointAvailable(position, 12f))
+                    throw new InvalidDataException("Saved position is no longer on available surface terrain.");
+                RestorePlayer();
+                _player.GlobalPosition = position;
+                _player.Velocity = Vector2.Zero;
+                _clock.RestoreSave(_data.WorldSeconds);
+            }
+            else _clock.RestoreSave(0);
+            _player.GetNode<Camera2D>("Camera2D").ResetSmoothing();
+            PauseMenu.Attach(_player, _player.Controls).BindSave(Save);
+            objects.ProcessMode = _objectsMode;
+            _finished = true; SetProcess(false);
+            if (_restoring && !string.IsNullOrEmpty(CampaignStore.RecoveryMessage))
+                GD.Print(CampaignStore.RecoveryMessage);
+        }
+        catch (Exception error) { FailLoad(error); }
+    }
+
+    // =========================================================
+    // Restore capacities first, physical items second, shortcuts and vitals last.
+    private void RestorePlayer()
+    {
+        PlayerSaveData saved = _data.Player;
+        _player.GetNode<PlayerStats>("Systems/Stats").RestoreSave(saved);
+        ItemCatalog items = ResourceWorld.Find(this).Catalog;
+        _player.GetNode<PlayerInventory>("Systems/Inventory").RestoreSave(saved, items);
+        _player.GetNode<PlayerHotbar>("Systems/Hotbar").RestoreSave(saved);
+        _player.GetNode<PlayerVitals>("Systems/Vitals").RestoreSave(saved);
+        _player.GetNode<PlayerCrafting>("Systems/Crafting").RestoreSave(saved);
+        _player.GetNode<PlayerSurvival>("Systems/Survival").RestoreSave(saved);
+    }
+
+    // =========================================================
+    // Capture supported sections only while paused, on solid surface ground.
+    private void Save()
+    {
+        if (!_finished || !GetTree().Paused || ProfileStore.Selected?.Id != _data.ProfileId)
+            throw new InvalidOperationException("No paused campaign belongs to the selected profile.");
+        if (WorldLayerMember.For(_player) != WorldLayerId.Surface)
+            throw new InvalidOperationException("Underground saving comes with the layer-restoration pass.");
+        if (_player.IsAirborne || !_player.GetNode<Health>("Systems/Health").IsAlive)
+            throw new InvalidOperationException("Save while alive and standing on the ground.");
+        PlayerSaveData saved = new()
+        {
+            X = _player.GlobalPosition.X, Y = _player.GlobalPosition.Y,
+            Layer = WorldLayerId.Surface,
+            Health = _player.GetNode<Health>("Systems/Health").Current
+        };
+        _player.GetNode<PlayerStats>("Systems/Stats").CaptureSave(saved);
+        _player.GetNode<PlayerVitals>("Systems/Vitals").CaptureSave(saved);
+        _player.GetNode<PlayerInventory>("Systems/Inventory").CaptureSave(saved);
+        _player.GetNode<PlayerHotbar>("Systems/Hotbar").CaptureSave(saved);
+        _player.GetNode<PlayerCrafting>("Systems/Crafting").CaptureSave(saved);
+        _player.GetNode<PlayerSurvival>("Systems/Survival").CaptureSave(saved);
+        _data.Player = saved;
+        _data.WorldSeconds = _clock.ElapsedSeconds;
+        _data.SavedUtc = DateTime.UtcNow;
+        CampaignStore.Write(_data);
+    }
+
+    // =========================================================
+    // Keep failed restoration frozen and show an exit route without saving over it.
+    private void FailLoad(Exception error)
+    {
+        _finished = true; SetProcess(false);
+        GetTree().Paused = true;
+        AcceptDialog dialog = new()
+        {
+            Title = "Campaign load failed", DialogText = error.Message +
+                "\nYour existing save was preserved.",
+            ProcessMode = ProcessModeEnum.Always
+        };
+        AddChild(dialog);
+        dialog.GetOkButton().Text = "MAIN MENU";
+        dialog.Confirmed += () => MenuNavigation.Open(this, MenuNavigation.MainScene);
+        dialog.PopupCentered(new Vector2I(640, 240));
+        GD.PushError(error.Message);
+    }
+}

@@ -153,13 +153,9 @@ public partial class MainMenu : Control
         intro.CustomMinimumSize = new Vector2(0, 88);
         menu.AddChild(intro);
 
-        Button continueButton = AddMenu(menu, "Continue",
-            () => OpenCampaign(true), CampaignArtwork);
-        continueButton.Disabled = !CampaignStore.Exists(ProfileStore.Selected.Id);
-
-        _campaign = AddMenu(menu, "New Campaign", NewCampaign, CampaignArtwork);
-        menu.AddChild(UIButtonFactory.Label(
-            "SAVE PASS 1â€“2: WORLD + PLAYER ONLY", 14));
+        _campaign = AddMenu(
+            menu, "Campaign",
+            () => Launch(CampaignScene), CampaignArtwork);
 
         AddMenu(menu, "Sandbox",
             () => Launch(SandboxScene), SandboxArtwork);

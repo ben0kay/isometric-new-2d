@@ -62,8 +62,8 @@ public partial class PauseMenu : CanvasLayer
 
         _save.Disabled = saveAction == null;
         _save.TooltipText = saveAction == null
-            ? "Campaign saving is unavailable in this scene."
-            : "Partial save: surface world, player, inventory and crafting only.";
+            ? "Persistent gameplay saving is not connected yet."
+            : "Save this campaign.";
     }
     #endregion
 
@@ -231,12 +231,7 @@ public partial class PauseMenu : CanvasLayer
     {
         if (_saveAction == null) return;
 
-        try
-        {
-            _saveAction();
-            ShowMessage("Partial campaign saved", "World and player saved to your selected profile.\n" +
-                "Harvesting, world items, containers, buildings and entities are not saved yet.");
-        }
+        try { _saveAction(); }
         catch (Exception error)
         {
             ShowMessage("Save failed", error.Message);
