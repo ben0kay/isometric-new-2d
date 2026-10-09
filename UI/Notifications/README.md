@@ -31,7 +31,7 @@ All notification code and configuration resources live inside `UI/Notifications/
 
 ### Preview in Godot (isolated debug scene node)
 
-The production `NotificationManager.cs` no longer reads F8 or contains sample notification code.
+The production `NotificationManager.cs` contains no preview shortcut or sample notification code.
 
 The test script is `res://DEBUG/Notifications/NotificationTester.cs`, attached in
 `WORLD/Scenes/world_infinite.tscn` under the new scene-tree branch:
@@ -45,7 +45,7 @@ WorldInfinite
 All pre-existing debug nodes remain in their original locations.
 
 Pull the repository, let Godot import the new script, build the C# project, then run
-`WorldInfinite` in the editor. Press **F8** repeatedly to preview:
+`WorldInfinite` in the editor. Press **F4** repeatedly to preview:
 
 1. Plant Fibre +1
 2. Plant Fibre +2 (combines with the previous notice if still visible)
@@ -55,6 +55,7 @@ Pull the repository, let Godot import the new script, build the C# project, then
 6. Region Discovered (cyan)
 7. Hazardous Conditions (amber)
 
+Godot reserves **F8** for **Stop Running Project**, so the tester uses F4 instead.
 The sample input code is wrapped in `#if DEBUG`, so it does not compile into C# Release
 builds. The tester additionally exposes `Enabled` and `PreviewKey` in the Godot Inspector.
 To unplug the tester at any time, disable its **Enabled** checkbox, set the `DEBUG`

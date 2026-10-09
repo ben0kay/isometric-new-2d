@@ -7,7 +7,7 @@ public partial class NotificationTester : Node
     #region Configuration
     [ExportGroup("Preview")]
     [Export] public bool Enabled { get; set; } = true;
-    [Export] public Key PreviewKey { get; set; } = Key.F8;
+    [Export] public Key PreviewKey { get; set; } = Key.F4;
     #endregion
 
 #if DEBUG
