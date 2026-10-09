@@ -1,5 +1,4 @@
-// Owns a stack of player input modes without pausing world simulation.
-// Interfaces claim control and release only their own entry.
+// Owns player input modes; interfaces claim control and release their own entry.
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -10,7 +9,8 @@ public enum PlayerInputMode
     Inventory,
     Container,
     DebugMap,
-    DebugMenu
+    DebugMenu,
+    Pause
 }
 
 public partial class InputModes : Node
@@ -81,26 +81,25 @@ public partial class InputModes : Node
     }
 
     // =========================================================
-// Toggle fullscreen from gameplay or menus, ignoring held-key repeats.
-public override void _Input(InputEvent input)
-{
-    if (input is not InputEventKey key ||
-        !key.Pressed || key.Echo ||
-        key.PhysicalKeycode != Key.F11)
-        return;
+    // Toggle fullscreen without responding to held-key repeats.
+    public override void _Input(InputEvent input)
+    {
+        if (input is not InputEventKey key ||
+            !key.Pressed || key.Echo ||
+            key.PhysicalKeycode != Key.F11)
+            return;
 
-    Window window = GetTree().Root;
+        Window window = GetTree().Root;
+        bool fullscreen =
+            window.Mode == Window.ModeEnum.Fullscreen ||
+            window.Mode == Window.ModeEnum.ExclusiveFullscreen;
 
-    bool fullscreen =
-        window.Mode == Window.ModeEnum.Fullscreen ||
-        window.Mode == Window.ModeEnum.ExclusiveFullscreen;
+        window.Mode = fullscreen
+            ? Window.ModeEnum.Windowed
+            : Window.ModeEnum.Fullscreen;
 
-    window.Mode = fullscreen
-        ? Window.ModeEnum.Windowed
-        : Window.ModeEnum.Fullscreen;
-
-    GetViewport().SetInputAsHandled();
-}
+        GetViewport().SetInputAsHandled();
+    }
     #endregion
 
     #region Resolution
@@ -109,11 +108,9 @@ public override void _Input(InputEvent input)
     public static InputModes For(Node context)
     {
         foreach (Node node in context.GetTree().GetNodesInGroup("input_modes"))
-        {
             if (node is InputModes modes &&
                 modes.GetViewport() == context.GetViewport())
                 return modes;
-        }
 
         throw new InvalidOperationException(
             "Add InputModes.tscn to this world scene.");
@@ -126,7 +123,8 @@ public override void _Input(InputEvent input)
     public void Push(Node owner, PlayerInputMode mode)
     {
         if (!GodotObject.IsInstanceValid(owner))
-            throw new ArgumentException("Input mode requires a valid owner.");
+            throw new ArgumentException(
+                "Input mode requires a valid owner.");
 
         if (mode == PlayerInputMode.Gameplay)
             throw new ArgumentException(
@@ -153,7 +151,7 @@ public override void _Input(InputEvent input)
     }
 
     // =========================================================
-    // Allow only the interface at the top of the stack to read its controls.
+    // Allow only the top interface to read its controls.
     public bool OwnsInput(Node owner)
     {
         Prune();
@@ -178,7 +176,7 @@ public override void _Input(InputEvent input)
     }
 
     // =========================================================
-    // Recover automatically if an owning interface is removed unexpectedly.
+    // Recover automatically when an owning interface is removed.
     private void Prune()
     {
         for (int i = _stack.Count - 1; i >= 0; i--)

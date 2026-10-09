@@ -1,0 +1,281 @@
+// Pauses gameplay while its own UI remains active; save support binds separately.
+using Godot;
+using System;
+
+public partial class PauseMenu : CanvasLayer
+{
+    #region Configuration
+    [ExportGroup("Layout")]
+    [Export] public float PanelWidth { get; set; } = 440f;
+    #endregion
+
+    #region State
+    private PlayerInput _controls;
+    private InputModes _modes;
+    private Control _screen;
+    private Button _resume, _save;
+    private AcceptDialog _message;
+    private ConfirmationDialog _confirm;
+    private Action _saveAction, _exitAction;
+    private bool _open;
+    private Input.MouseModeEnum _previousMouse;
+    public bool IsOpen => _open;
+    #endregion
+
+    #region Setup
+    // =========================================================
+    // Attach once per player without editing every playable world scene.
+    public static PauseMenu Attach(Player player, PlayerInput controls)
+    {
+        PauseMenu existing = player.GetNodeOrNull<PauseMenu>("PauseMenu");
+        if (existing != null) return existing;
+
+        PauseMenu menu = GD.Load<PackedScene>(
+            "res://UI/Menus/Pause/PauseMenu.tscn")
+            .Instantiate<PauseMenu>();
+
+        menu.Name = "PauseMenu";
+        menu._controls = controls;
+        menu._modes = InputModes.For(player);
+        player.AddChild(menu);
+        return menu;
+    }
+
+    // =========================================================
+    // Only this menu branch ignores the scene-tree pause state.
+    public override void _Ready()
+    {
+        ProcessMode = ProcessModeEnum.Always;
+        Layer = 200;
+        BuildUi();
+        _screen.Hide();
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Enable saving only when the real persistent saver is connected.
+    public void BindSave(Action saveAction)
+    {
+        _saveAction = saveAction;
+        if (_save == null) return;
+
+        _save.Disabled = saveAction == null;
+        _save.TooltipText = saveAction == null
+            ? "Persistent gameplay saving is not connected yet."
+            : "Save this campaign.";
+    }
+    #endregion
+
+    #region Input and Pause
+    // =========================================================
+    // Let existing interfaces consume ESC before opening pause.
+    public override void _UnhandledInput(InputEvent input)
+    {
+        if (_controls == null || !PlayerInput.IsPauseRequest(input))
+            return;
+
+        if (!_open && (!_modes.GameplayAllowed ||
+            GetTree().Paused || GetViewport().GuiIsDragging()))
+            return;
+
+        GetViewport().SetInputAsHandled();
+
+        if (_open) ResumeGame();
+        else Open();
+    }
+
+    // =========================================================
+    // Stop player actions, claim input, then pause the scene tree.
+    private void Open()
+    {
+        _open = true;
+        _previousMouse = Input.MouseMode;
+        _modes.Push(this, PlayerInputMode.Pause);
+        _controls.Suspend();
+
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        _screen.Show();
+        GetTree().Paused = true;
+        _resume.GrabFocus();
+    }
+
+    // =========================================================
+    // Release ownership and prevent held-input retriggers.
+    private void ResumeGame()
+    {
+        if (!_open) return;
+
+        _message.Hide();
+        _confirm.Hide();
+        _exitAction = null;
+        _screen.Hide();
+        _modes.Release(this);
+        _controls.Resume();
+
+        Input.MouseMode = _previousMouse;
+        _open = false;
+        GetTree().Paused = false;
+    }
+
+    // =========================================================
+    // Never leave the tree paused if the owning player is removed.
+    public override void _ExitTree()
+    {
+        if (!_open) return;
+
+        if (GodotObject.IsInstanceValid(_modes))
+            _modes.Release(this);
+
+        GetTree().Paused = false;
+        Input.MouseMode = _previousMouse;
+    }
+    #endregion
+
+    #region Layout
+    // =========================================================
+    // Build a blocking overlay with the existing shared button styles.
+    private void BuildUi()
+    {
+        _screen = new Control
+        {
+            MouseFilter = Control.MouseFilterEnum.Stop
+        };
+
+        AddChild(_screen);
+        _screen.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        ColorRect dim = new()
+        {
+            Color = new Color(0.015f, 0.035f, 0.05f, 0.78f),
+            MouseFilter = Control.MouseFilterEnum.Stop
+        };
+
+        _screen.AddChild(dim);
+        dim.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        CenterContainer centre = new();
+        _screen.AddChild(centre);
+        centre.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        PanelContainer panel = new()
+        {
+            CustomMinimumSize = new Vector2(PanelWidth, 0)
+        };
+
+        panel.AddThemeStyleboxOverride(
+            "panel", UIButtonFactory.Box(
+                UIButtonFactory.Ink, UIButtonFactory.Accent));
+
+        centre.AddChild(panel);
+
+        VBoxContainer contents = new();
+        contents.AddThemeConstantOverride("separation", 12);
+        panel.AddChild(contents);
+        contents.AddChild(UIButtonFactory.Label("PAUSED", 30));
+
+        _resume = AddButton(contents, "Resume", ResumeGame);
+        _save = AddButton(contents, "Save Game", SaveGame);
+
+        AddButton(contents, "Options", () => ShowMessage(
+            "Options", "Options will be added later."));
+
+        AddButton(contents, "Exit to Main Menu",
+            () => ConfirmExit(false));
+
+        AddButton(contents, "Exit Game",
+            () => ConfirmExit(true));
+
+        AddButton(contents, "About", () => ShowMessage(
+            "About", "A science-fiction survival world.\n" +
+            "About content is a placeholder."));
+
+        _message = new AcceptDialog { Exclusive = true };
+        AddChild(_message);
+        UIButtonFactory.Apply(_message.GetOkButton());
+
+        _confirm = new ConfirmationDialog
+        {
+            Exclusive = true,
+            Title = "Leave game?"
+        };
+
+        AddChild(_confirm);
+        _confirm.GetOkButton().Text = "LEAVE";
+        UIButtonFactory.Apply(_confirm.GetOkButton());
+        UIButtonFactory.Apply(_confirm.GetCancelButton());
+
+        _confirm.Confirmed += CompleteExit;
+        _confirm.Canceled += () => _exitAction = null;
+        BindSave(_saveAction);
+    }
+
+    // =========================================================
+    // Share button construction, focus handling and styling.
+    private static Button AddButton(
+        VBoxContainer parent, string text, Action action)
+    {
+        Button button = UIButtonFactory.Create(text, action);
+        parent.AddChild(button);
+        return button;
+    }
+    #endregion
+
+    #region Actions
+    // =========================================================
+    // Invoke only an explicitly connected persistent saver.
+    private void SaveGame()
+    {
+        if (_saveAction == null) return;
+
+        try { _saveAction(); }
+        catch (Exception error)
+        {
+            ShowMessage("Save failed", error.Message);
+        }
+    }
+
+    // =========================================================
+    // Ask before leaving unsaved gameplay.
+    private void ConfirmExit(bool quit)
+    {
+        _exitAction = quit
+            ? () => GetTree().Quit()
+            : () => MenuNavigation.Open(
+                this, ProfileStore.Selected == null
+                    ? MenuNavigation.BootScene
+                    : MenuNavigation.MainScene);
+
+        _confirm.DialogText =
+            "Leave this game? Any unsaved progress will be lost.";
+
+        _confirm.PopupCentered(new Vector2I(460, 180));
+    }
+
+    // =========================================================
+    // Keep gameplay paused if returning to a menu fails.
+    private void CompleteExit()
+    {
+        Action action = _exitAction;
+        _exitAction = null;
+
+        try { action?.Invoke(); }
+        catch (Exception error)
+        {
+            ShowMessage("Could not leave", error.Message);
+        }
+    }
+
+    // =========================================================
+    // Show placeholders or errors while gameplay remains paused.
+    private void ShowMessage(string title, string text)
+    {
+        _message.Title = title;
+        _message.DialogText = text;
+        _message.PopupCentered(new Vector2I(460, 180));
+    }
+    #endregion
+}
