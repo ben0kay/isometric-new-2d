@@ -18,7 +18,8 @@ public partial class TerrainVisual : Node2D
 public static TerrainVisual Attach(
     Node2D host, Rect2 region, Vector2 origin, Vector2 scale,
     bool followMovement, VisualDefinition definition = null,
-    Texture2D fallbackTexture = null, Material fallbackMaterial = null)
+    Texture2D fallbackTexture = null, Material fallbackMaterial = null,
+    int imageVariant = 0)
 {
     TerrainVisual visual = new()
     {
@@ -26,7 +27,7 @@ public static TerrainVisual Attach(
         FollowMovement = followMovement
     };
 
-    if (!visual.TryAttachCustom(definition))
+    if (!visual.TryAttachCustom(definition, imageVariant))
     {
         if (fallbackTexture == null)
             visual.AttachBaked(region, origin, scale);
@@ -67,7 +68,7 @@ public static TerrainVisual Attach(
 
 // =========================================================
     // Prefer a custom scene, then an imported image, then the baked fallback.
-    private bool TryAttachCustom(VisualDefinition definition)
+    private bool TryAttachCustom(VisualDefinition definition, int imageVariant)
     {
         if (definition == null) return false;
 
@@ -89,13 +90,14 @@ public static TerrainVisual Attach(
                 "Trying image or baked fallback.");
         }
 
-        if (definition.Image == null) return false;
+        Texture2D image = definition.GetImage(imageVariant);
+        if (image == null) return false;
 
-        Vector2 size = definition.Image.GetSize();
+        Vector2 size = image.GetSize();
         AddChild(new Sprite2D
         {
             Name = "Artwork",
-            Texture = definition.Image,
+            Texture = image,
             Centered = false,
             Offset = new Vector2(
                 -size.X * definition.ImageAnchor.X,

@@ -115,7 +115,10 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
             Position = objects.ToLocal(globalPoint),
             Definition = definition,
-            Variant = rng.RandiRange(0, VegetationAtlas.VariantsPerKind - 1),
+            Variant = rng.RandiRange(0,
+                Mathf.Max(1, definition.Visual?.ImageVariantCount > 0
+                    ? definition.Visual.ImageVariantCount
+                    : VegetationAtlas.VariantsPerKind) - 1),
             SizeMultiplier = size,
             Mirror = definition.RollMirror(rng)
         };
