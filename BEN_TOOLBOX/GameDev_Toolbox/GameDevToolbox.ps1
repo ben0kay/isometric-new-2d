@@ -16,9 +16,9 @@ $tools = @(
         Path = "Tools\ResourceChecker\ResourceChecker.ps1"
     }
     @{
-        Name = "Plant Design Prompter"
+        Name = "Artwork Design Prompter"
         Description = "Build artwork prompts using biome, colour, shape, and style choices."
-        Path = "Tools\PlantDesignPrompter\PlantDesignPrompter.ps1"
+        Path = "Tools\ArtworkDesignPrompter\ArtworkDesignPrompter.ps1"
     }
         @{
         Name = "Lighting & Shadow Inspector"
