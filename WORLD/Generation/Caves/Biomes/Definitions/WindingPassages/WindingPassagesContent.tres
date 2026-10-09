@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="BiomeContent" format=3]
+[gd_resource type="Resource" script_class="BiomeContent" format=3 uid="uid://cimwjh5hrxdya"]
 
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Content/BiomeContent.cs" id="1_content"]
-[ext_resource type="Script" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
+[ext_resource type="Script" uid="uid://bwfdkn22kvm5v" path="res://WORLD/Generation/Biomes/Content/BiomeContent.cs" id="1_content"]
+[ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="1_i7e6n"]
+[ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
 
 [sub_resource type="Resource" id="Vegetation"]
 script = ExtResource("2_vegetation")
