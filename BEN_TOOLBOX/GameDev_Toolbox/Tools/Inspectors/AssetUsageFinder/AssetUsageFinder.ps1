@@ -202,7 +202,7 @@ function Find-Usage([string]$asset) {
             $script:Results += [PSCustomObject]@{
                 Scope = $(if ($depth -eq 1) { 'Direct' } else { 'Indirect' })
                 Hops = $depth
-                File = Get-Relative $edge.Source
+                File = (Get-Relative $edge.Source)
                 Line = $edge.Line
                 Reference = $edge.Kind
                 Via = $(if ($depth -eq 1) { '-' } else { Get-Relative $node.File })
