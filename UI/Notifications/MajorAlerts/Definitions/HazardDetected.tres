@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MajorAlertDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertDefinition.cs" id="1_alert"]
+
+[resource]
+script = ExtResource("1_alert")
+Id = "hazard_detected"
+Title = "HAZARDOUS CONDITIONS"
+Description = "A dangerous environmental anomaly has been detected nearby."
+Footer = "ENVIRONMENTAL HAZARD"
+BadgeText = "!"
+Tone = 2
+Priority = 85
+DurationSeconds = 5.0
+CooldownSeconds = 75.0
+VoiceCueId = "hazard_warning"
