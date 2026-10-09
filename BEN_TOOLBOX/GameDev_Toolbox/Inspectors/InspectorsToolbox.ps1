@@ -10,6 +10,11 @@ $tools = @(
         Description = "Find the largest images, audio or other files in your project."
         Path = "Tools\Inspectors\FileSizeInspector\FileSizeInspector.ps1"
     }
+    @{
+        Name = "Biome Population Inspector"
+        Description = "Read biome population counts, species weights, artwork and unregistered definitions."
+        Path = "Tools\Inspectors\BiomeContentInspector\BiomePopulationInspector.ps1"
+    }
 )
 
 $gameDevRoot = Split-Path -Parent $PSScriptRoot
