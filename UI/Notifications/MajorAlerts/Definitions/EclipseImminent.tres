@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MajorAlertDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/MajorAlerts/MajorAlertDefinition.cs" id="1_alert"]
+
+[resource]
+script = ExtResource("1_alert")
+Id = "eclipse_imminent"
+Title = "ECLIPSE IMMINENT"
+Description = "Environmental conditions are deteriorating. Seek shelter."
+Footer = "ENVIRONMENTAL WARNING"
+BadgeText = "!"
+Tone = 2
+Priority = 80
+DurationSeconds = 5
+CooldownSeconds = 120
+OncePerSession = false
+VoiceCueId = "eclipse_warning"
