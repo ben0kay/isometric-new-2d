@@ -1,3 +1,4 @@
+﻿param([string]$InputFolder = "")
 # Batch-resizes PNG sprites and names the output copies.
 # After all copies succeed, originals move into RAW beside this script.
 # Existing files are never overwritten.
@@ -12,7 +13,7 @@ $script:RawFolder = Join-Path $PSScriptRoot "RAW"
 #region Window
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Sprite Batch Tool"
-$form.ClientSize = New-Object System.Drawing.Size(720, 530)
+$form.ClientSize = New-Object System.Drawing.Size(720, 750)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -57,12 +58,12 @@ function Add-FolderPicker($inputBox, $y) {
     $form.Controls.Add($button)
 }
 
-$source = Add-Input "Source folder" "" 20 425
+$source = Add-Input "Source folder" $InputFolder 20 425
 $destination = Add-Input "Destination folder" "" 60 425
 Add-FolderPicker $source 20
 Add-FolderPicker $destination 60
 
-$scale = Add-Input "Scale multiplier" "0.25" 100 120
+$scale = Add-Input "Scale multiplier" "1" 100 120
 $prefix = Add-Input "Filename prefix" "Plant" 140 220
 $start = Add-Input "Starting number" "1" 180 120
 $padding = Add-Input "Number digits" "2" 220 120
@@ -73,27 +74,51 @@ $letterMode.Location = New-Object System.Drawing.Point(350, 180)
 $letterMode.Size = New-Object System.Drawing.Size(340, 25)
 $form.Controls.Add($letterMode)
 
+
+$speciesFolders = New-Object System.Windows.Forms.CheckBox
+$speciesFolders.Text = "Create a folder per species (letters = variants of one species)"
+$speciesFolders.Checked = $true
+$speciesFolders.Location = New-Object System.Drawing.Point(15, 260)
+$speciesFolders.Size = New-Object System.Drawing.Size(680, 25)
+$form.Controls.Add($speciesFolders)
+
+$resources = New-Object System.Windows.Forms.CheckBox
+$resources.Text = "Generate plant .tres + Visual.tres (requires destination inside Godot project)"
+$resources.Checked = $true
+$resources.Location = New-Object System.Drawing.Point(15, 290)
+$resources.Size = New-Object System.Drawing.Size(680, 25)
+$form.Controls.Add($resources)
+$artScale = Add-Input "Artwork scale" "0.5878125" 325 120
+$anchor = Add-Input "Anchor Y (0 to 1)" "0.96" 360 120
+$sizeMin = Add-Input "Random size minimum" "0.85" 395 120
+$sizeMax = Add-Input "Random size maximum" "1.15" 430 120
+$hint = New-Object System.Windows.Forms.Label
+$hint.Text = "Sources are COPIED to a unique RAW run folder beside this tool; originals stay in Source."
+$hint.Location = New-Object System.Drawing.Point(315, 330)
+$hint.Size = New-Object System.Drawing.Size(385, 110)
+$form.Controls.Add($hint)
+
 $preview = New-Object System.Windows.Forms.ListBox
-$preview.Location = New-Object System.Drawing.Point(15, 265)
+$preview.Location = New-Object System.Drawing.Point(15, 475)
 $preview.Size = New-Object System.Drawing.Size(685, 180)
 $preview.HorizontalScrollbar = $true
 $form.Controls.Add($preview)
 
 $previewButton = New-Object System.Windows.Forms.Button
 $previewButton.Text = "Preview"
-$previewButton.Location = New-Object System.Drawing.Point(15, 465)
+$previewButton.Location = New-Object System.Drawing.Point(15, 675)
 $previewButton.Size = New-Object System.Drawing.Size(120, 35)
 $form.Controls.Add($previewButton)
 
 $processButton = New-Object System.Windows.Forms.Button
 $processButton.Text = "Process"
-$processButton.Location = New-Object System.Drawing.Point(150, 465)
+$processButton.Location = New-Object System.Drawing.Point(150, 675)
 $processButton.Size = New-Object System.Drawing.Size(120, 35)
 $form.Controls.Add($processButton)
 
 $status = New-Object System.Windows.Forms.Label
-$status.Text = "PNG files only. Originals move to RAW after processing."
-$status.Location = New-Object System.Drawing.Point(285, 470)
+$status.Text = "PNG files only. Source files preserved; RAW copies created during processing."
+$status.Location = New-Object System.Drawing.Point(285, 680)
 $status.Size = New-Object System.Drawing.Size(415, 40)
 $form.Controls.Add($status)
 #endregion
@@ -177,6 +202,33 @@ function Get-Plan {
         throw "Starting number is too large."
     }
 
+
+    if ($resources.Checked -and !$speciesFolders.Checked) {
+        throw "Enable species folders to generate plant resources."
+    }
+    $script:ResourcePlan = @()
+    $script:ArchiveRun = Join-Path $script:RawFolder ([Guid]::NewGuid().ToString("N"))
+    $projectRoot = $destinationPath
+    if ($resources.Checked) {
+        while ($projectRoot -and !(Test-Path -LiteralPath (Join-Path $projectRoot "project.godot"))) {
+            $projectRoot = Split-Path -Parent $projectRoot
+        }
+        if (!$projectRoot) { throw "Plant resources require a destination within a Godot project." }
+        foreach ($required in @("WORLD/Contents/Vegetation/Plants/PlantDefinition.cs",
+            "VISUALS/Definitions/VisualDefinition.cs",
+            "VISUALS/Vegetation/VegetationVisualSettings.cs")) {
+            if (!(Test-Path -LiteralPath (Join-Path $projectRoot $required))) {
+                throw "Required project script missing: $required"
+            }
+        }
+        $culture = [Globalization.CultureInfo]::InvariantCulture
+        $script:ArtValue = Read-Number $artScale.Text 0.001 100
+        $script:AnchorValue = Read-Number $anchor.Text 0 1
+        $script:MinValue = Read-Number $sizeMin.Text 0.1 10
+        $script:MaxValue = Read-Number $sizeMax.Text 0.1 10
+        if ([double]$script:MaxValue -lt [double]$script:MinValue) { throw "Maximum size must be at least minimum size." }
+    }
+    $seen = @{}
     $index = 0
     foreach ($file in $files) {
         $suffix = ""
@@ -185,8 +237,29 @@ function Get-Plan {
         }
 
         $newName = $namePrefix + $number.ToString("D$digits") + $suffix + ".png"
-        $outputPath = Join-Path $destinationPath $newName
-        $archivePath = Join-Path $script:RawFolder $file.Name
+
+        $species = $namePrefix + $number.ToString("D$digits")
+        if ($species -notmatch '^[A-Za-z][A-Za-z0-9_]*$') {
+            throw "Use a prefix starting with a letter, containing letters, numbers or underscores."
+        }
+        $folder = $destinationPath
+        if ($speciesFolders.Checked) {
+            $folder = Join-Path $destinationPath $species
+            if (Test-Path -LiteralPath $folder) {
+                throw "Species folder already exists: $folder. Use a new name/number; existing species are not modified."
+            }
+        }
+        $outputPath = Join-Path $folder $newName
+        $archivePath = Join-Path $script:ArchiveRun $file.Name
+        if ($resources.Checked -and !$seen.ContainsKey($species)) {
+            $seen[$species] = $true
+            $relative = $folder.Substring($projectRoot.Length).TrimStart('\', '/').Replace('\', '/')
+            $script:ResourcePlan += [pscustomobject]@{
+                Species = $species
+                Folder = $folder
+                ResFolder = "res://$relative"
+            }
+        }
 
         if (Test-Path -LiteralPath $outputPath) {
             throw "Output already exists: $newName. Change the prefix or starting number."
@@ -206,7 +279,7 @@ function Get-Plan {
                 Archive = $archivePath
                 Width = $newWidth
                 Height = $newHeight
-                Description = "$($file.Name) -> $newName   " +
+                Description = "$($file.Name) -> $outputPath   " +
                     "$($image.Width)x$($image.Height) -> ${newWidth}x${newHeight}"
             }
         }
@@ -222,6 +295,13 @@ function Get-Plan {
 # =========================================================
 # Resize with transparency and save without overwriting existing files.
 function Save-Sprite($entry) {
+    $original = [Drawing.Image]::FromFile($entry.Source)
+    try { $unchanged = ($original.Width -eq $entry.Width -and $original.Height -eq $entry.Height) }
+    finally { $original.Dispose() }
+    if ($unchanged) {
+        [IO.File]::Copy($entry.Source, $entry.Output, $false)
+        return
+    }
     $image = $null
     $bitmap = $null
     $graphics = $null
@@ -280,6 +360,64 @@ function Save-Sprite($entry) {
 }
 #endregion
 
+
+function Read-Number([string]$text, [double]$minimum, [double]$maximum) {
+    $value = 0.0
+    if (![double]::TryParse($text, [Globalization.NumberStyles]::Float,
+        [Globalization.CultureInfo]::InvariantCulture, [ref]$value) -or
+        [double]::IsNaN($value) -or $value -lt $minimum -or $value -gt $maximum) {
+        throw "Enter a number between $minimum and $maximum (use a decimal point)."
+    }
+    return $value.ToString("0.########", [Globalization.CultureInfo]::InvariantCulture)
+}
+function Write-NewText([string]$path, [string]$text, $written) {
+    $stream = [IO.File]::Open($path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write)
+    $written.Add($path)
+    try {
+        $encoding = New-Object System.Text.UTF8Encoding($false)
+        $bytes = $encoding.GetBytes($text)
+        $stream.Write($bytes, 0, $bytes.Length)
+    } finally { $stream.Dispose() }
+}
+function Write-PlantResources($entry, $written) {
+    $species = $entry.Species
+    $folder = $entry.ResFolder
+    $id = ([regex]::Replace($species, '([a-z0-9])([A-Z])', '$1_$2')).ToLowerInvariant()
+    $visual = @"
+[gd_resource type="Resource" script_class="VisualDefinition" format=3]
+
+[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
+[ext_resource type="Script" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="2_effects"]
+
+[sub_resource type="Resource" id="Effects"]
+script = ExtResource("2_effects")
+
+[resource]
+script = ExtResource("1_visual")
+ImageFolder = "$folder"
+ArtworkScale = Vector2($script:ArtValue, $script:ArtValue)
+ImageAnchor = Vector2(0.5, $script:AnchorValue)
+Vegetation = SubResource("Effects")
+"@
+    $plant = @"
+[gd_resource type="Resource" script_class="PlantDefinition" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1_plant"]
+[ext_resource type="Resource" path="$folder/${species}Visual.tres" id="2_visual"]
+
+[resource]
+script = ExtResource("1_plant")
+Id = "$id"
+Visual = ExtResource("2_visual")
+ContactShadowScale = Vector2(1, 0.75)
+Spacing = Vector2(112, 64)
+SizeRange = Vector2($script:MinValue, $script:MaxValue)
+MirrorChance = 0.5
+HarvestItemId = "plant_fiber"
+"@
+    Write-NewText (Join-Path $entry.Folder "${species}Visual.tres") $visual $written
+    Write-NewText (Join-Path $entry.Folder "$species.tres") $plant $written
+}
 #region Buttons
 # =========================================================
 # Preview names and dimensions without changing any files.
@@ -292,7 +430,7 @@ $previewButton.Add_Click({
             [void]$preview.Items.Add($entry.Description)
         }
 
-        $status.Text = "$($plan.Count) sprites ready. Originals will move to RAW."
+        $status.Text = "$($plan.Count) sprites ready. Sources preserved; RAW copies will be created."
     }
     catch {
         [void][System.Windows.Forms.MessageBox]::Show(
@@ -302,55 +440,53 @@ $previewButton.Add_Click({
 
 # =========================================================
 # Finish all resized copies before archiving the originals.
+
 $processButton.Add_Click({
-    $saved = 0
-    $moved = 0
     $processButton.Enabled = $false
     $previewButton.Enabled = $false
-
+    $written = New-Object 'System.Collections.Generic.List[string]'
+    $createdFolders = New-Object 'System.Collections.Generic.List[string]'
     try {
         $plan = @(Get-Plan)
-        [void][IO.Directory]::CreateDirectory($script:RawFolder)
-        $preview.Items.Clear()
-
+        [void][IO.Directory]::CreateDirectory($script:ArchiveRun)
         foreach ($entry in $plan) {
+            [IO.File]::Copy($entry.Source, $entry.Archive, $false)
+        }
+        foreach ($entry in $plan) {
+            $folder = Split-Path -Parent $entry.Output
+            if (!(Test-Path -LiteralPath $folder)) {
+                [void][IO.Directory]::CreateDirectory($folder)
+                $createdFolders.Add($folder)
+            }
             Save-Sprite $entry
-            $saved++
-            [void]$preview.Items.Add("Saved: " + $entry.Description)
-            $status.Text = "Saved $saved of $($plan.Count)"
-            $form.Refresh()
+            $written.Add($entry.Output)
         }
-
-        foreach ($entry in $plan) {
-            [IO.File]::Move($entry.Source, $entry.Archive)
-            $moved++
-            [void]$preview.Items.Add(
-                "Archived original: " + [IO.Path]::GetFileName($entry.Source))
-            $status.Text = "Archived $moved of $($plan.Count)"
-            $form.Refresh()
+        foreach ($entry in $script:ResourcePlan) {
+            Write-PlantResources $entry $written
         }
-
-        $status.Text = "Complete: $saved outputs saved; $moved originals archived."
-
+        $preview.Items.Clear()
+        foreach ($entry in $plan) { [void]$preview.Items.Add($entry.Description) }
+        $status.Text = "Complete: $($plan.Count) sprites; $($script:ResourcePlan.Count) species. Source files preserved."
         [void][System.Windows.Forms.MessageBox]::Show(
-            "Finished: $saved resized PNGs saved.`r`n" +
-            "$moved originals moved into RAW.",
-            "Complete")
-    }
-    catch {
-        $status.Text = "Stopped: $saved outputs saved; $moved originals archived."
-
-        [void][System.Windows.Forms.MessageBox]::Show(
-            "Stopped: $saved outputs saved; $moved originals archived.`r`n" +
-            "Any originals not archived remain in Source.`r`n`r`n" +
-            $_.Exception.Message,
-            "Batch stopped")
-    }
-    finally {
+            $status.Text + "`r`nOriginal copies: " + $script:ArchiveRun +
+            "`r`nResources generated only; biome spawn lists were not changed.", "Complete")
+    } catch {
+        foreach ($path in $written) {
+            Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue
+        }
+        foreach ($folder in $createdFolders) {
+            if (@(Get-ChildItem -LiteralPath $folder -Force -ErrorAction SilentlyContinue).Count -eq 0) {
+                Remove-Item -LiteralPath $folder -ErrorAction SilentlyContinue
+            }
+        }
+        $status.Text = "Export stopped. Source files remain intact."
+        [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, "Batch stopped")
+    } finally {
         $processButton.Enabled = $true
         $previewButton.Enabled = $true
     }
 })
+
 #endregion
 
 [void]$form.ShowDialog()

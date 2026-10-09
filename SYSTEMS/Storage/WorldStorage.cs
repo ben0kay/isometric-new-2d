@@ -47,8 +47,38 @@ public partial class WorldStorage : Node
         Host = GetNode<Node2D>(HostPath);
         _contents = new InventoryStorage(Definition.SlotCount);
         Initialized = true;
+        try
+        {
+            if (this is not LootContainer) WorldObjectSaves.Ensure(this).RestoreStorage(this);
+        }
+        catch (Exception error)
+        {
+            WorldObjectSaves.Ensure(this).ReportLoadFailure(error);
+            throw;
+        }
         SetProcess(false);
         SetPhysicsProcess(false);
+    }
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Copy physical slots without exposing live mutable storage.
+    public InventoryStorage ExportContents()
+    {
+        return _contents.Clone();
+    }
+
+    // =========================================================
+    // Restore a complete compatible container before publishing its contents.
+    public void ImportContents(InventoryStorage contents)
+    {
+        contents.GetTotals(out float weight, out float volume);
+        if (contents.SlotCount != Definition.SlotCount || weight > Definition.MaximumWeightKg ||
+            volume > Definition.CapacityLitres)
+            throw new System.IO.InvalidDataException("Saved container capacity changed.");
+        _contents = contents.Clone();
+        PublishContents();
     }
     #endregion
 
@@ -150,6 +180,7 @@ public bool CanInteract(Player player)
         _contents.GetTotals(out float weight, out float volume);
         WeightKg = weight;
         VolumeLitres = volume;
+        WorldObjectSaves.Find(this)?.StoreStorage(this);
         Changed?.Invoke();
     }
     #endregion

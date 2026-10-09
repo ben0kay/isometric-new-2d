@@ -1,0 +1,261 @@
+# Planned Work â€” Menus, Persistence and Local Lighting
+
+## Purpose
+
+Two upcoming work areas:
+
+1. Main menu, in-game pause menu and persistent saves.
+2. Local light sources that illuminate the world.
+
+These are planned features. This document does not mark them as implemented.
+
+Keep both systems modular and reuse the existing world layers, input modes,
+inventory systems and shared visual settings where appropriate.
+
+---
+
+## 1 â€” Main Menu, Pause Menu and Persistent Saves
+
+### Goal
+
+Provide a proper entry point to the game and allow the player to save,
+quit and continue without losing world changes.
+
+### Main Menu
+
+Initial options:
+
+- Continue â€” available when a valid save exists.
+- New Campaign â€” create a new world and player.
+- Load Campaign â€” choose an existing save.
+- Change Profile - can switch between profiles
+- Sandbox - my testing
+- Options. - placeholder
+- About - just about this game - placeholder
+- Exit.
+
+Keep menu presentation separate from world creation and save/load logic.
+Do not embed these systems in world_infinite or the player script.
+
+### In-Game Pause Menu
+
+Press ESC during gameplay to open the pause menu.
+
+Initial options:
+
+- Resume.
+- Save Game.
+- Options.
+- Return to Main Menu.
+- Exit Game.
+
+Use the shared input-mode system to prevent movement, shooting, hotbar
+scrolling and world interactions while the menu is open.
+
+For this single-player first pass, opening the pause menu pauses world
+simulation. Menu controls must continue processing.
+
+ESC should first close the active interface where appropriate, such as
+the inventory or debug map, rather than opening several menus together.
+
+### Persistent Saves
+
+Saving must preserve the playable world, not only the player's position
+and the world seed.
+
+Save data should include:
+
+- Save format version.
+- World identity and generation seed.
+- Generation settings needed to reproduce the world.
+- Player position and exact layer ID.
+- Player vitals and progression.
+- Inventory, equipment and hotbar assignments.
+- Changes to generated world objects.
+- Harvested or depleted resources.
+- Container contents and claimed loot.
+- Placed objects and structures.
+- Relevant changes to liquids and basins.
+- Persistent entities where required.
+- Persistent connections between layers where required.
+
+Generated terrain can be recreated from its seed and settings.
+Store changes to that generated world rather than saving every unchanged
+tile or loaded node.
+
+Unloading a chunk must not discard its persistent changes.
+Returning to a chunk or reloading a save must not restore harvested
+resources or regenerate already-claimed loot.
+
+Persistent object identities must include the world layer so objects at
+the same coordinates on different depths remain separate.
+
+### Reliability
+
+- Store saves in Godot's user data location.
+- Write to a temporary file before replacing the previous save.
+- Keep a recoverable previous save.
+- Detect unsupported or damaged saves and show a useful message.
+- Include a save format version for future migrations.
+- Confirm before overwriting or abandoning unsaved progress.
+
+Do not treat debug test placement as permanent world content by default.
+
+### Suggested Passes
+
+1. Menu scenes and ESC/input-mode integration.
+2. Save format, world identity and player persistence.
+3. Persistent chunk changes, containers and world objects.
+4. Remaining systems, recovery handling and end-to-end verification.
+
+Do not label persistence complete until all currently relevant gameplay
+changes survive quitting and loading.
+
+### Completion Checks
+
+- New Game starts a fresh world.
+- Continue restores the correct save and layer.
+- ESC pauses and resumes cleanly.
+- Gameplay input does not leak through menus.
+- Inventory and hotbar assignments survive loading.
+- Harvested resources remain harvested.
+- Claimed loot stays claimed.
+- Container contents and placed objects survive loading.
+- Chunk unloading does not lose changes.
+- Surface and underground progress remain independent.
+- A failed save does not destroy the previous valid save.
+
+---
+
+## 2 â€” Local Light Sources
+
+### Goal
+
+Allow local sources to illuminate nearby terrain and objects.
+
+Examples:
+
+- Lamps and placed lights.
+- Glowing enemies or wildlife.
+- Bioluminescent plants.
+- Powered equipment.
+- Temporary effects and projectiles.
+
+An emissive-looking sprite or glow alone is not enough: the source should
+also affect nearby world surfaces.
+
+### Design Direction
+
+Use one reusable light definition and runtime system.
+
+A source should be able to define:
+
+- Colour.
+- Intensity.
+- Radius.
+- Enabled state.
+- Optional flicker or pulse.
+- Whether it moves.
+- Whether it requires shadows.
+
+Keep species-specific light settings with their species and object-specific
+settings with their objects.
+
+Shared lighting behaviour belongs with the existing visual lighting
+systems. Global quality limits and multipliers can live in CONFIG.
+
+### Compatibility
+
+Review the existing terrain and sprite shaders before choosing the
+implementation.
+
+Local lighting must work with:
+
+- Procedural ground surfaces.
+- Imported and baked sprites.
+- Terrain elevation and projected artwork.
+- Existing sun lighting and shadows.
+- Surface and underground layers.
+
+Lights must respect exact layer identities. A surface light must not
+illuminate a cave directly below it merely because their coordinates
+overlap.
+
+Decide explicitly how local lighting interacts with fading layers during
+entrance transitions.
+
+### Performance
+
+Start with a small number of lights and measure the cost in a dense biome.
+
+- Exclude distant lights from active lighting work.
+- Stop unloaded lights from updating.
+- Avoid scanning every world object for every light each frame.
+- Avoid separate processing helpers on every vegetation instance.
+- Update static light data only when it changes.
+- Limit simultaneous visible lights through shared quality settings.
+- Make local shadow casting optional and reserve it for selected sources.
+
+Do not assume a light is cheap because its visual effect looks simple.
+
+### Suggested Passes
+
+1. Review shader compatibility and implement one test light.
+2. Verify terrain, sprites, elevation and layer isolation.
+3. Add reusable definitions and attach lights to objects and entities.
+4. Add quality controls and measure performance with multiple sources.
+5. Consider flicker, pulses and selected local shadows afterward.
+
+### Completion Checks
+
+- A test lamp visibly illuminates nearby ground and sprites.
+- Light fades smoothly with distance.
+- Moving sources remain aligned with their artwork.
+- Lights affect only the correct world layer.
+- Lights disappear correctly when their objects unload or are removed.
+- Existing sunlight and shadows remain correct.
+- Multiple lights have a measured, acceptable performance cost.
+- Disabling local lighting restores the baseline appearance.
+
+---
+
+## Working Rules
+
+- Review the latest GitHub push before preparing each pass.
+- Keep scripts focused and folders clearly organised.
+- Reuse existing shared systems where appropriate.
+- Provide complete replacement files or functions.
+- Remove temporary test nodes and obsolete implementations after testing.
+- Update this document with actual implementation and verification status.
+
+## Save Passes 1â€“2 â€” Applied, Verification Pending
+
+- One current campaign slot per stable profile ID; manual pause-menu saving only.
+- Versioned JSON, temporary-file replacement, previous-save backup and recovery.
+- Fresh campaign seeds, exported world settings and resource recipe compatibility checks.
+- Surface player position, original spawn, stats/modifiers, vitals, inventory, equipment, hotbar, crafting and world clock.
+- Resource definition edits are detected and incompatible loads are refused; resource migrations remain future work.
+- Save while alive, grounded and on the surface. Underground restore is a later pass.
+- Not yet saved: harvested resources, grass changes, loose drops, containers, loot, buildings, entities, basin changes or connections.
+- Debug herd and deep-cave test systems are unchanged and outside this pass.
+- Build and local gameplay verification must be completed before marking tested.
+
+Checks: two separate profiles; pause/save/quit/Continue; same surface position, original respawn location, seed/layout, reserves, inventory, selected hotbar, crafting progress and eclipse time; second save backup; rejected incompatible recipe; no save creation from Sandbox/F6.
+
+
+## Save Pass 3 — Changed Resources
+
+- One world-owned ResourceChanges helper; no frame processing or references to retired nodes.
+- Stable generated IDs use world layer, resource family, chunk coordinate and original scatter candidate index. Scene resources use world-relative node paths. Ground deposits use chunk/slot IDs.
+- Only changed resources are recorded: unfinished harvesting/mining work, remaining ore, depleted rocks/trees/plants/ore, removed grass, extracted ground-deposit units and unfinished shovel work.
+- Grazing and successful building grass clearing share Grass.Clear. Normal chunk retirement never records grass as consumed.
+- Removed solids retain lightweight generation-only footprint/spacing reservations. They have no collision, navigation blockers, artwork or shadows.
+- Resource artwork callbacks check that their hosts still exist after awaiting a bake, so harvesting/unloading during initialization cannot access a freed node.
+- Spawners draw original variation values and retain plant/grass spacing before skipping removed candidates.
+- Change records load before world initialization, remain after chunks unload and are included by the existing pause Save action.
+- Version 1 world/player saves still load with empty resource history. The next successful save writes version 2 with the named resource-changes section. Old game code cannot load version 2.
+- Changes made before installing this pass cannot be reconstructed from older saves.
+- Persistence remains partial: loose drops, containers, structures and entities are subsequent passes. A harvested source is now saved as removed, but its uncollected loose reward is not yet saved; collect rewards before quitting until Pass 4.
+- Saving underground is still blocked until the layer restoration pass. Generated identities are layer-scoped for future extension.
+- Local gameplay check: partially mine one rock/ore; completely harvest another rock/tree/plant; clear/graze grass; extract ground material; leave until chunks unload and return; save/quit/Continue with the same profile. Check another profile remains separate.
+- Automated verification passed: production C# compilation, version 1 save loading, mutation/save, chunk retirement/regeneration, separate-process restore, profile separation, invalid resource-section rejection and installer conflict protection/idempotence. Runtime tests use headless artwork substitutes and controlled ore/ground-deposit fixtures; local visual gameplay verification remains required.

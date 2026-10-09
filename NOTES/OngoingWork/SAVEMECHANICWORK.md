@@ -7,3 +7,14 @@
 | **5. Entities and groups** | Population records plus live actors, persistent deaths, transferred actors and relevant group state. Coordinate death rewards with Pass 4. | Damaged, dead and transferred entities restore correctly without duplicate loot or wildlife. |
 | **6. Underground restoration and liquids** | Complete exact-depth loading, required connections, basin changes and saves on entrance ramps. | Save/load in Surface, Upper Caverns and Deep Caverns, then traverse back successfully. |
 | **7. Complete-save verification and menu finish** | Load Campaign selection, overwrite handling, recovery messages and combined regression checks. | One save restores every supported section across profiles and unloaded chunks. |
+
+## Current Save Progress
+
+- Passes 1–3: implemented. Surface position fix confirmed locally.
+- Pass 4: installer supplied; items, containers, wrecks, structures and health; optional drop lifetime stored, no expiry countdown. The reviewed push 3ccdd95 does not yet include this installer's files. Verify local installation and push before the next code review.
+- Pass 5 Stage 1: this installer adds stable population/scene entity IDs, saved deaths and coordinated reward identities. Existing saves upgrade to version 4 on Save; prior entity deaths cannot be reconstructed.
+- Pass 5 Stage 2: surviving entities and population records — position, health, home and live layer/transfer ownership.
+- Pass 5 Stage 3: relevant group/population state and duplicate-free restoration.
+- Pass 6: exact underground player restoration, required connections and liquid/basin changes.
+- Pass 7: full combined verification and remaining menu/recovery work.
+- Persistence remains partial. Automatic saving/options and the actual dropped-item expiry timer are future features.

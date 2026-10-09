@@ -19,16 +19,25 @@ public partial class LootContainer : WorldStorage
     // Restore session contents or generate this loot container once.
     public override void _Ready()
     {
+        try
+        {
         base._Ready();
         if (Table == null)
             throw new InvalidOperationException("LootContainer requires a LootTable.");
 
         _world = LootWorld.GetOrCreate(this);
-        _key = string.IsNullOrWhiteSpace(PersistentId)
-            ? $"placed:{Host.GetPath()}" : PersistentId;
+        _key = WorldObjectSaves.StorageKey(this);
+        WorldObjectSaves.Ensure(this).RememberRecipe(Table);
+        WorldObjectSaves.Find(this).RememberRecipe(Definition);
 
         _contents = _world.GetContents(_key, Table, Definition);
-        PublishContents();
+        ImportContents(_contents);
+        }
+        catch (Exception error)
+        {
+            WorldObjectSaves.Ensure(this).ReportLoadFailure(error);
+            throw;
+        }
     }
 
     // =========================================================

@@ -2,11 +2,17 @@
 // Capacity failures leave items in the world; retries run only inside pickup range.
 using Godot;
 using System.Collections.Generic;
+using System;
 
 public partial class WorldPickup : Area2D
 {
     #region Configuration
+    public string PersistentId { get; set; } = Guid.NewGuid().ToString("N");
+    // Null means no expiry. A later expiry mechanic will update remaining gameplay seconds.
+    public double? RemainingLifetimeSeconds { get; set; }
     public ItemDefinition Item { get; set; }
+    public string PendingLayer { get; set; } = WorldLayerId.Surface;
+    public Vector2 PendingGlobalPosition { get; set; }
     public int Count { get; set; }
     public float PickupRadius { get; set; } = 48f;
     public double PickupDelay { get; set; } = 0.3;
@@ -15,6 +21,30 @@ public partial class WorldPickup : Area2D
     #region State
     private readonly HashSet<Player> _players = new();
     private double _delay, _retry;
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Register scene-attached pickups while ResourceWorld separately tracks deferred ones.
+    public override void _EnterTree()
+    {
+        AddToGroup("world_pickups");
+    }
+
+    // =========================================================
+    // Capture exact remaining quantity and optional lifetime, without resetting either.
+    public DropSaveData CaptureSave()
+    {
+        Vector2 position = IsInsideTree() ? GlobalPosition : PendingGlobalPosition;
+        return new DropSaveData
+        {
+            Id = PersistentId, Item = Item.Id, Count = Count,
+            Layer = IsInsideTree() ? WorldLayerMember.For(this) : PendingLayer,
+            X = position.X, Y = position.Y, PickupRadius = PickupRadius,
+            PickupDelay = IsNodeReady() ? Math.Max(0, _delay) : Math.Max(0, PickupDelay),
+            RemainingLifetimeSeconds = RemainingLifetimeSeconds
+        };
+    }
     #endregion
 
     #region Lifecycle

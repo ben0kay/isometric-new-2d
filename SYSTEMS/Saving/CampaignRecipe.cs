@@ -54,6 +54,25 @@ public static class CampaignRecipe
     }
 
     // =========================================================
+    // Stamp object scenes, storage/loot definitions and external item references.
+    public static void CaptureObjectDefinitions(CampaignData data)
+    {
+        foreach (string path in WorldObjectSaves.ReadSection(data).Recipes)
+            Stamp(path, data.Resources);
+    }
+
+    // =========================================================
+    // Include entity recipes so death identities cannot silently change species or prefab.
+    public static void CaptureEntityDefinitions(CampaignData data)
+    {
+        foreach (EntityDeathData entry in EntityDeaths.ReadSection(data).Entries)
+        {
+            Stamp(entry.Definition, data.Resources);
+            Stamp(entry.Scene, data.Resources);
+        }
+    }
+
+    // =========================================================
     // Hash referenced settings and their dependencies without storing engine objects.
     private static void Stamp(string path, Dictionary<string, string> stamps)
     {

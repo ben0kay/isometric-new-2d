@@ -56,9 +56,15 @@ public partial class CampaignSession : Node
                 data.SpawnX = player.Position.X; data.SpawnY = player.Position.Y;
                 CampaignRecipe.Capture(world, data);
             }
+            EntityDeaths deaths = new() { Name = "EntityDeaths" };
+            deaths.Initialize(data, world);
+            world.AddChild(deaths);
             ResourceChanges resources = new() { Name = "ResourceChanges" };
             resources.Initialize(data);
             world.AddChild(resources);
+            WorldObjectSaves objects = new() { Name = "WorldObjectSaves" };
+            objects.Initialize(data, world);
+            world.AddChild(objects);
             world.AddChild(new CampaignSession
                 { Name = "CampaignSession", _data = data, _restoring = continueCampaign });
         }
@@ -118,6 +124,12 @@ public partial class CampaignSession : Node
         _objectsMode = ProcessModeEnum.Inherit;
         ProcessPriority = 1000;
         _startup.Start();
+        try { WorldObjectSaves.Find(this).RestoreBuildings(_world); }
+        catch (Exception error)
+        {
+            _world.GetNode("WorldObjects").ProcessMode = ProcessModeEnum.Disabled;
+            FailLoad(error);
+        }
     }
 
     // =========================================================
@@ -154,6 +166,7 @@ public partial class CampaignSession : Node
                 _clock.RestoreSave(_data.WorldSeconds);
             }
             else _clock.RestoreSave(0);
+            WorldObjectSaves.Find(this).RestoreDrops(this);
             Camera2D camera = _player.GetNode<Camera2D>("Camera2D");
             camera.ResetSmoothing();
             camera.ForceUpdateScroll();
@@ -209,7 +222,11 @@ public partial class CampaignSession : Node
         _data.WorldSeconds = _clock.ElapsedSeconds;
         _data.SavedUtc = DateTime.UtcNow;
         ResourceChanges.Find(this).Capture(_data);
+        WorldObjectSaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureResourceDefinitions(_data);
+        EntityDeaths.Find(this).Capture(_data);
+        CampaignRecipe.CaptureObjectDefinitions(_data);
+        CampaignRecipe.CaptureEntityDefinitions(_data);
         CampaignStore.Write(_data);
         GD.Print($"[CampaignSave] Profile {_data.ProfileId}: " +
             $"({saved.X}, {saved.Y}), original spawn ({_data.SpawnX}, {_data.SpawnY}).");

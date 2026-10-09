@@ -2,6 +2,8 @@
 // Drops remain separate from mined objects so deleting a resource cannot delete its yield.
 using Godot;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 public partial class ResourceWorld : Node
 {
@@ -13,6 +15,7 @@ public partial class ResourceWorld : Node
 
 	#region State
 	private Node2D _objects;
+    private readonly List<WorldPickup> _pending = new();
 	#endregion
 
 	#region Lifecycle
@@ -62,7 +65,7 @@ public partial class ResourceWorld : Node
 			PickupDelay = Math.Max(0, PickupDelay),
 			Position = objects.ToLocal(globalPosition)
 		};
-		objects.CallDeferred(Node.MethodName.AddChild, pickup);
+		QueuePickup(objects, pickup);
 		return true;
 	}
 
@@ -83,7 +86,7 @@ public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
 		PickupDelay = Math.Max(0, PickupDelay),
 		Position = objects.ToLocal(globalPosition)
 	};
-	objects.CallDeferred(Node.MethodName.AddChild, pickup);
+	QueuePickup(objects, pickup);
 	return true;
 }
 
@@ -134,7 +137,7 @@ public bool SpawnHarvest(string primaryId, int primaryCount,
 	}
 
 	foreach (WorldPickup pickup in pickups)
-		objects.CallDeferred(Node.MethodName.AddChild, pickup);
+		QueuePickup(objects, pickup);
 	return true;
 }
 	#endregion
@@ -157,9 +160,66 @@ public bool SpawnItemFor(
         PickupDelay = Math.Max(0, PickupDelay),
         Position = objects.ToLocal(globalPosition)
     };
-    objects.CallDeferred(Node.MethodName.AddChild, pickup);
+    QueuePickup(objects, pickup);
     return true;
 }
+
+    #region Persistence
+    // =========================================================
+    // Include accepted rewards immediately, even before deferred scene attachment.
+    private void QueuePickup(Node2D root, WorldPickup pickup)
+    {
+        pickup.PendingLayer = WorldLayerMember.For(root);
+        pickup.PendingGlobalPosition = root.ToGlobal(pickup.Position);
+        _pending.Add(pickup);
+        Callable.From(() =>
+        {
+            if (!GodotObject.IsInstanceValid(pickup)) return;
+            _pending.Remove(pickup);
+            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion() ||
+                !GodotObject.IsInstanceValid(root) || !root.IsInsideTree() || root.IsQueuedForDeletion())
+            {
+                pickup.Free();
+                return;
+            }
+            root.AddChild(pickup);
+        }).CallDeferred();
+    }
+
+    // =========================================================
+    // Release unattached rewards if their world closes before its deferred calls run.
+    public override void _ExitTree()
+    {
+        foreach (WorldPickup pickup in _pending)
+            if (GodotObject.IsInstanceValid(pickup) && !pickup.IsInsideTree()) pickup.Free();
+        _pending.Clear();
+    }
+
+    // =========================================================
+    // Enumerate both attached pickups and accepted pending rewards without duplicates.
+    public IEnumerable<WorldPickup> SaveDrops()
+    {
+        Node world = WorldConfig.Find(this).GetParent();
+        foreach (Node node in GetTree().GetNodesInGroup("world_pickups"))
+            if (node is WorldPickup pickup && world.IsAncestorOf(pickup)) yield return pickup;
+        foreach (WorldPickup pickup in _pending) yield return pickup;
+    }
+
+    // =========================================================
+    // Recreate an exact saved stack in its original layer without issuing a new reward.
+    public void RestoreDrop(DropSaveData data, ItemDefinition item)
+    {
+        Node2D root = data.Layer == WorldLayerId.Surface ? _objects
+            : WorldLayerRuntime.Find(this).ObjectsFor(data.Layer);
+        root.AddChild(new WorldPickup
+        {
+            Name = "ItemDrop", PersistentId = data.Id, Item = item, Count = data.Count,
+            Position = root.ToLocal(new Vector2(data.X, data.Y)),
+            PickupRadius = data.PickupRadius, PickupDelay = data.PickupDelay,
+            RemainingLifetimeSeconds = data.RemainingLifetimeSeconds
+        });
+    }
+    #endregion
 
     // =========================================================
 	// Resolve source ownership independently from the player's current depth.

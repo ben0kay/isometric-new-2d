@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="VisualDefinition" format=3]
+
+[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="1_visual"]
+[ext_resource type="Script" path="res://VISUALS/Vegetation/VegetationVisualSettings.cs" id="2_effects"]
+
+[sub_resource type="Resource" id="Effects"]
+script = ExtResource("2_effects")
+
+[resource]
+script = ExtResource("1_visual")
+ImageFolder = "res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree03"
+ArtworkScale = Vector2(0.5878125, 0.5878125)
+ImageAnchor = Vector2(0.5, 0.96)
+Vegetation = SubResource("Effects")

@@ -43,6 +43,9 @@ public partial class EntityDeathLoot : Node
 
         try
         {
+            EntityDeaths deaths = EntityDeaths.Find(this);
+            if (deaths != null && !deaths.TryClaimRewards(_actor)) return;
+
             if (_actor.Definition.DeathDelivery ==
                 EntityDeathDelivery.RobotWreck)
             {
@@ -67,7 +70,8 @@ public partial class EntityDeathLoot : Node
             };
 
             ulong seed = _actor.RandomSeed != 0
-                ? _actor.RandomSeed : _actor.GetInstanceId();
+                ? _actor.RandomSeed : !string.IsNullOrEmpty(_actor.PersistentId)
+                    ? EntityDeaths.IdentitySeed(_actor.PersistentId) : _actor.GetInstanceId();
 
             GeneratedContents = table.Generate(
                 resources.Catalog, capacity, seed);
@@ -89,8 +93,9 @@ public partial class EntityDeathLoot : Node
         ulong identity = _actor.RandomSeed != 0
             ? _actor.RandomSeed : _actor.GetInstanceId();
 
-        string wreckId =
-            $"{layer}:dead_robot:{_actor.Definition.SpeciesId}:{identity}";
+        string wreckId = !string.IsNullOrEmpty(_actor.PersistentId)
+            ? "dead_entity:" + _actor.PersistentId
+            : $"{layer}:dead_robot:{_actor.Definition.SpeciesId}:{identity}";
 
         LootWorld.GetOrCreate(this).RecordRobotDeath(
             wreckId, _actor.GlobalPosition, layer);

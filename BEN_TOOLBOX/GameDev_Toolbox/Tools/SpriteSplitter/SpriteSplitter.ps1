@@ -1,4 +1,4 @@
-# Windows PowerShell 5.1.
+﻿# Windows PowerShell 5.1.
 # Launch through Ben Toolbox, which uses -STA.
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +32,8 @@ namespace BenSprites
 
     public class SplitterWindow : Form
     {
+        readonly string toolRoot;
+        string lastExportFolder;
         Bitmap sheet;
         byte[] pixels;
 
@@ -56,6 +58,7 @@ namespace BenSprites
 
         public SplitterWindow(string root)
         {
+            toolRoot = root;
             Text = "Sprite Splitter";
             Width = 1220;
             Height = 900;
@@ -200,7 +203,22 @@ namespace BenSprites
             prefix.Width = 170;
             export.Controls.Add(prefix);
 
-            AddButton(export, "Export PNGs", Export);
+            AddButton(export, "Export PNGs", delegate { Export(); });
+            AddButton(export, "Export + Open Batch", delegate
+            {
+                string batch = Path.GetFullPath(Path.Combine(toolRoot, "..", "SpriteBatchTool", "SpriteBatchTool.ps1"));
+                if (!File.Exists(batch)) throw new Exception("Batch tool missing: " + batch);
+                if (!Export(true)) return;
+                string folder = lastExportFolder;
+                var start = new System.Diagnostics.ProcessStartInfo();
+                start.FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+                    "WindowsPowerShell", "v1.0", "powershell.exe");
+                start.Arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File \"" + batch +
+                    "\" -InputFolder \"" + folder + "\"";
+                start.UseShellExecute = false;
+                start.CreateNoWindow = true;
+                System.Diagnostics.Process.Start(start);
+            });
 
             layout.Controls.Add(export, 0, 4);
 
@@ -749,7 +767,7 @@ namespace BenSprites
             }
         }
 
-        void Export()
+        bool Export(bool forBatch = false)
         {
             if (outputs.Count == 0)
             {
@@ -771,6 +789,7 @@ namespace BenSprites
                 throw new Exception("Choose an output folder.");
 
             string folder = Path.GetFullPath(destination.Text.Trim());
+            if (forBatch) folder = Path.Combine(folder, "Batch-" + Guid.NewGuid().ToString("N"));
             var targets = new List<string>();
 
             for (int i = 0; i < outputs.Count; i++)
@@ -828,6 +847,8 @@ namespace BenSprites
                 folder);
 
             MessageBox.Show(this, status.Text, "Export complete");
+            lastExportFolder = folder;
+            return true;
         }
     }
 }

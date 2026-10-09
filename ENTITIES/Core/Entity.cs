@@ -25,6 +25,8 @@ public partial class Entity : EntityBody
     public bool HasSight => _targeting?.HasSight == true;
     public Vector2 Home => Wandering?.Home ?? (SpawnHome ?? GlobalPosition);
 
+    // Assigned by the owning population or detached scene; unchanged by layer transfers.
+    public string PersistentId { get; set; } = "";
     public Vector2? SpawnHome { get; set; }
     public ulong RandomSeed { get; set; }
     public bool SpawnPending { get; set; }
@@ -481,6 +483,7 @@ public partial class Entity : EntityBody
         CollisionLayer = 0;
         CollisionMask = 0;
 
+        EntityDeaths.Find(this)?.Record(this);
         Died?.Invoke();
         Hide();
         QueueFree();

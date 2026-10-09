@@ -6,6 +6,9 @@ public partial class PlacedObject : Obstacle
 {
     #region State
     public Health ObjectHealth { get; private set; }
+    public string PersistentId { get; private set; }
+    public ItemDefinition SourceItem { get; private set; }
+    public PlaceableDefinition Definition => _definition;
 
     private PlacementWorld _world;
     private PlaceableDefinition _definition;
@@ -16,8 +19,11 @@ public partial class PlacedObject : Obstacle
     // =========================================================
     // Configure footprint dimensions before navigation discovers this object.
     public void Configure(
-        PlacementWorld world, PlaceableDefinition definition, Vector2I anchor)
+        PlacementWorld world, PlaceableDefinition definition, Vector2I anchor,
+        ItemDefinition sourceItem = null, string persistentId = null)
     {
+        PersistentId = persistentId ?? System.Guid.NewGuid().ToString("N");
+        SourceItem = sourceItem;
         _world = world;
         _definition = definition;
         _anchor = anchor;
@@ -96,6 +102,22 @@ public override void _Ready()
 }
 
     // =========================================================
+    // Capture the source item's recipe, occupied cells and current building health.
+    public StructureSaveData CaptureSave()
+    {
+        if (SourceItem == null)
+            throw new System.IO.InvalidDataException("Placed object lacks its source item identity.");
+        return new StructureSaveData
+        {
+            Id = PersistentId, Item = SourceItem.Id, X = _anchor.X, Y = _anchor.Y,
+            Width = _definition.Cells.X, Depth = _definition.Cells.Y,
+            WorldScene = _definition.WorldScene.ResourcePath,
+            ArtworkScene = _definition.ArtworkScene.ResourcePath,
+            Health = ObjectHealth.Current
+        };
+    }
+
+    // =========================================================
     // Remove the object once health reaches zero.
     private void OnDestroyed()
     {
@@ -130,7 +152,7 @@ public override void _Ready()
             if (!systems.IsNodeReady())
                 await ToSignal(systems, Node.SignalName.Ready);
 
-            if (!IsInsideTree() || IsQueuedForDeletion() ||
+            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion() ||
                 !GodotObject.IsInstanceValid(atmosphere))
                 return;
 

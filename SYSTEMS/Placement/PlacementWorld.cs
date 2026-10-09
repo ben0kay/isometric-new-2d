@@ -219,7 +219,7 @@ public bool TryPlace(
         return false;
     }
 
-    placed.Configure(this, definition, anchor);
+    placed.Configure(this, definition, anchor, item);
     placed.Position = _objects.ToLocal(Grid.Centre(anchor, definition.Cells));
 
     PlayerInventory inventory =
@@ -236,6 +236,35 @@ public bool TryPlace(
     ClearGrass(anchor, definition.Cells);
     return true;
 }
+
+    // =========================================================
+    // Restore the saved building without charging inventory or clearing grass a second time.
+    public void RestoreSaved(StructureSaveData saved, ItemDefinition item)
+    {
+        PlaceableDefinition definition = item.Placeable
+            ?? throw new System.IO.InvalidDataException("Saved building item is no longer placeable.");
+        definition.Validate();
+        if (definition.WorldScene.ResourcePath != saved.WorldScene ||
+            definition.ArtworkScene.ResourcePath != saved.ArtworkScene ||
+            definition.Cells != new Vector2I(saved.Width, saved.Depth))
+            throw new System.IO.InvalidDataException("Saved building recipe changed.");
+        Vector2I anchor = new(saved.X, saved.Y);
+        for (int y = 0; y < saved.Depth; y++)
+        for (int x = 0; x < saved.Width; x++)
+            if (_occupied.ContainsKey(anchor + new Vector2I(x, y)))
+                throw new System.IO.InvalidDataException("Saved building footprints overlap.");
+        Node instance = definition.WorldScene.Instantiate();
+        if (instance is not PlacedObject placed || placed.GetNodeOrNull<Health>("Systems/Health") == null)
+        {
+            instance.Free();
+            throw new System.IO.InvalidDataException("Saved building scene is invalid.");
+        }
+        placed.Configure(this, definition, anchor, item, saved.Id);
+        placed.Position = _objects.ToLocal(Grid.Centre(anchor, definition.Cells));
+        _objects.AddChild(placed);
+        Register(placed, anchor, definition.Cells);
+        placed.ObjectHealth.RestoreState(saved.Health);
+    }
 
     // =========================================================
     // Reserve every occupied cell without splitting larger footprints.

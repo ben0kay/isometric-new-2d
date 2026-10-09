@@ -21,6 +21,7 @@ private ChunkController _chunks;
 private Node2D _objects;
 private PackedScene _wreckScene;
 private double _timer;
+private bool _initialized;
 #endregion
 
     #region Lifecycle
@@ -35,6 +36,19 @@ private double _timer;
     // Resolve world services and the shared robot wreck scene.
     public override void _Ready()
     {
+        try { InitializeServices(); }
+        catch (Exception error)
+        {
+            WorldObjectSaves.Ensure(this).ReportLoadFailure(error);
+            throw;
+        }
+    }
+
+    // =========================================================
+    // Allow scene containers to initialize loot before the Systems branch finishes Ready.
+    private void InitializeServices()
+    {
+        if (_initialized) return;
         _chunks = GetNode<ChunkController>("../ChunkController");
         _objects = GetNode<Node2D>("../../WorldObjects");
         _wreckScene = GD.Load<PackedScene>(
@@ -43,6 +57,9 @@ private double _timer;
         if (_wreckScene == null)
             throw new InvalidOperationException("BasicRobotWreck.tscn is missing.");
 
+        WorldObjectSaves.Ensure(this).RememberRecipe(_wreckScene);
+        RestoreObjects();
+        _initialized = true;
         SetPhysicsProcess(false);
     }
 
@@ -70,12 +87,43 @@ private double _timer;
     }
     #endregion
 
+    #region Persistence
+    // =========================================================
+    // Restore cached empty/full loot and wreck locations before any container can reroll.
+    private void RestoreObjects()
+    {
+        WorldObjectSaves owner = WorldObjectSaves.Find(this);
+        foreach (var pair in owner.Saved.Loot) _contents.Add(pair.Key, owner.Decode(pair.Value));
+        foreach (WreckSaveData saved in owner.Saved.Wrecks)
+            _wrecks.Add(saved.Id, new DeathWreck
+            {
+                Id = saved.Id, Layer = saved.Layer, Position = new Vector2(saved.X, saved.Y)
+            });
+    }
+
+    // =========================================================
+    // Include retained contents and unloaded wrecks rather than only visible container nodes.
+    public void CaptureObjects(WorldObjectSaves owner, WorldObjectsData saved)
+    {
+        saved.Loot.Clear(); saved.Wrecks.Clear();
+        foreach (var pair in _contents) saved.Loot.Add(pair.Key, owner.Encode(pair.Value));
+        foreach (DeathWreck wreck in _wrecks.Values)
+            saved.Wrecks.Add(new WreckSaveData
+            {
+                Id = wreck.Id, Layer = wreck.Layer, X = wreck.Position.X, Y = wreck.Position.Y
+            });
+    }
+    #endregion
+
     #region Session Contents
     // =========================================================
     // Generate each container once, including retaining completely empty contents.
     public InventoryStorage GetContents(
         string id, LootTable table, StorageDefinition definition)
     {
+        InitializeServices();
+        WorldObjectSaves owner = WorldObjectSaves.Ensure(this);
+        owner.RememberRecipe(table); owner.RememberRecipe(definition);
         if (_contents.TryGetValue(id, out InventoryStorage existing))
             return existing.Clone();
 

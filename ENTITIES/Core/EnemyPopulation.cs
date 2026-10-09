@@ -27,6 +27,7 @@ public partial class EnemyPopulation : Node
     #region Records And State
     private sealed class SpawnRecord
     {
+        public string Id;
         public Vector2I Coordinate;
         public int Slot;
         public Vector2[] Candidates;
@@ -45,6 +46,8 @@ public partial class EnemyPopulation : Node
     private readonly CircleShape2D _spawnShape = new() { Radius = 12f };
     private readonly PhysicsShapeQueryParameters2D _spawnQuery = new();
 
+    private string _identityOwner, _originLayer;
+    private EntityDeaths _deaths;
     private ChunkController _chunks;
     private WorldGenerator _generator;
     private TerrainElevation _elevation;
@@ -58,6 +61,9 @@ public partial class EnemyPopulation : Node
     // Resolve world services and prepare a near-to-far chunk scan.
     public override void _Ready()
     {
+        _identityOwner = WorldConfig.Find(this).GetParent().GetPathTo(this).ToString();
+        _originLayer = WorldLayerMember.For(this);
+        _deaths = EntityDeaths.Find(this);
         _chunks = GetNode<ChunkController>("../ChunkController");
         _generator = GetNode<WorldGenerator>("../WorldGenerator");
         _objects = GetNode<Node2D>("../../WorldObjects");
@@ -164,8 +170,11 @@ public partial class EnemyPopulation : Node
 
                 record = new SpawnRecord
                 {
+                    Id = EntityDeaths.PopulationId(_identityOwner, _originLayer,
+                        _chunks.WorldSeed, coordinate, slot),
                     Coordinate = coordinate, Slot = slot, Candidates = candidates
                 };
+                record.Dead = _deaths?.WasKilled(record.Id) == true;
                 _records.Add(key, record);
             }
 
@@ -195,6 +204,12 @@ public partial class EnemyPopulation : Node
     // Choose a valid candidate and instantiate at most one hidden actor per update.
     private void PrepareActor(SpawnRecord record)
     {
+        // Also protect existing retired records if their identity died elsewhere.
+        if (record.Dead || _deaths?.WasKilled(record.Id) == true)
+        {
+            record.Dead = true;
+            return;
+        }
         if (!record.Chosen)
         {
             for (int i = 0; i < record.Candidates.Length; i++)
@@ -219,6 +234,7 @@ public partial class EnemyPopulation : Node
         if (!record.Chosen || !CanActivate(record.Definition, record.Position)) return;
 
         Entity actor = EnemyScene.Instantiate<Entity>();
+        actor.PersistentId = record.Id;
         actor.Definition = record.Definition;
         actor.SpawnPending = true;
         actor.SpawnHome = record.Home;
