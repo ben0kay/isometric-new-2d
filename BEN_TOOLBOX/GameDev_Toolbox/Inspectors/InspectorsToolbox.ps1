@@ -5,6 +5,11 @@ $tools = @(
         Description = "Read-only sun, lighting and shadow settings with refresh."
         Path = "Tools\Inspectors\LightingInspector\LightingInspector.ps1"
     }
+    @{
+        Name = "File Size Inspector"
+        Description = "Find the largest images, audio or other files in your project."
+        Path = "Tools\Inspectors\FileSizeInspector\FileSizeInspector.ps1"
+    }
 )
 
 $gameDevRoot = Split-Path -Parent $PSScriptRoot
