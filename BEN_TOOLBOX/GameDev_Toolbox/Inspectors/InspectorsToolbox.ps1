@@ -15,6 +15,11 @@ $tools = @(
         Description = "Read biome population counts, species weights, artwork and unregistered definitions."
         Path = "Tools\Inspectors\BiomeContentInspector\BiomePopulationInspector.ps1"
     }
+    @{
+        Name = "Asset Usage Finder"
+        Description = "Find direct and indirect uses of project assets, including PNG folder variants."
+        Path = "Tools\Inspectors\AssetUsageFinder\AssetUsageFinder.ps1"
+    }
 )
 
 $gameDevRoot = Split-Path -Parent $PSScriptRoot
