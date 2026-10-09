@@ -115,7 +115,10 @@ theme_override_constants/shadow_offset_y = 1
 theme_override_font_sizes/font_size = 16
 script = ExtResource("4_fps")
 
-[node name="PerformanceDebug" type="CanvasLayer" parent="HUD" unique_id=1210516582]
+[node name="PerformanceDebug" type="Control" parent="HUD" unique_id=2128221134]
+layout_mode = 3
+anchors_preset = 0
+mouse_filter = 2
 script = ExtResource("22_t0pjo")
 
 [node name="CollisionDebug" type="Node2D" parent="." unique_id=306949628]
