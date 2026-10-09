@@ -73,6 +73,7 @@ public partial class ResourceHarvest : Area2D
     public bool Gather(Player player, float range)
     {
         if (!GatherByHand || _depleted || _host.IsQueuedForDeletion() ||
+            !WorldLayerMember.Same(player, _host) ||
             player.GetNode<PlayerEquipment>("Systems/Equipment").CurrentTool != null ||
             player.GlobalPosition.DistanceSquaredTo(_host.GlobalPosition) >
                 range * range) return false;
@@ -90,7 +91,7 @@ private bool Finish()
     int units = GatherByHand ? 1 : Mathf.Max(1, Definition.HarvestUnits);
 
     if (!_resources.SpawnHarvest(id, units,
-        Definition.BonusHarvestItems, _host.GlobalPosition)) return false;
+        Definition.BonusHarvestItems, _host.GlobalPosition, _host)) return false;
 
     _depleted = true;
     _host.QueueFree();

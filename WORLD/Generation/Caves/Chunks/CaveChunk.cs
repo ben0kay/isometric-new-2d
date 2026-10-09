@@ -239,9 +239,9 @@ public IEnumerable<int> BuildSteps()
                 Coordinate.Y * _size - 0.5f),
             Vector2.One * _size);
 
-        GenerationMetadataLease.Attach(this, generation, area);
+        GenerationMetadataLease.Attach(this, generation, area, _world.LayerId);
 
-        foreach (int step in generation.PrepareArea(area))
+        foreach (int step in generation.PrepareArea(area, _world.LayerId))
             yield return step;
     }
 }

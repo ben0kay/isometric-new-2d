@@ -34,12 +34,15 @@ public partial class ContactAttack : Node
         _timer -= delta;
         if (_timer > 0.0) return;
         _timer = 0.1;
-        _navigation ??= GetTree().GetFirstNodeInGroup("world_navigation") as WorldNavigation;
+        string layer = WorldLayerMember.For(_actor);
+        if (!GodotObject.IsInstanceValid(_navigation) || _navigation.Layer != layer)
+            _navigation = WorldNavigation.ForLayer(_actor, layer);
         if (_navigation == null) return;
 
         foreach (Node node in GetTree().GetNodesInGroup("players"))
         {
-            if (node is not Player player) continue;
+            if (node is not Player player ||
+                !WorldLayerMember.Same(_actor, player)) continue;
             Health target = player.GetNodeOrNull<Health>("Systems/Health");
             if (target == null || !target.IsAlive) continue;
             if (_actor.GlobalPosition.DistanceSquaredTo(player.GlobalPosition) > Range * Range)

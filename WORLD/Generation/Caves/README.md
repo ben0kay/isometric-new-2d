@@ -19,9 +19,17 @@ WorldLayerDefinition supplies display names, depths, generation kinds,
 and biome references. WorldLayerCatalog validates and resolves those IDs.
 The old fixed WorldLayer enum has been removed.
 
-Only the existing surface and first cave are instantiated currently.
-Independent additional layer worlds and generalized connections are
-planned for passes 2 and 3.
+Pass 2 adds WorldLayerRuntime: independent underground service instances,
+indexed by exact layer ID. Upper Caverns and Deep Caverns each own their
+generator, seed, elevation, chunks, objects and navigation. Dormant layers
+build no chunks until requested. Definitions own FloorElevation.
+
+The existing surface ramps still connect only to the catalog's
+SurfaceEntranceLayerId. Deeper playable connections are pass 3 work.
+Underground chunk metadata is layer-aware; deeper layers do not prepare
+surface basin or entrance metadata. Layer seeds now include a stable
+identity hash, so previous underground layouts may change for the same
+world seed. Surface generation is unchanged.
 
 Entrances connect surface locations to underground tunnels. Each entrance
 has a transition ramp joining the surface elevation to the cave floor.
@@ -210,10 +218,10 @@ possible contributor, not an established diagnosis.
 3. Generalize connections and test two underground depths (pass 3).
 4. Add richer underground content after traversal is reliable.
 
-See NOTES/OngoingWork/README.md for the migration handoff.
+See NOTES/OngoingWork/LayerMigration.md for the migration handoff.
 Transition profiling and a shared generation scheduler remain separate
 future work. Additional playable underground layers are not implemented
-by pass 1.
+until pass 3.
 
 ## Maintenance Rules
 

@@ -2,14 +2,14 @@
 
 [ext_resource type="Script" path="res://WORLD/Layers/WorldLayerDefinition.cs" id="1_definition"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Caves/Biomes/CaveBiomeCatalog.tres" id="2_biomes"]
-[ext_resource type="Resource" path="res://WORLD/Generation/Caves/DefaultCaveGeneration.tres" id="3_settings"]
+[ext_resource type="Resource" path="res://WORLD/Layers/Definitions/Underground2/Underground2Generation.tres" id="3_settings"]
 
 [resource]
 script = ExtResource("1_definition")
-Id = "underground_1"
-DisplayName = "Upper Caverns"
-DepthIndex = 1
-FloorElevation = -160.0
+Id = "underground_2"
+DisplayName = "Deep Caverns"
+DepthIndex = 2
 Kind = 1
+FloorElevation = -480.0
 Biomes = ExtResource("2_biomes")
 CaveSettings = ExtResource("3_settings")

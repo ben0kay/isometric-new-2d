@@ -22,7 +22,8 @@ public partial class CaveChunkController : Node
 
     private CaveWorld _world;
     private Player _player;
-    private bool _active;
+    private bool _active, _preloadEntrances;
+    private Vector2? _preloadPoint;
     private Vector2I _focus;
     private readonly Dictionary<Vector2I, CaveChunk> _chunks = new();
     private CaveChunk _building;
@@ -40,6 +41,7 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
     public void Configure(CaveWorld world)
     {
         _world = world;
+        SetProcess(false);
     }
 
     // =========================================================
@@ -63,8 +65,11 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
 
             if (_active)
                 tile = _world.WorldToTile(_player.GlobalPosition);
+            else if (_preloadPoint.HasValue)
+                tile = _world.WorldToTile(_preloadPoint.Value);
             else
             {
+                if (!_preloadEntrances) return;
                 CaveHole hole =
                     _world.NearestSurfaceHole(_player.GlobalPosition);
                 if (hole == null) return;
@@ -95,10 +100,36 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
 
     #region Activation And Availability
     // =========================================================
+    // Prepare surface mouths only in the layer explicitly connected to surface.
+    public void SetEntrancePreloading(bool enabled)
+    {
+        _preloadEntrances = enabled;
+        SetProcess(_active || enabled || _preloadPoint.HasValue);
+    }
+
+    // =========================================================
+    // Prepare a requested destination without enabling its collisions.
+    public void RequestPreload(Vector2 point)
+    {
+        _preloadPoint = point;
+        SetProcess(true);
+    }
+
+    // =========================================================
+    // Stop temporary work while retaining already-built destination chunks.
+    public void CancelPreload()
+    {
+        _preloadPoint = null;
+        SetProcess(_active || _preloadEntrances);
+    }
+
+
+    // =========================================================
     // Change collision and visibility for every completed cave chunk.
     public void SetActive(bool active)
     {
         _active = active;
+        SetProcess(_active || _preloadEntrances || _preloadPoint.HasValue);
         foreach (CaveChunk chunk in _chunks.Values)
             chunk.SetActive(active);
     }
@@ -252,7 +283,7 @@ private void RetireDistant()
         Vector2I difference = pair.Key - _focus;
         if ((Mathf.Abs(difference.X) <= radius &&
             Mathf.Abs(difference.Y) <= radius) ||
-            pursuit?.RetainCave(pair.Key) == true)
+            pursuit?.RetainCave(_world, pair.Key) == true)
             continue;
 
         remove.Add(pair.Key);

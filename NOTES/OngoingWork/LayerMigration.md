@@ -2,8 +2,8 @@
 
 ## Goal
 
-Extend the existing surface/cave system to support multiple underground
-depths without hardcoding a separate system for each depth.
+Extend the surface/cave system to support multiple underground depths
+without hardcoding a separate system for each depth.
 
 Examples:
 - surface
@@ -12,7 +12,7 @@ Examples:
 - underground_3
 
 These are stable internal identities. Each layer also has a separate
-player-facing display name, such as Surface, Caverns or Deep Caverns.
+player-facing display name, such as Surface, Upper Caverns or Deep Caverns.
 
 Keep the existing surface and first cave layer working throughout
 the migration.
@@ -35,50 +35,61 @@ Performance tuning is separate work. This migration should preserve
 existing streaming behaviour rather than introduce a new scheduling
 system at the same time.
 
+## Current Status
+
+- Pass 1: Implemented and tested.
+- Pass 2: Implemented; not fully tested yet.
+- Pass 3: Planned; not implemented.
+
+These statuses describe migration passes, not playable depth levels.
+Deep Caverns is registered but is not yet reachable through gameplay.
+
 ## Current Foundation
 
-The game currently has:
+The game has:
 - A surface world.
-- One underground cave world.
-- Cave entrances connecting those two worlds.
+- Surface entrances connecting to Upper Caverns.
 - Independent surface and cave biome selection.
 - Layer switching for visibility, processing and collision.
 - Chunk streaming around the player.
+- Stable string identities resolved through WorldLayerCatalog.
+- WorldLayerRuntime ownership of independent underground instances.
 
-The current layer identity is a fixed Surface/Cave distinction.
+Pass 2 registers Upper Caverns and Deep Caverns as separate runtime worlds.
+Existing ramps still connect the surface to Upper Caverns only.
 
-The additional depths described below are planned work, not implemented
-features.
+Dormant underground layers do not build chunks until activated or
+explicitly preloaded.
 
 ## Pass 1 — Layer Identities and Definitions
 
-Status: Next pass. Code not yet applied.
+Status: Implemented and tested.
 
 Introduce extensible layer identities and data-driven layer definitions.
 
-Each definition should provide:
+Each definition provides:
 - Stable internal ID.
 - Display name.
 - Depth index.
 - Generation kind.
-- References to the appropriate generation settings and biome catalog.
+- References to generation settings and the biome catalog.
 
-Register the existing surface and cave as:
+The existing surface and cave are registered as:
 - surface — depth 0.
 - underground_1 — depth 1.
 
-Use one authoritative registry for resolving layer definitions by ID.
+WorldLayerCatalog is the authoritative registry for resolving definitions.
 
-Update current layer consumers to use the new identities. Preserve the
-existing surface/cave transition while removing the fixed layer enum
-and obsolete references once their consumers have migrated.
+Current layer consumers use the new identities. The fixed layer enum
+has been removed while preserving the existing surface/cave transition.
 
-Do not create another playable underground depth in this pass.
+### Verification
 
-### Completion Checks
+The existing surface/cave flow was tested successfully after Pass 1.
 
+Repeat these checks after later migration changes:
 - The surface loads normally.
-- Entering and leaving the existing cave still works.
+- Entering and leaving the existing cave works.
 - Visibility and collision switch correctly.
 - Existing actors remain associated with the correct layer.
 - Layer definitions resolve consistently.
@@ -86,41 +97,62 @@ Do not create another playable underground depth in this pass.
 
 ## Pass 2 — Independent Layer Worlds
 
-Status: Planned.
+Status: Implemented; not fully tested yet.
 
-Make world ownership and runtime services work with explicit layer IDs.
+World ownership and runtime services now resolve explicit layer IDs.
 
-Each underground layer should own its:
+Each underground layer owns its:
 - Generator and deterministic seed.
 - Biome distribution.
 - Loaded chunks.
 - Collision and navigation data.
-- Runtime content.
+- Runtime object root.
 
 Actors, projectiles and interactions must distinguish exact layers.
 Two actors being underground does not mean they occupy the same layer.
 
-Reuse the underground world implementation for multiple instances.
-Avoid copying CaveWorld into a separate class for every depth.
+WorldLayerRuntime reuses CaveWorld for multiple independent instances.
+There is no separate CaveWorld implementation for each depth.
 
-Update visibility and activation so the correct layer is active, while
-allowing the departure layer to remain visible during a transition.
+Pass 2 adds:
+- WORLD/Layers/WorldLayerRuntime.cs
+- WORLD/Layers/Definitions/Underground2/Underground2.tres
+- WORLD/Layers/Definitions/Underground2/Underground2Generation.tres
 
-Adding a layer definition alone does not automatically create an entrance
-or guarantee that its content has been implemented.
+Each underground definition now owns FloorElevation.
+The global CaveFloorElevation export has been removed.
 
-### Completion Checks
+SurfaceEntranceLayerId in the catalog selects the destination of
+existing surface ramps.
 
-- Two underground layer instances can exist independently.
-- Their generated layouts use independent seeds.
-- Chunk ownership includes the layer identity.
-- Collision and targeting do not cross between depths.
-- Existing surface/cave behaviour still works.
-- Obsolete single-cave assumptions are removed from migrated systems.
+Navigation, elevation, shadows, drops and wrecks resolve exact layer IDs.
+Deeper layers do not prepare surface basin or entrance metadata.
+
+Stable identity hashes separate underground seeds. Existing cave layouts
+may therefore change for the same world seed. Surface generation is unchanged.
+
+Adding a layer definition does not automatically create an entrance
+or implement its content. Deep Caverns is not yet reachable.
+
+### Pending Verification
+
+Do not mark this pass fully tested until the relevant checks pass:
+
+- The project builds without errors.
+- Surface → Upper Caverns → Surface still works.
+- Returning through a different surface entrance works.
+- Visibility, collision and player ownership switch correctly.
+- Enemy navigation, combat and pursuit still work.
+- Drops, wrecks and shadows use the correct layer.
+- Two underground instances exist independently.
+- Deep Caverns remains dormant when unused.
+- Underground layouts use independent deterministic seeds.
+
+Cross-depth traversal and its interaction checks require Pass 3.
 
 ## Pass 3 — Connections Between Layers
 
-Status: Planned.
+Status: Planned; not implemented.
 
 Generalize entrances into explicit connections.
 
@@ -135,11 +167,14 @@ Reuse the transition mechanism for:
 - underground_1 ↔ underground_2.
 - Further connections when added later.
 
-Prepare the destination before transferring the player. Validate the
-landing location using the destination layer's terrain and collision.
+Prepare the destination before transferring the player.
+Validate the landing location using the destination's terrain and collision.
 
-Preserve the existing entrance presentation where appropriate. Different
-connection types may receive their own artwork and behaviour later.
+Update visibility and activation so the correct layer becomes active,
+while allowing the departure layer to remain visible during a transition.
+
+Preserve the existing entrance presentation where appropriate.
+Different connection types may receive their own artwork and behaviour later.
 
 ### Completion Checks
 
@@ -149,6 +184,7 @@ connection types may receive their own artwork and behaviour later.
 - The correct destination chunks load.
 - The player lands in a valid position.
 - Visibility, collision and actor layer identity update together.
+- Combat and interactions do not cross between depths.
 - The old surface-only entrance assumptions are removed.
 
 ## Outside This Migration
@@ -170,8 +206,10 @@ they are already implemented.
 Before continuing:
 1. Read this README.
 2. Check the latest GitHub push.
-3. Confirm which pass has actually been applied.
+3. Confirm which pass has actually been applied and tested.
 4. Review affected scenes and resources as well as C# scripts.
 5. Complete and clean up the current pass before starting the next.
+
+Current next step: finish Pass 2 verification, then prepare Pass 3.
 
 Update the status and completion checks after each verified pass.

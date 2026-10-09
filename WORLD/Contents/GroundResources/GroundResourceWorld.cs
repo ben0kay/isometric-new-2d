@@ -269,7 +269,7 @@ private static float ShapeRadius(Deposit deposit, Vector2 difference)
             deposit.Work = Mathf.Min(required, deposit.Work + power);
             if (deposit.Work < required) return true;
 
-            if (!_resources.Spawn(deposit.Definition.ItemId, 1, globalPoint))
+            if (!_resources.Spawn(deposit.Definition.ItemId, 1, globalPoint, this))
                 return false;
 
             deposit.Work = 0f;

@@ -17,6 +17,7 @@ public sealed class CaveEntrancePlanner
     private readonly CaveSurfaceSampler _sampler;
     private readonly GenerationCellCache<CaveHole> _cells;
     private CaveWorld _cave;
+    private readonly float _floorElevation;
 
     private readonly int _offset, _stride;
     private readonly float _pitch, _reach, _clearTiles;
@@ -30,9 +31,11 @@ public sealed class CaveEntrancePlanner
     // =========================================================
 // Reserve a shared chamber lattice large enough for all cave biome profiles.
 public CaveEntrancePlanner(
-    Node world, ChunkController chunks, CaveGenerationSettings settings)
+    Node world, ChunkController chunks, CaveGenerationSettings settings,
+    float floorElevation)
 {
     _world = world;
+    _floorElevation = floorElevation;
     _chunks = chunks;
     _config = WorldConfig.Find(world);
     _ground = world.GetNode<Node2D>("GroundChunks");
@@ -175,7 +178,7 @@ public CaveEntrancePlanner(
                     yield return step;
 
                 if (result.Accepted &&
-                    result.RimHeight > _config.CaveFloorElevation + 32f)
+                    result.RimHeight > _floorElevation + 32f)
                 {
                     hole = new CaveHole(
                         $"C_{x}_{y}", mouth, direction, point,

@@ -16,7 +16,7 @@ public partial class InfiniteWorldGeneration : Node
     private CaveEntrancePlanner _planner;
     private bool _initialized;
 
-    public CaveWorld Cave { get; private set; }
+    public WorldLayerRuntime Worlds { get; private set; }
     #endregion
 
     #region Lifecycle
@@ -49,22 +49,19 @@ public partial class InfiniteWorldGeneration : Node
         if (Enabled && config.GenerateCaves)
         {
             WorldLayerDefinition definition =
-                config.GetLayerCatalog().Get(WorldLayerId.Underground1);
+                config.GetLayerCatalog().Get(config.GetLayerCatalog().SurfaceEntranceLayerId);
             CaveGenerationSettings settings = definition.CreateCaveSettings();
 
-            _planner = new CaveEntrancePlanner(_world, chunks, settings);
-            Cave = new CaveWorld { Name = "CaveWorld", Planner = _planner };
-            AddChild(Cave);
-
-            Node2D ground = _world.GetNode<Node2D>("GroundChunks");
-            Cave.Build(
-                ground.GlobalPosition, chunks.TileSize, 0f,
-                chunks.WorldSeed, _planner.Settings, Array.Empty<CaveHole>());
+            _planner = new CaveEntrancePlanner(
+                _world, chunks, settings, definition.FloorElevation);
+            Player player = _world.GetNode<Player>("WorldObjects/Player");
+            Worlds = new WorldLayerRuntime { Name = "LayerWorlds" };
+            AddChild(Worlds);
+            Worlds.Initialize(_world, player, chunks, _planner);
 
             WorldLayerController layers = new() { Name = "WorldLayers" };
             AddChild(layers);
-            layers.Configure(
-                _world, _world.GetNode<Player>("WorldObjects/Player"), Cave);
+            layers.Configure(_world, player, Worlds);
         }
 
         _initialized = true;
@@ -83,28 +80,44 @@ public partial class InfiniteWorldGeneration : Node
     #region Local Preparation
     // =========================================================
     // Finish local water and entrance decisions before geometry or props sample them.
-    public IEnumerable<int> PrepareArea(Rect2 area)
+    public IEnumerable<int> PrepareArea(
+        Rect2 area, string layer = WorldLayerId.Surface)
     {
         if (!_initialized)
             throw new InvalidOperationException(
                 "Infinite generation did not initialize successfully.");
 
+        if (layer != WorldLayerId.Surface &&
+            layer != Worlds?.SurfaceEntranceLayerId)
+        {
+            Worlds?.GetUnderground(layer);
+            yield break;
+        }
+
         foreach (int step in _basins.PrepareArea(area.Grow(2f)))
             yield return step;
 
         if (_planner != null)
-            foreach (int step in _planner.PrepareArea(area, Cave))
+            foreach (int step in _planner.PrepareArea(area, Worlds.SurfaceUnderground))
                 yield return step;
     }
     #endregion
 
         // =========================================================
     // Hold both surface and entrance metadata until the owning chunk retires.
-    public IDisposable PinArea(Rect2 area)
+    public IDisposable PinArea(
+        Rect2 area, string layer = WorldLayerId.Surface)
     {
         if (!_initialized)
             throw new InvalidOperationException(
                 "Infinite generation did not initialize successfully.");
+
+        if (layer != WorldLayerId.Surface &&
+            layer != Worlds?.SurfaceEntranceLayerId)
+        {
+            Worlds?.GetUnderground(layer);
+            return new GenerationLease(() => { });
+        }
 
         IDisposable water = _basins.PinArea(area.Grow(4f));
         IDisposable entrances = null;

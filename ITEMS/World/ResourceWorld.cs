@@ -41,11 +41,13 @@ public partial class ResourceWorld : Node
 
 	// =========================================================
 	// Resolve an item and defer scene attachment outside physics queries.
-	public bool Spawn(string itemId, int count, Vector2 globalPosition)
+	public bool Spawn(string itemId, int count, Vector2 globalPosition,
+        Node owner = null)
 	{
 		ItemDefinition item = Catalog.Get(itemId);
+        Node2D objects = RootFor(owner);
 		if (item == null || count <= 0 ||
-			!GodotObject.IsInstanceValid(_objects))
+			!GodotObject.IsInstanceValid(objects))
 		{
 			GD.PushError($"[Resources] Cannot drop '{itemId}' ×{count}.");
 			return false;
@@ -58,9 +60,9 @@ public partial class ResourceWorld : Node
 			Count = count,
 			PickupRadius = Mathf.Max(8f, PickupRadius),
 			PickupDelay = Math.Max(0, PickupDelay),
-			Position = _objects.ToLocal(globalPosition)
+			Position = objects.ToLocal(globalPosition)
 		};
-		_objects.CallDeferred(Node.MethodName.AddChild, pickup);
+		objects.CallDeferred(Node.MethodName.AddChild, pickup);
 		return true;
 	}
 
@@ -88,9 +90,10 @@ public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
 // =========================================================
 // Validate every reward before spawning any part of a harvested object's yield.
 public bool SpawnHarvest(string primaryId, int primaryCount,
-	string[] bonusIds, Vector2 globalPosition)
+	string[] bonusIds, Vector2 globalPosition, Node owner = null)
 {
-	if (primaryCount <= 0 || !GodotObject.IsInstanceValid(_objects))
+    Node2D objects = RootFor(owner);
+	if (primaryCount <= 0 || !GodotObject.IsInstanceValid(objects))
 		return false;
 
 	var rewards = new System.Collections.Generic.List<(ItemDefinition Item, int Count)>();
@@ -126,12 +129,12 @@ public bool SpawnHarvest(string primaryId, int primaryCount,
 			Count = rewards[i].Count,
 			PickupRadius = Mathf.Max(8f, PickupRadius),
 			PickupDelay = Math.Max(0, PickupDelay),
-			Position = _objects.ToLocal(globalPosition + offset)
+			Position = objects.ToLocal(globalPosition + offset)
 		});
 	}
 
 	foreach (WorldPickup pickup in pickups)
-		_objects.CallDeferred(Node.MethodName.AddChild, pickup);
+		objects.CallDeferred(Node.MethodName.AddChild, pickup);
 	return true;
 }
 	#endregion
@@ -141,13 +144,8 @@ public bool SpawnHarvest(string primaryId, int primaryCount,
 public bool SpawnItemFor(
     Node owner, ItemDefinition item, int count, Vector2 globalPosition)
 {
-    string layer = WorldLayerMember.For(owner);
-    WorldLayerController layers = WorldLayerController.Find(this);
-    Node2D objects = layer == WorldLayerId.Underground1
-        ? layers?.Cave?.Objects : _objects;
-
-    if (item == null || count <= 0 ||
-        !GodotObject.IsInstanceValid(objects))
+    Node2D objects = RootFor(owner);
+    if (item == null || count <= 0 || !GodotObject.IsInstanceValid(objects))
         return false;
 
     WorldPickup pickup = new()
@@ -159,8 +157,19 @@ public bool SpawnItemFor(
         PickupDelay = Math.Max(0, PickupDelay),
         Position = objects.ToLocal(globalPosition)
     };
-
     objects.CallDeferred(Node.MethodName.AddChild, pickup);
     return true;
 }
+
+    // =========================================================
+    // Resolve source ownership independently from the player's current depth.
+    private Node2D RootFor(Node owner)
+    {
+        if (owner == null) return WorldLayerController.DropRoot(this, _objects);
+        string layer = WorldLayerMember.For(owner);
+        return layer == WorldLayerId.Surface ? _objects
+            : (WorldLayerRuntime.Find(this) ??
+                throw new InvalidOperationException("Missing layer runtime."))
+                .ObjectsFor(layer);
+    }
 }

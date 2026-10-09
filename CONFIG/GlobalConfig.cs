@@ -31,9 +31,6 @@ public partial class GlobalConfig : Node
 [Export(PropertyHint.Range, "0.25,8,0.25")]
 public float CaveBiomeScaleMultiplier { get; set; } = 1f;
 
-// Absolute terrain elevation of the main underground network.
-[Export] public float CaveFloorElevation { get; set; } = -160f;
-
 // Minimum logical tile distance between surface entrance mouths.
 [Export(PropertyHint.Range, "64,1024,8")]
 public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;

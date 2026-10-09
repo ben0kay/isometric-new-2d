@@ -50,8 +50,7 @@ public sealed class WorldMapPoiPreview : IDisposable
             throw new InvalidOperationException(
                 "DebugMapPoiBudgetMs must be finite and positive.");
 
-        _cave = context.GetTree().GetFirstNodeInGroup(
-            "cave_world") as CaveWorld;
+        _cave = WorldLayerRuntime.Find(context)?.SurfaceUnderground;
 
         InfiniteWorldGeneration generation =
             InfiniteWorldGeneration.Find(context);

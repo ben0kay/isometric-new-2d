@@ -102,6 +102,7 @@ public void Emit(MiningAttack attack, Vector2 direction)
     {
         _endpoint = hit["position"].AsVector2();
         Node2D collider = hit["collider"].AsGodotObject() as Node2D;
+        if (collider != null && !WorldLayerMember.Same(_source, collider)) return;
         bool worked = false;
         float efficiency = _stats?.Get(PlayerStat.MiningEfficiency) ?? 1f;
         float power = attack.MiningPower * efficiency;
@@ -114,7 +115,7 @@ public void Emit(MiningAttack attack, Vector2 direction)
             {
                 Vector2 position = collider.GlobalPosition;
                 worked = target.Mine(power, (item, count) =>
-                    resources.Spawn(item.Id, count, position));
+                    resources.Spawn(item.Id, count, position, collider));
             }
         }
         else if (collider != null)

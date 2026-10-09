@@ -33,7 +33,8 @@ public partial class GroundShadowWorld : Node
 
     private WorldLighting _lighting;
     private Node _world;
-    private Node2D _surfaceRoot, _caveRoot;
+    private Node2D _surfaceRoot;
+    private readonly Dictionary<string, Node2D> _layerRoots = new();
     private WorldLayerController _layers;
 
     private ShaderMaterial _sunMaterial;
@@ -391,17 +392,15 @@ private void Initialize()
     private Node2D RootFor(string layer)
     {
         if (layer == WorldLayerId.Surface) return _surfaceRoot;
+        if (_layerRoots.TryGetValue(layer, out Node2D root) &&
+            GodotObject.IsInstanceValid(root)) return root;
 
-        _layers ??= WorldLayerController.Find(this);
-        if (_layers?.Cave == null) return _surfaceRoot;
-
-        if (!GodotObject.IsInstanceValid(_caveRoot))
-        {
-            _caveRoot = new Node2D { Name = "SharedGroundShadows" };
-            _layers.Cave.Root.AddChild(_caveRoot);
-        }
-
-        return _caveRoot;
+        WorldLayerRuntime runtime = WorldLayerRuntime.Find(this)
+            ?? throw new InvalidOperationException("Missing layer runtime for shadows.");
+        root = new Node2D { Name = "SharedGroundShadows" };
+        runtime.GetUnderground(layer).Root.AddChild(root);
+        _layerRoots[layer] = root;
+        return root;
     }
 
     // =========================================================
@@ -516,8 +515,9 @@ private void Initialize()
 
         if (GodotObject.IsInstanceValid(_surfaceRoot))
             _surfaceRoot.QueueFree();
-        if (GodotObject.IsInstanceValid(_caveRoot))
-            _caveRoot.QueueFree();
+        foreach (Node2D root in _layerRoots.Values)
+            if (GodotObject.IsInstanceValid(root)) root.QueueFree();
+        _layerRoots.Clear();
     }
 
     #endregion

@@ -1,14 +1,15 @@
-// Owns one shared cave network and its paired surface holes.
-// All entrances use the same cave root, generator and chunk streamer.
+// Owns one independent underground world, its terrain and runtime services.
+// Only the surface-connected layer owns surface entrance metadata.
 using Godot;
 using System.Collections.Generic;
 
 public partial class CaveWorld : Node2D
 {
     #region State
-    public string LayerId { get; set; } = WorldLayerId.Underground1;
+    public string LayerId { get; set; } = "";
     public WorldLayerDefinition Definition { get; private set; }
     public CaveGenerationSettings Settings { get; private set; }
+    public uint WorldSeed { get; private set; }
     public CaveGenerator Generator { get; private set; }
     public CaveChunkController Streaming { get; private set; }
 
@@ -24,6 +25,7 @@ public partial class CaveWorld : Node2D
     public ShaderMaterial GroundMaterial { get; private set; }
     public ImageTexture WhiteTexture { get; private set; }
 
+    private WorldLayerMember _objectsMember;
     private readonly List<CaveHole> _holes = new();
     public IReadOnlyList<CaveHole> Holes => _holes;
     public CaveEntrance Entrance => _holes.Count > 0 ? _holes[0].Marker : null;
@@ -32,10 +34,10 @@ public partial class CaveWorld : Node2D
 
     #region Construction
     // =========================================================
-    // Register the optional cave service for shared placement checks.
+    // Keep world ownership free of per-frame processing.
     public override void _EnterTree()
     {
-        AddToGroup("cave_world");
+        SetProcess(false);
     }
 
     // =========================================================
@@ -54,18 +56,19 @@ public partial class CaveWorld : Node2D
         Settings.Validate();
         TileSize = tileSize;
         RimHeight = rimHeight;
-        FloorElevation = WorldConfig.Find(this).CaveFloorElevation;
+        FloorElevation = Definition.FloorElevation;
+        WorldSeed = worldSeed;
 
         if (!float.IsFinite(FloorElevation) || FloorElevation >= 0f)
             throw new System.InvalidOperationException(
-                "CaveFloorElevation must be finite and below zero.");
+                "The underground layer floor elevation must be finite and below zero.");
 
         foreach (CaveHole hole in holes)
         {
             if (hole.RimHeight <= FloorElevation)
                 throw new System.InvalidOperationException(
                     $"Cave floor must be below entrance '{hole.Id}'. " +
-                    "Lower CaveFloorElevation or raise that surface biome.");
+                    "Lower the layer definition's FloorElevation or raise that surface biome.");
         }
 
         _holes.Clear();
@@ -78,9 +81,11 @@ public partial class CaveWorld : Node2D
         Root = new Node2D { Name = "CaveLayer" };
         AddChild(Root);
         Root.GlobalPosition = origin;
+        WorldLayerMember.Attach(Root, LayerId);
 
         Objects = new Node2D { Name = "Objects", YSortEnabled = true };
         Root.AddChild(Objects);
+        _objectsMember = WorldLayerMember.Attach(Objects, LayerId);
 
         Elevation = new CaveTerrainElevation
         {
@@ -133,6 +138,18 @@ public partial class CaveWorld : Node2D
         Streaming = new CaveChunkController { Name = "CaveStreaming" };
         AddChild(Streaming);
         Streaming.Configure(this);
+        AddChild(new WorldNavigation { Name = "Navigation", Cave = this });
+    }
+    #endregion
+
+    #region Activation
+    // =========================================================
+    // Separate chunk work from drawing and object processing on inactive depths.
+    public void SetActive(bool active)
+    {
+        Root.Visible = active;
+        _objectsMember.SetActive(active);
+        Streaming.SetActive(active);
     }
     #endregion
 
@@ -212,27 +229,19 @@ public partial class CaveWorld : Node2D
 public static bool IsHoleReserved(
     Node context, Vector2 point, Vector2 footprint, Vector2 padding)
 {
-    CaveWorld world = context.GetTree().GetFirstNodeInGroup(
-        "cave_world") as CaveWorld;
+    WorldLayerRuntime runtime = WorldLayerRuntime.Find(context);
+    if (runtime == null) return false;
+    CaveWorld world = runtime.SurfaceUnderground;
 
-    if (world == null) return false;
-
-    float objectRadius =
-        footprint.Length() * 0.5f + padding.Length();
-
+    float objectRadius = footprint.Length() * 0.5f + padding.Length();
     foreach (CaveHole hole in world.Holes)
     {
         float radius = hole.SurfaceClearRadius + objectRadius;
         float squared = radius * radius;
-
         if (point.DistanceSquaredTo(hole.SurfacePosition) < squared ||
-            point.DistanceSquaredTo(
-                hole.OutsidePosition(world.TileSize)) < squared)
-        {
+            point.DistanceSquaredTo(hole.OutsidePosition(world.TileSize)) < squared)
             return true;
-        }
     }
-
     return false;
 }
     #endregion
@@ -275,7 +284,7 @@ public static bool IsHoleReserved(
     // Restrict terrain sampling to mouths near the requested cave coordinate.
     public IEnumerable<CaveHole> NearbyHoles(Vector2 tile)
     {
-        return Planner.Nearby(tile);
+        return Planner?.Nearby(tile) ?? _holes;
     }
     #endregion
 }

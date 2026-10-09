@@ -99,7 +99,7 @@ private sealed class RouteJob
     // Resolve terrain, cache obstacles and join the shared work scheduler.
     public override void _Ready()
     {
-        AddToGroup(Cave == null ? "world_navigation" : "cave_navigation");
+        AddToGroup("world_navigation");
         _config = WorldConfig.Find(this);
         CellSize = Mathf.Max(16, _config.NavigationCellSize);
         AgentClearance = Mathf.Max(1f, _config.NavigationAgentClearance);
@@ -138,10 +138,18 @@ private sealed class RouteJob
     public static WorldNavigation For(Node actor)
     {
         if (actor == null || !actor.IsInsideTree()) return null;
-        string group = WorldLayerMember.For(actor) == WorldLayerId.Underground1
-            ? "cave_navigation" : "world_navigation";
+        return ForLayer(actor, WorldLayerMember.For(actor));
+    }
 
-        return actor.GetTree().GetFirstNodeInGroup(group) as WorldNavigation;
+    // =========================================================
+    // Resolve navigation by exact identity across all registered layer services.
+    public static WorldNavigation ForLayer(Node context, string layer)
+    {
+        if (context == null || !context.IsInsideTree()) return null;
+        foreach (Node node in context.GetTree().GetNodesInGroup("world_navigation"))
+            if (node is WorldNavigation navigation && navigation.Layer == layer)
+                return navigation;
+        return null;
     }
 
     // =========================================================

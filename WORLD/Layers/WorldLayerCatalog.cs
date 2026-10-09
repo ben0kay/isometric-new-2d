@@ -8,6 +8,8 @@ using System.Collections.Generic;
 public partial class WorldLayerCatalog : Resource
 {
     #region Definitions
+    [Export] public string SurfaceEntranceLayerId { get; set; }
+        = WorldLayerId.Underground1;
     [Export] public Godot.Collections.Array<WorldLayerDefinition> Layers { get; set; }
         = new();
 
@@ -36,6 +38,11 @@ public partial class WorldLayerCatalog : Resource
 
         if (!index.ContainsKey(WorldLayerId.Surface))
             throw new InvalidOperationException("The layer catalog requires 'surface'.");
+
+        if (!index.TryGetValue(SurfaceEntranceLayerId, out WorldLayerDefinition entry) ||
+            entry.Kind != WorldLayerKind.Underground)
+            throw new InvalidOperationException(
+                "SurfaceEntranceLayerId must identify an underground layer.");
 
         _index = index;
     }

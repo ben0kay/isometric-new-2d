@@ -155,9 +155,8 @@ private void RestoreWreck(DeathWreck record)
     if (GodotObject.IsInstanceValid(record.Actor) || !WreckAvailable(record))
         return;
 
-    WorldLayerController layers = WorldLayerController.Find(this);
-    Node2D root = record.Layer == WorldLayerId.Underground1
-        ? layers.Cave.Objects : _objects;
+    Node2D root = record.Layer == WorldLayerId.Surface ? _objects
+        : WorldLayerRuntime.Find(this).ObjectsFor(record.Layer);
 
     Node2D wreck = _wreckScene.Instantiate<Node2D>();
     LootContainer loot = wreck.GetNode<LootContainer>("Systems/Loot");
@@ -201,13 +200,11 @@ public override void _Process(double delta)
 // Restore artwork only on its active layer and ready terrain.
 private bool WreckAvailable(DeathWreck record)
 {
-    WorldLayerController layers = WorldLayerController.Find(this);
-    string current = layers?.Current ?? WorldLayerId.Surface;
-
+    WorldLayerRuntime runtime = WorldLayerRuntime.Find(this);
+    string current = runtime?.ActiveLayer ?? WorldLayerId.Surface;
     if (record.Layer != current) return false;
-
-    return record.Layer == WorldLayerId.Underground1
-        ? layers?.Cave.Streaming.IsAvailable(record.Position, 0f) == true
+    return runtime != null
+        ? runtime.IsAvailable(record.Layer, record.Position)
         : _chunks.IsNavigationPointAvailable(record.Position);
 }
     #endregion

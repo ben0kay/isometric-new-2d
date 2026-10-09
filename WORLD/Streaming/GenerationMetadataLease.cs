@@ -13,7 +13,8 @@ public partial class GenerationMetadataLease : Node
     // =========================================================
     // Attach protection once before the owning chunk starts construction.
     public static void Attach(
-        Node owner, InfiniteWorldGeneration generation, Rect2 area)
+        Node owner, InfiniteWorldGeneration generation, Rect2 area,
+        string layer = WorldLayerId.Surface)
     {
         if (owner.GetNodeOrNull<GenerationMetadataLease>(
             "GenerationMetadata") != null)
@@ -22,7 +23,7 @@ public partial class GenerationMetadataLease : Node
         GenerationMetadataLease helper = new()
         {
             Name = "GenerationMetadata",
-            _lease = generation.PinArea(area)
+            _lease = generation.PinArea(area, layer)
         };
         owner.AddChild(helper);
     }

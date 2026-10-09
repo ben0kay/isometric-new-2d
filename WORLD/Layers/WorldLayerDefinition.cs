@@ -19,6 +19,7 @@ public partial class WorldLayerDefinition : Resource
     [ExportGroup("Generation")]
     [Export] public BiomeCatalog Biomes { get; set; }
     [Export] public CaveGenerationSettings CaveSettings { get; set; }
+    [Export] public float FloorElevation { get; set; }
     #endregion
 
     #region Validation
@@ -35,16 +36,17 @@ public partial class WorldLayerDefinition : Resource
         if (Kind == WorldLayerKind.Surface)
         {
             if (Id != WorldLayerId.Surface || DepthIndex != 0 ||
-                CaveSettings != null)
+                CaveSettings != null || FloorElevation != 0f)
                 throw new InvalidOperationException(
-                    "The surface layer must use ID 'surface', depth 0 and no cave settings.");
+                    "The surface requires ID 'surface', depth 0, elevation 0 and no cave settings.");
         }
         else if (Kind == WorldLayerKind.Underground)
         {
             if (Id == WorldLayerId.Surface || DepthIndex < 1 ||
-                CaveSettings == null)
+                CaveSettings == null || !float.IsFinite(FloorElevation) ||
+                FloorElevation >= 0f)
                 throw new InvalidOperationException(
-                    $"Underground layer '{Id}' requires a positive depth and cave settings.");
+                    $"Underground layer '{Id}' requires a positive depth, negative elevation and cave settings.");
         }
         else
             throw new InvalidOperationException($"Layer '{Id}' has an invalid kind.");

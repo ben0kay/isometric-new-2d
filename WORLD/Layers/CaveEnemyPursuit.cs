@@ -12,6 +12,7 @@ public partial class CaveEnemyPursuit : Node
         public Entity Actor;
         public WorldLayerMember Member;
         public CaveHole Portal;
+        public CaveWorld PortalWorld;
         public IDisposable Lease;
         public bool Simulating = true;
         public bool Colliding = true;
@@ -36,17 +37,10 @@ public partial class CaveEnemyPursuit : Node
     }
 
     // =========================================================
-    // Create one helper and one cave instance of the shared navigation service.
+    // Create pursuit coordination; each runtime world owns its navigation.
     public static void Ensure(WorldLayerController layers, Node world)
     {
         if (Find(layers) != null) return;
-
-        if (layers.Cave.GetNodeOrNull<WorldNavigation>("Navigation") == null)
-            layers.Cave.AddChild(new WorldNavigation
-            {
-                Name = "Navigation",
-                Cave = layers.Cave
-            });
 
         CaveEnemyPursuit helper = new()
         {
@@ -187,7 +181,7 @@ public partial class CaveEnemyPursuit : Node
     // =========================================================
     // Remember the entrance only for enemies already tracking this player.
     public void PlayerCrossed(
-        CaveHole hole, string destination, Player player)
+        CaveWorld portalWorld, CaveHole hole, string destination, Player player)
     {
         TrackEnemies();
 
@@ -202,13 +196,18 @@ public partial class CaveEnemyPursuit : Node
             ClearPortal(record);
             actor.ResetPursuitMovement();
 
-            if (hole != null && record.Member.Layer != destination)
+            if (hole != null && record.Member.Layer != destination &&
+                (record.Member.Layer == WorldLayerId.Surface ||
+                    record.Member.Layer == portalWorld.LayerId) &&
+                (destination == WorldLayerId.Surface ||
+                    destination == portalWorld.LayerId))
             {
                 record.Portal = hole;
+                record.PortalWorld = portalWorld;
 
                 Vector2 tile = IsoGrid.WorldToTile(
                     _surfaceGround.ToLocal(hole.SurfacePosition),
-                    _layers.Cave.TileSize);
+                    portalWorld.TileSize);
 
                 record.Lease = _generation?.PinArea(
                     new Rect2(tile - Vector2.One * 4f, Vector2.One * 8f));
@@ -230,7 +229,7 @@ public partial class CaveEnemyPursuit : Node
 
         goal = record.Member.Layer == WorldLayerId.Surface
             ? record.Portal.SurfacePosition
-            : record.Portal.OutsidePosition(_layers.Cave.TileSize);
+            : record.Portal.OutsidePosition(record.PortalWorld.TileSize);
         return true;
     }
 
@@ -240,7 +239,15 @@ public partial class CaveEnemyPursuit : Node
     {
         Entity actor = record.Actor;
         CaveHole hole = record.Portal;
+        CaveWorld world = record.PortalWorld;
         string destination = WorldLayerMember.For(actor.Target);
+
+        if (world == null ||
+            (destination != WorldLayerId.Surface && destination != world.LayerId))
+        {
+            ClearPortal(record);
+            return;
+        }
 
         if (record.Member.Layer == destination)
         {
@@ -250,24 +257,24 @@ public partial class CaveEnemyPursuit : Node
 
         Vector2 mouth = record.Member.Layer == WorldLayerId.Surface
             ? hole.SurfacePosition
-            : hole.OutsidePosition(_layers.Cave.TileSize);
+            : hole.OutsidePosition(world.TileSize);
 
         if (actor.GlobalPosition.DistanceSquaredTo(mouth) > 20f * 20f)
             return;
 
         Vector2 landing;
-        if (destination == WorldLayerId.Underground1)
+        if (destination == world.LayerId)
         {
-            landing = _layers.Cave.TileToWorld(hole.TileAt(0.25f));
-            if (!_layers.Cave.Streaming.EntryReady(hole) ||
-                !_layers.Cave.Streaming.IsAvailable(landing, 10f))
+            landing = world.TileToWorld(hole.TileAt(0.25f));
+            if (!world.Streaming.EntryReady(hole) ||
+                !world.Streaming.IsAvailable(landing, 10f))
                 return;
         }
         else
         {
-            landing = hole.OutsidePosition(_layers.Cave.TileSize);
-            WorldNavigation surface = GetTree().GetFirstNodeInGroup(
-                "world_navigation") as WorldNavigation;
+            landing = hole.OutsidePosition(world.TileSize);
+            WorldNavigation surface = WorldNavigation.ForLayer(
+                this, WorldLayerId.Surface);
 
             if (!_surfaceChunks.IsNavigationPointAvailable(landing, 10f) ||
                 surface == null || !surface.CanTravelDirectly(landing, landing))
@@ -285,6 +292,7 @@ public partial class CaveEnemyPursuit : Node
         record.Lease?.Dispose();
         record.Lease = null;
         record.Portal = null;
+        record.PortalWorld = null;
     }
     #endregion
 
@@ -321,9 +329,9 @@ public partial class CaveEnemyPursuit : Node
 
     // =========================================================
     // Protect loaded cave floor along an active pursuer's local route.
-    public bool RetainCave(Vector2I coordinate)
+    public bool RetainCave(CaveWorld world, Vector2I coordinate)
     {
-        int size = _layers.Cave.Settings.ChunkSize;
+        int size = world.Settings.ChunkSize;
         Rect2 chunk = new(
             new Vector2(coordinate.X * size, coordinate.Y * size),
             Vector2.One * size);
@@ -331,15 +339,15 @@ public partial class CaveEnemyPursuit : Node
         foreach (Record record in _records.Values)
         {
             if (!IsPursuing(record) ||
-                record.Member.Layer != WorldLayerId.Underground1)
+                record.Member.Layer != world.LayerId)
                 continue;
 
-            Vector2 from = _layers.Cave.WorldToTile(
+            Vector2 from = world.WorldToTile(
                 record.Actor.GlobalPosition);
             Vector2 destination = record.Portal != null
-                ? record.Portal.OutsidePosition(_layers.Cave.TileSize)
+                ? record.Portal.OutsidePosition(record.PortalWorld.TileSize)
                 : record.Actor.Target.GlobalPosition;
-            Vector2 to = _layers.Cave.WorldToTile(destination);
+            Vector2 to = world.WorldToTile(destination);
 
             if (new Rect2(from, Vector2.Zero).Expand(to)
                 .Grow(size).Intersects(chunk))
