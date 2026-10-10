@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HarvestProfile" format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1"]
+[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2"]
+
+[sub_resource type="Resource" id="Rock"]
+script = ExtResource("2")
+ItemId = "rock"
+MinimumCount = 1
+MaximumCount = 2
+Chance = 0.35
+
+[resource]
+script = ExtResource("1")
+Drops = Array[ExtResource("2")]([SubResource("Rock")])

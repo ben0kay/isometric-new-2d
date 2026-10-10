@@ -3,6 +3,7 @@
 using Godot;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 public partial class OreDeposit : Obstacle, IMiningTarget
 {
@@ -23,7 +24,9 @@ public partial class OreDeposit : Obstacle, IMiningTarget
     public int RequiredStrength => Definition.RequiredMiningStrength;
 
     private float _work;
-    private ItemDefinition _yieldItem;
+    private OreBatchPlan _plan;
+    private IReadOnlyList<HarvestDropPlan.Reward> _prepared;
+    private uint _worldSeed;
     private ResourceChanges _changes;
     #endregion
 
@@ -36,43 +39,25 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 			throw new InvalidOperationException(
 				"OreDeposit requires an OreDefinition.");
 
-		_yieldItem = Definition.YieldItem;
-
-		if (_yieldItem == null &&
-			!string.IsNullOrWhiteSpace(Definition.YieldItemId))
-		{
-			ItemCatalog catalog = GD.Load<ItemCatalog>(
-				"res://ITEMS/ItemCatalog.tres");
-
-			if (catalog == null)
-				throw new InvalidOperationException(
-					"OreDeposit requires the master ItemCatalog.");
-
-			_yieldItem = catalog.Get(Definition.YieldItemId);
-
-			if (_yieldItem == null)
-			{
-				catalog.Initialize();
-				_yieldItem = catalog.Get(Definition.YieldItemId);
-			}
-		}
-
-		if (_yieldItem == null)
-			throw new InvalidOperationException(
-				$"OreDeposit has an unknown yield: '{Definition.YieldItemId}'.");
+        ResourceWorld resources = ResourceWorld.Find(this);
+        if (resources == null)
+            throw new InvalidOperationException("OreDeposit requires ResourceWorld.");
+        _plan = new OreBatchPlan(Definition, resources.Catalog);
+        Node world = WorldConfig.Find(this).GetParent();
+        _worldSeed = world.GetNode<ChunkController>("Systems/ChunkController").WorldSeed;
 
 		InstanceSize = Mathf.Max(0.1f, InstanceSize);
 		Footprint = Definition.Footprint * InstanceSize;
 		Height = Definition.Height * InstanceSize;
 		VisualOverride = Definition.Visual;
-        RemainingUnits = Mathf.Max(1, Definition.TotalUnits);
+        RemainingUnits = Definition.TotalUnits;
         _changes = ResourceChanges.Ensure(this);
         _changes.BindScene(this, Definition, "ore");
         ResourceChangeData saved = _changes.Get(this);
         if (saved != null)
         {
             RemainingUnits = Math.Min(RemainingUnits, saved.Units);
-            _work = Mathf.Min(Mathf.Max(0.1f, Definition.WorkPerBatch), saved.Work);
+            _work = Mathf.Min(Definition.WorkPerBatch, saved.Work);
             if (saved.Depleted || RemainingUnits == 0) QueueFree();
         }
 	}
@@ -82,22 +67,25 @@ public partial class OreDeposit : Obstacle, IMiningTarget
 	// =========================================================
 	// Consume an ore batch only after its reward has been accepted.
 	public bool Mine(
-		float power, Func<ItemDefinition, int, bool> collect)
+		float power, Func<IReadOnlyList<HarvestDropPlan.Reward>, bool> collect)
 	{
 		if (IsQueuedForDeletion() || RemainingUnits <= 0 ||
 			power <= 0f || !float.IsFinite(power) || collect == null)
 			return false;
 
-		float required = Mathf.Max(0.1f, Definition.WorkPerBatch);
+		float required = Definition.WorkPerBatch;
         _work = Mathf.Min(required, _work + power);
         _changes.Record(this, _work, RemainingUnits);
 
 		if (_work < required) return true;
 
 		int units = Math.Min(
-			RemainingUnits, Mathf.Max(1, Definition.UnitsPerBatch));
+			RemainingUnits, Definition.UnitsPerBatch);
 
-		if (!collect(_yieldItem, units)) return false;
+		        _prepared ??= _plan.Prepare(_worldSeed, _changes.IdentityFor(this),
+            Definition.ResourcePath, Definition.TotalUnits, RemainingUnits, Definition.UnitsPerBatch);
+        if (!collect(_prepared)) return false;
+        _prepared = null;
 
 		_work = 0f;
         RemainingUnits -= units;

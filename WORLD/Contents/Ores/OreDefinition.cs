@@ -18,6 +18,9 @@ public partial class OreDefinition : WorldObjectDefinition
     [Export] public int TotalUnits { get; set; } = 30;
     [Export] public int UnitsPerBatch { get; set; } = 1;
     [Export] public float WorkPerBatch { get; set; } = 18f;
+    // Independent extra rewards per successful extraction batch, not per ore unit.
+    // Null means no bonuses. Primary ore remains governed by UnitsPerBatch.
+    [Export] public HarvestProfile BonusDrops { get; set; }
     #endregion
 
     #region Baked Artwork

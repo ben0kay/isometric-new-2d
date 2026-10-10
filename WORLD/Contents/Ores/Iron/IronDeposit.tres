@@ -3,10 +3,13 @@
 [ext_resource type="Script" path="res://WORLD/Contents/Ores/OreDefinition.cs" id="1"]
 [ext_resource type="PackedScene" path="res://VISUALS/Drawings/Ores/IronOreDrawing.tscn" id="3"]
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Ores/Iron/IronBonusHarvest.tres" id="phase4_bonus"]
+
 [resource]
 script = ExtResource("1")
 Footprint = Vector2(100, 36)
 YieldItemId = "iron_ore"
+BonusDrops = ExtResource("phase4_bonus")
 FallbackDrawing = ExtResource("3")
 Id = "iron_deposit"
 SizeRange = Vector2(0.9, 1.1)

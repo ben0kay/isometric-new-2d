@@ -114,8 +114,8 @@ public void Emit(MiningAttack attack, Vector2 direction)
             if (GodotObject.IsInstanceValid(resources))
             {
                 Vector2 position = collider.GlobalPosition;
-                worked = target.Mine(power, (item, count) =>
-                    resources.Spawn(item.Id, count, position, collider));
+                worked = target.Mine(power, rewards =>
+                    resources.SpawnHarvest(rewards, position, collider));
             }
         }
         else if (collider != null)

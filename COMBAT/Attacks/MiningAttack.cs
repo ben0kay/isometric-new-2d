@@ -2,11 +2,12 @@
 // Ore targets receive a drop callback instead of accessing player inventory.
 using Godot;
 using System;
+using System.Collections.Generic;
 
 public interface IMiningTarget
 {
     int RequiredStrength { get; }
-    bool Mine(float power, Func<ItemDefinition, int, bool> drop);
+    bool Mine(float power, Func<IReadOnlyList<HarvestDropPlan.Reward>, bool> drop);
 }
 
 [Tool, GlobalClass]

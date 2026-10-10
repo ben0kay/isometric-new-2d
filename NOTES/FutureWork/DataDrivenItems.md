@@ -637,8 +637,8 @@ and validation must be checked against the actual installed formats.
 |---|---|---|---|
 | 1 | Implemented in repository; local Godot checks pending | 072e048 (pre-change baseline) | Bark and nested category catalogs committed; in-engine inventory, pickup, save/load and duplicate tests remain local |
 | 2 | Installed in reviewed source; local gameplay verification not independently confirmed | 5552ff1 | Phase 2 migration present; user reported installer application |
-| 3 | Installer supplied; local application/compilation/gameplay pending | 5552ff1 | 12 species/profiles, deterministic independent rewards, cached compilation and narrow recipe migration bridge |
-| 4 | Planned | — | Multi-reward ore scope remains a decision |
+| 3 | Installed; user reports local checks passed | 5cf3f0c | Harvest profiles present in reviewed push |
+| 4 | Installer supplied; local application/compilation/gameplay pending | 5cf3f0c | Complete ore batches with independent bonuses; ground validation |
 | 5 | Planned | — | Not implemented |
 | 6 | Planned | — | Not implemented |
 
@@ -837,3 +837,27 @@ Git as rollback history; a failed write restores original bytes in memory.
 
 Next: Phase 4 after local verification. Phase 4 handles ore/ground-specific
 batch extraction and decides whether ore supports multiple independent rewards.
+
+
+### Phase 4 — Installer Delivery (2026-10-10)
+
+Baseline: 5cf3f0cfe0fb48a8d2664a4d53678e6fd6c615a4. Phase 3 is installed;
+user reports local checks passed. Mining's existing loose-world-drop behavior
+is preserved. It does not directly collect into inventory; full backpacks
+leave pickups on the ground. Batch acceptance happens before ore depletion.
+
+- OreDefinition.BonusDrops uses the existing HarvestProfile schema.
+- Iron retains primary ore/work and adds Rock 1–2 at 35% per batch.
+- Final partial primary batches are exact; extras roll once per batch.
+- All references/settings validate before extraction; canonical IDs are shared.
+- Retry outcomes cache; world/source/layer/removed-unit seed reproduces reloads.
+- Source-layer ownership and pending-pickup capture remain shared with Phase 3.
+- Ground extraction remains one unit per event, with stronger catalog validation.
+- A narrow reviewed iron/profile save fingerprint bridge preserves known old
+  campaigns; later configuration edits may require a new campaign.
+- No campaign/save-section version changes or broad fingerprint bypass.
+- Phase4README.md and OreBatchChecks.tscn cover local checks and editing.
+
+Static audit/resource/payload checks passed. PowerShell, C# compilation and
+Godot gameplay are not available remotely; do not mark Phase 4 complete until
+local checks pass. Next: Phase 5, external crafting recipes.

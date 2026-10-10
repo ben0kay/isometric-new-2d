@@ -104,7 +104,8 @@ public static class CampaignRecipe
                 throw new InvalidDataException("Saved world resource is unavailable: " + stamp.Key);
             string current = Convert.ToHexString(
                 SHA256.HashData(Godot.FileAccess.GetFileAsBytes(stamp.Key)));
-            if (current != stamp.Value && !HarvestRecipeCompatibility.Allows(stamp.Key, stamp.Value))
+            if (current != stamp.Value && !HarvestRecipeCompatibility.Allows(stamp.Key, stamp.Value) &&
+                !OreRecipeCompatibility.Allows(stamp.Key, stamp.Value))
                 throw new InvalidDataException("World generation resources changed since this save. " +
                     "Start a new campaign or restore the original resources. " + stamp.Key);
         }
