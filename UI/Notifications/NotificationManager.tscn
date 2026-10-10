@@ -1,8 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://UI/Notifications/NotificationManager.cs" id="1_script"]
 [ext_resource type="Resource" path="res://UI/Notifications/MajorAlerts/MajorAlertCatalog.tres" id="2_catalog"]
+[ext_resource type="Resource" path="res://UI/Notifications/NotificationSettings.tres" id="3_settings"]
 
 [node name="NotificationManager" type="CanvasLayer"]
 script = ExtResource("1_script")
 Catalog = ExtResource("2_catalog")
+Settings = ExtResource("3_settings")

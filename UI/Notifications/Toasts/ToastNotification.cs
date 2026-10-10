@@ -1,5 +1,5 @@
-// Lightweight toast payload: the UI owns display, timing, stacking and merging.
-// Amount > 0 enables additive merging for repeated pickups and crafting output.
+// A small, immutable-in-spirit notification payload (the toast display may merge Amount).
+// DurationSeconds <= 0 means to use the central NotificationSettings default.
 public enum ToastTone { Information, Inventory, Crafted, Warning }
 
 public sealed class ToastNotification
@@ -9,5 +9,5 @@ public sealed class ToastNotification
     public string Detail { get; set; } = "";
     public ToastTone Tone { get; set; } = ToastTone.Information;
     public int Amount { get; set; }
-    public float DurationSeconds { get; set; } = 3.2f;
+    public float DurationSeconds { get; set; } = 0f;
 }

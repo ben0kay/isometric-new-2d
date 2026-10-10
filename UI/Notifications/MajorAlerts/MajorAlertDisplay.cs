@@ -1,27 +1,41 @@
-// Renders one cinematic-but-subtle major alert at the top centre of the screen.
-// The manager owns priority, cooldown and the pending queue.
+// Presents a single top-centre major alert with interruptible, pause-aware motion.
+// NotificationManager controls priority, deduplication and the waiting queue.
 using Godot;
 using System;
 
 public partial class MajorAlertDisplay : Control
 {
-    #region Layout
-    public float PanelWidth { get; set; } = 600f;
-    public float PanelHeight { get; set; } = 128f;
-    public float TopMargin { get; set; } = 26f;
-    public float MotionSeconds { get; set; } = 0.34f;
+    #region Configuration
+    private float _panelWidth = 600f, _panelHeight = 128f, _topMargin = 26f;
+    private float _entranceSeconds = 0.34f, _exitSeconds = 0.25f;
     #endregion
 
     #region State
     private Control _card;
     private Label _title, _description, _footer;
+    private Tween _entrance, _lifetime, _exit;
     private Action _completed;
+    private bool _closing;
     public bool IsPlaying { get; private set; }
+    #endregion
+
+    #region Configuration
+    // =========================================================
+    // Apply the shared Inspector resource before showing notifications.
+    public void ApplySettings(NotificationSettings settings)
+    {
+        _panelWidth = settings.MajorWidth;
+        _panelHeight = settings.MajorHeight;
+        _topMargin = settings.MajorTopMargin;
+        _entranceSeconds = Mathf.Max(0.05f, settings.MajorEntranceSeconds);
+        _exitSeconds = Mathf.Max(0.05f, settings.MajorExitSeconds);
+        FitCard();
+    }
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Ignore mouse input so alerts never interfere with gameplay.
+    // Keep the banner centred without consuming player input.
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Ignore;
@@ -34,14 +48,15 @@ public partial class MajorAlertDisplay : Control
     }
     #endregion
 
-    #region Display
+    #region Presentation
     // =========================================================
-    // Display one alert, animate its arrival, then automatically dismiss it.
+    // Show a major alert and arrange its visual lifetime.
     public void Play(MajorAlertDefinition alert, Action completed)
     {
         if (alert == null || IsPlaying) return;
 
         IsPlaying = true;
+        _closing = false;
         _completed = completed;
         Color accent = AccentFor(alert.Tone);
 
@@ -63,8 +78,8 @@ public partial class MajorAlertDisplay : Control
         Label badge = new()
         {
             Text = string.IsNullOrWhiteSpace(alert.BadgeText) ? "!" : alert.BadgeText,
-            Position = new Vector2(13, 43),
-            Size = new Vector2(38, 35),
+            Position = new Vector2(13f, 43f),
+            Size = new Vector2(38f, 35f),
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             MouseFilter = MouseFilterEnum.Ignore
@@ -76,44 +91,60 @@ public partial class MajorAlertDisplay : Control
         _title = MakeLabel(alert.Title, 23, accent);
         _description = MakeLabel(alert.Description, 16, new Color("#d7edf0"));
         _description.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _footer = MakeLabel(alert.Footer.ToUpperInvariant(), 11, new Color("#94b2bd"));
+        _footer = MakeLabel(alert.Footer?.ToUpperInvariant(), 11, new Color("#94b2bd"));
 
         _card.AddChild(_title);
         _card.AddChild(_description);
         _card.AddChild(_footer);
         FitCard();
-        _card.Position = new Vector2(_card.Position.X, -PanelHeight);
+        _card.Position = new Vector2(_card.Position.X, -_panelHeight);
         _card.Modulate = new Color(1f, 1f, 1f, 0f);
 
-        Tween enter = _card.CreateTween().SetParallel(true);
-        enter.SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-        enter.TweenProperty(_card, "position:y", TopMargin, MotionSeconds);
-        enter.TweenProperty(_card, "modulate:a", 1f, MotionSeconds);
+        _entrance = _card.CreateTween().SetParallel(true);
+        _entrance.SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+        _entrance.TweenProperty(_card, "position:y", _topMargin, _entranceSeconds);
+        _entrance.TweenProperty(_card, "modulate:a", 1f, _entranceSeconds);
 
-        Tween life = _card.CreateTween();
-        life.TweenInterval(Mathf.Max(1f, alert.DurationSeconds));
-        life.TweenCallback(Callable.From(Dismiss));
+        _lifetime = _card.CreateTween();
+        _lifetime.TweenInterval(Mathf.Max(1f, alert.DurationSeconds));
+        _lifetime.TweenCallback(Callable.From(Dismiss));
     }
 
     // =========================================================
-    // Slide a completed alert upward and notify the manager to play the next.
+    // End a lower-priority banner early when a critical event arrives.
+    public void Interrupt()
+    {
+        Dismiss();
+    }
+
+    // =========================================================
+    // Close once, cancelling old animations before the exit tween starts.
     private void Dismiss()
     {
-        if (!IsPlaying || !GodotObject.IsInstanceValid(_card)) return;
+        if (!IsPlaying || _closing ||
+            !GodotObject.IsInstanceValid(_card)) return;
 
-        Tween exit = _card.CreateTween().SetParallel(true);
-        exit.SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.In);
-        exit.TweenProperty(_card, "position:y", -PanelHeight, 0.25f);
-        exit.TweenProperty(_card, "modulate:a", 0f, 0.25f);
-        exit.Chain().TweenCallback(Callable.From(Finish));
+        _closing = true;
+        StopTween(_entrance);
+        StopTween(_lifetime);
+
+        _exit = _card.CreateTween().SetParallel(true);
+        _exit.SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.In);
+        _exit.TweenProperty(_card, "position:y", -_panelHeight, _exitSeconds);
+        _exit.TweenProperty(_card, "modulate:a", 0f, _exitSeconds);
+        _exit.Chain().TweenCallback(Callable.From(Finish));
     }
 
     // =========================================================
-    // Release the old card before starting the next queued alert.
+    // Free visual children and let the manager start the next queued alert.
     private void Finish()
     {
         if (GodotObject.IsInstanceValid(_card)) _card.QueueFree();
         _card = null;
+        _entrance = null;
+        _lifetime = null;
+        _exit = null;
+        _closing = false;
         IsPlaying = false;
         Action callback = _completed;
         _completed = null;
@@ -121,13 +152,13 @@ public partial class MajorAlertDisplay : Control
     }
 
     // =========================================================
-    // Centre alerts and keep their text within the framed safe area.
+    // Keep the active banner inside the viewport after resolution changes.
     private void FitCard()
     {
         if (!GodotObject.IsInstanceValid(_card)) return;
         float screenWidth = GetViewport().GetVisibleRect().Size.X;
-        float width = Mathf.Min(PanelWidth, Mathf.Max(260f, screenWidth - 24f));
-        _card.Size = new Vector2(width, PanelHeight);
+        float width = Mathf.Min(_panelWidth, Mathf.Max(260f, screenWidth - 24f));
+        _card.Size = new Vector2(width, _panelHeight);
         _card.Position = new Vector2((screenWidth - width) / 2f, _card.Position.Y);
 
         float textWidth = width - 108f;
@@ -135,12 +166,19 @@ public partial class MajorAlertDisplay : Control
         _title.Size = new Vector2(textWidth, 30f);
         _description.Position = new Vector2(76f, 54f);
         _description.Size = new Vector2(textWidth, 45f);
-        _footer.Position = new Vector2(76f, 108f);
+        _footer.Position = new Vector2(76f, _panelHeight - 20f);
         _footer.Size = new Vector2(textWidth, 18f);
     }
+    #endregion
 
+    #region Helpers
     // =========================================================
-    // Consistent typography with the game's existing cyan interface.
+    // Killing a completed tween is harmless; never leave old tweens competing.
+    private static void StopTween(Tween tween)
+    {
+        if (tween != null && tween.IsValid()) tween.Kill();
+    }
+
     private static Label MakeLabel(string text, int size, Color colour)
     {
         Label label = new()
@@ -155,7 +193,7 @@ public partial class MajorAlertDisplay : Control
     }
 
     // =========================================================
-    // Major-alert accents are determined by the data resource's tone.
+    // Retain existing severity colours without adding presentation dependencies.
     public static Color AccentFor(MajorAlertTone tone) => tone switch
     {
         MajorAlertTone.Danger => new Color("#ed686d"),

@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="NotificationSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://UI/Notifications/NotificationSettings.cs" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+PauseTimersWhenPaused = true
+MaximumPendingMajorAlerts = 8
+MajorQueueLifetimeSeconds = 20.0
+InterruptForCriticalAlerts = true
+CriticalPriorityThreshold = 90
+MajorWidth = 600.0
+MajorHeight = 128.0
+MajorTopMargin = 26.0
+MajorEntranceSeconds = 0.34
+MajorExitSeconds = 0.25
+MaximumVisibleToasts = 3
+MaximumPendingToasts = 5
+ToastDurationSeconds = 3.2
+ToastEntranceSeconds = 0.26
+ToastExitSeconds = 0.22
+ToastWidth = 368.0
+ToastHeight = 76.0
+ToastTopMargin = 28.0
+ToastLeftMargin = 18.0
+ToastSpacing = 10.0

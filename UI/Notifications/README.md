@@ -1,101 +1,139 @@
 # Notifications — Fractured Horizons
 
-## Purpose
+## Purpose and appearance
 
-A shared, modular, **event-driven** HUD notification system with two presentation styles. The visual direction is **sleek sci-fi**: dark translucent surfaces, slender cyan outlines, elongated hexagonal silhouettes, small geometric emblems and restrained slide/fade animation. No artwork or shaders are required for the initial version.
+A shared, modular **event-driven** notification HUD with two independent displays:
 
-All notification code and configuration resources live inside `UI/Notifications/`; unrelated gameplay systems should only call its public API. Avoid adding per-frame polling to find notifications.
+- **Major alerts:** top-centre, translucent dark hexagonal banners with a coloured severity border, title, description and footer. One visible at a time, priority-aware.
+- **Small toasts:** top-left, compact translucent hexagonal banners that slide in from the left, stack and slide away. Consecutive same-item pickups/crafts merge quantities.
 
-## Folder layout
+The style remains sleek, understated science fiction with cyan as the primary accent. Red = danger, amber = warnings, cyan = discovery / inventory, green = crafting, gold = achievements and blue = information. No imported art, shaders or new audio have been added.
 
-- `NotificationManager.cs` — single entry point; major alert queue, priority, cooldown and public API.
-- `NotificationManager.tscn` — instanced automatically by `UI/Inventory/UIInventoryMaster.cs`.
-- `DEBUG/Notifications/NotificationTester.cs` — separate testing script, attached to `WorldInfinite/DEBUG/NotificationTester` (outside this UI folder).
-- `NotificationFrame.cs` — common translucent six-sided frame for both displays.
-- `MajorAlerts/MajorAlertDefinition.cs` — exported Godot Resource fields for alert identity, text, category, duration, priority, cooldown and future voice cue.
-- `MajorAlerts/MajorAlertCatalog.cs` + `.tres` — list of available major alerts, looked up by stable ID.
-- `MajorAlerts/MajorAlertDisplay.cs` — one top-centre major alert, vertically animated.
-- `MajorAlerts/Definitions/*.tres` — user-editable presets.
-- `Toasts/ToastNotification.cs` — lightweight payload and notification tone.
-- `Toasts/ToastDisplay.cs` — top-left sliding banners, stacking, additive same-key merging and removal.
+## One central Inspector resource
 
-## Phase 1 — UI foundation (implemented)
+**Edit `res://UI/Notifications/NotificationSettings.tres` in Godot's Inspector.** This is the main home for adjustable notification mechanics and layout. It is referenced by `NotificationManager.tscn`, so the HUD loads it automatically.
 
-- The notification canvas attaches to the existing player HUD (`InventoryHud` inherits `UIInventoryMaster`) and stays above the normal HUD, below the pause menu.
-- Major alerts display **top centre** and queue by priority; each ID supports cooldown and optional once-per-session suppression.
-- Small notifications slide in **from the left**, stack up to three and slide out after roughly 3.2 seconds.
-- Repeated item/crafting events with the **same key** add quantities together and refresh the toast lifetime. For example, Plant Fibre +1 followed by Plant Fibre +2 becomes Plant Fibre +3.
-- Colour language: **cyan** discovery and inventory, **amber** warnings, **red** threats, **green** crafting, **gold** achievements, and **blue** information.
-- Visuals are made from native Godot UI controls and polygon drawing. No imported sprites, shaders or external fonts.
-- **No inventory, crafting, eclipse or biome events have been connected yet.** The displays and alert resources are ready, but actual gameplay triggers are a later phase.
+| Inspector group | Settings | Defaults |
+| --- | --- | --- |
+| Global Behaviour | Pause Timers When Paused | true |
+| Major Alerts - Queue | Maximum Pending Major Alerts, Major Queue Lifetime Seconds, Interrupt For Critical Alerts, Critical Priority Threshold | 8, 20s, true, 90 |
+| Major Alerts - Presentation | Width, Height, Top Margin, Entrance Seconds, Exit Seconds | 600, 128, 26, 0.34s, 0.25s |
+| Toasts - Limits | Maximum Visible Toasts, Maximum Pending Toasts | 3, 5 |
+| Toasts - Timing | Toast Duration, Entrance, Exit | 3.2s, 0.26s, 0.22s |
+| Toasts - Layout | Width, Height, Top Margin, Left Margin, Spacing | 368, 76, 28, 18, 10 |
 
-### Preview in Godot (isolated debug scene node)
+Changes to this resource are applied when the notification UI is next instantiated; **restart the running scene** after tuning values.
 
-The production `NotificationManager.cs` contains no preview shortcut or sample notification code.
+For properties that belong to a **specific major alert** (ID, title, description, tone, priority, hold duration, repeat cooldown, once-per-session flag, future voice cue), open that alert's file under `MajorAlerts/Definitions/`. Keeping these per-alert avoids forcing one duration or priority onto every event.
 
-The test script is `res://DEBUG/Notifications/NotificationTester.cs`, attached in
-`WORLD/Scenes/world_infinite.tscn` under the new scene-tree branch:
+## Folder structure
 
 ```text
-WorldInfinite
-└── DEBUG (Node)
-    └── NotificationTester (Node, script: NotificationTester.cs)
+UI/
+└── Notifications/
+    ├── README.md
+    ├── NotificationSettings.cs
+    ├── NotificationSettings.tres      <- main settings to edit
+    ├── NotificationManager.cs
+    ├── NotificationManager.tscn
+    ├── NotificationFrame.cs
+    ├── MajorAlerts/
+    │   ├── MajorAlertCatalog.cs
+    │   ├── MajorAlertCatalog.tres
+    │   ├── MajorAlertDefinition.cs
+    │   ├── MajorAlertDisplay.cs
+    │   └── Definitions/
+    │       ├── EclipseImminent.tres
+    │       ├── BossDetected.tres
+    │       ├── BiomeDiscovered.tres
+    │       └── HazardDetected.tres
+    └── Toasts/
+        ├── ToastNotification.cs
+        └── ToastDisplay.cs
+
+DEBUG/Notifications/NotificationTester.cs   <- testing only
+WORLD/Scenes/world_infinite.tscn
+    DEBUG/NotificationTester                 <- test node
 ```
 
-All pre-existing debug nodes remain in their original locations.
+The production notification manager is automatically attached by `UI/Inventory/UIInventoryMaster.cs` to the player's HUD; it stays above the normal HUD and below the pause menu. The real gameplay sources do not know about UI coordinates, colours or tweens.
 
-Pull the repository, let Godot import the new script, build the C# project, then run
-`WorldInfinite` in the editor. Press **F4** repeatedly to preview:
+## Phase 1 — Visual foundation (complete)
 
-1. Plant Fibre +1
-2. Plant Fibre +2 (combines with the previous notice if still visible)
-3. Crafted Iron Plate ×2
-4. Eclipse Imminent (amber)
-5. Hostile Signature Detected (red)
-6. Region Discovered (cyan)
-7. Hazardous Conditions (amber)
+Native Godot six-sided panels, top-centre alerts and sliding/stacking top-left banners. Severity colour palette, resource-based alert definitions and a separate F4 tester under `WorldInfinite/DEBUG`.
 
-Godot reserves **F8** for **Stop Running Project**, so the tester uses F4 instead.
-The sample input code is wrapped in `#if DEBUG`, so it does not compile into C# Release
-builds. The tester additionally exposes `Enabled` and `PreviewKey` in the Godot Inspector.
-To unplug the tester at any time, disable its **Enabled** checkbox, set the `DEBUG`
-parent's **Process Mode** to **Disabled**, or remove the `NotificationTester` node.
-None of these require changing the production notification system.
+## Phase 1.5 — Mechanical refinement (complete)
 
-The region discovery sample uses `OncePerSession`; after it has been displayed once
-during a running game, requesting the same preview again will not display it.
+### Major alerts
 
-### Calling the system from gameplay
+1. Alerts enter a **bounded priority queue**. Higher-priority pending alerts display first; equal priorities preserve arrival order.
+2. When the pending queue is full, a higher-priority incoming alert replaces its **lowest-priority** queued entry; equal/lower-priority requests are rejected.
+3. If **Interrupt For Critical Alerts** is enabled, a new alert with priority at least **Critical Priority Threshold** interrupts a lower-priority banner currently on screen. Interrupted alerts are not replayed automatically.
+4. Pending alerts older than **Major Queue Lifetime Seconds** are skipped when they reach the front of the queue. This prevents belated warnings after a long sequence of alerts.
+5. Requests for a major alert already **playing or queued** are ignored. Repeat cooldowns start **on display**, not when queued.
+6. **Once Per Session** alerts are marked seen only when they actually begin displaying. The set survives scene reloads during the current game process, but is not linked to an individual save/profile yet.
 
-Resolve the local HUD from a node inside the scene tree:
+### Small toasts
 
-    NotificationManager notifications = NotificationManager.Find(this);
-    notifications?.ShowMajor("eclipse_imminent");
-    notifications?.ShowItem("plant_fibre", "Plant Fibre", 3);
-    notifications?.ShowCrafted("iron_plate", "Iron Plate", 2);
-    notifications?.ShowToast("bag_full", "Inventory full", "No free space", ToastTone.Warning);
+1. No more than **Maximum Visible Toasts** are shown at once. Others wait in a **bounded pending queue** instead of evicting visible banners.
+2. When the pending queue fills, its **oldest** entry is dropped in favour of newer activity.
+3. New messages for the same **key, title and tone** merge within both the visible stack **and** the pending queue. Positive quantities add together without integer overflow. A visible toast's display timer refreshes on a merge.
+4. A queued toast begins its full duration only **when displayed**. General non-quantity notices replace the previous notice's count when merged.
+5. Empty keys are treated as distinct messages. Inventory and crafted messages use separate ID prefixes, so the same item is not incorrectly combined across the two categories.
+6. Animations/timers are owned by each toast, and old timing tweens are killed when a notice is merged or removed.
 
-Use **stable IDs/keys**: the item ID for pickups, recipe/output ID for crafting, or the alert definition ID for major alerts. Omit the key (empty string) only when every toast should be a separate entry. Gameplay systems should not control colours, screen coordinates, timers or tweens.
+### Pause behaviour
 
-### Adding a new major alert
+With **Pause Timers When Paused** enabled (default), both displays pause their bound tweens and the manager pauses its internal cooldown/expiry clock when the Godot scene tree is paused. This is controlled by the shared resource. If disabled, notification timing continues during pause.
 
-1. Duplicate an existing `MajorAlerts/Definitions/*.tres` file in Godot and assign a unique `Id`.
-2. Edit Title, Description, Footer, BadgeText, Tone, Priority, DurationSeconds, CooldownSeconds and OncePerSession in the Inspector.
-3. Add that definition resource to `MajorAlerts/MajorAlertCatalog.tres` → `Alerts` array.
-4. Trigger it from gameplay with `NotificationManager.Find(this)?.ShowMajor("your_alert_id");`.
+### Known boundaries
 
-`VoiceCueId` is only a **future integration hook**; it does not play audio. `OncePerSession` persists across scene reloads during the current running game, but is not save-persistent. If it becomes a first-time-ever campaign alert, the discovery state must eventually be saved outside this UI.
+- Queue limits are there to prevent endless on-screen spam; very old or overflowing messages can intentionally be dropped.
+- Scene transitions remove currently visible and pending UI. **Once Per Session** major alert IDs remain remembered within the running process; full first-ever campaign discovery persistence is a later integration task.
+- Alerts are **not** automatically generated by gameplay yet. The event producers need wiring in later passes.
+- No notification-history log, player options menu, companion voice audio or save persistence for alerts is included in Phase 1.5.
 
-## Later phases (planned; not yet implemented)
+## Testing in Godot
 
-**Phase 2 — Inventory and crafting:** subscribe to structured successful item additions and completed crafts instead of parsing the inventory's existing text-only `Notice`. Ensure crafting material consumption is not misrepresented as collection. Add appropriate feedback for inventory full, failed actions, and item removal when useful.
+Pull the repository, let Godot import the new `.tres`, build the C# project, then run `WorldInfinite`.
 
-**Phase 3 — World events:** a small eclipse threshold detector requests `eclipse_imminent`; player-biome transitions request discovery notices; boss/hazard systems emit `boss_detected` / `hazard_detected` at their own detection points. Persist *first-ever* discoveries through the campaign save system in that phase.
+Select **WorldInfinite → DEBUG → NotificationTester**, and choose the Inspector property **Scenario**. Press **F4** with the game running:
 
-**Phase 4 — Polish and accessibility:** optional sounds/companion voice cues, scaling and opacity controls, duration settings, notification history, localization and HUD-safe-area adjustments.
+| Scenario | What F4 tests |
+| --- | --- |
+| Cycle Samples (default) | The original seven pickups/crafting/major alert examples |
+| Toast Burst | 20 quick item pickups across 8 keys, followed by repeated items; check queue cap, merge, draining and stacking |
+| Major Priority | Eclipse warning followed immediately by boss threat; boss should interrupt the warning with default priority settings |
+| Duplicate Cooldown | Repeated crafting notices and duplicate hazard requests; confirms merging and duplicate suppression |
+| Pause Timing | Displays a toast and requests boss alert; press Escape to pause and verify lifetimes freeze |
 
-## Performance and boundaries
+**Notes:** Godot uses F8 to stop the game, so F4 is intentional. The tester is compiled under `#if DEBUG`, lives outside the production UI, and can be disabled by its `Enabled` checkbox or unplugged via its `WorldInfinite/DEBUG` parent. Existing other debug nodes have not been relocated. Major test alerts still obey their real cooldown and once-per-session rules, so a test may be rejected when repeated too soon.
 
-Everything is **read-only with respect to save data** in Phase 1. Banners are created only on notification requests; there is no game-world polling. The toast count and pending major alert count are bounded. Rendering uses small native UI polygons. Presentation remains independent from the underlying event sources.
+## Calling the system from real gameplay (future integration)
 
-**Note:** This implementation has been checked against the repository structure but has not been compiled or visually run in the user's Windows/Godot environment yet. Test the F8 preview before connecting gameplay events.
+```csharp
+NotificationManager notifications = NotificationManager.Find(this);
+notifications?.ShowMajor("eclipse_imminent");
+notifications?.ShowItem("plant_fibre", "Plant Fibre", 3);
+notifications?.ShowCrafted("iron_plate", "Iron Plate", 2);
+notifications?.ShowToast("bag_full", "Inventory full",
+    "No free space", ToastTone.Warning);
+```
+
+`ShowMajor(id)` returns `true` when a request is accepted/queued, not necessarily when it is displayed. Its request can later expire while queued. Stable item IDs and alert IDs should be used rather than comparing display text.
+
+To add a new major alert: duplicate a `.tres` from `MajorAlerts/Definitions/` using Godot, give it a unique `Id`, set its properties, add it to `MajorAlerts/MajorAlertCatalog.tres → Alerts`, then request that ID. `VoiceCueId` is currently a future audio hook only.
+
+## Next phases
+
+**Phase 2 — Live items/crafting:** emit structured successful-item-added and craft-completed events from the existing gameplay systems; avoid parsing their current text notices or confusing ingredient consumption with pickups.
+
+**Phase 3 — World events:** eclipse threshold detector, biome entry tracking, boss/hazard sources, and first-ever discovery state stored in campaign saves.
+
+**Phase 4 — Polish/options:** companion voice cues and effects, sound toggles, notification history, localization and additional accessibility/safe-area controls.
+
+## Performance
+
+No world scanning or per-object polling was added. All UI work happens on event requests or while native tweens run. The major and toast queues are bounded, and the small hexagonal frames are drawn with inexpensive native Godot controls.
+
+**Validation:** source paths and GitHub resource references are inspected, but these C# edits cannot be compiled or play-tested in this GitHub-only environment. Verify the debug scenarios in Godot after pulling.

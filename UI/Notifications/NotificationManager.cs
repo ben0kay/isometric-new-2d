@@ -1,5 +1,5 @@
-// One gameplay-facing entry point for major alerts and small toast notifications.
-// Owns a priority queue and cooldowns; presenters own the visual animations.
+// Shared entry point for data-driven major alerts and small gameplay toasts.
+// Enforces priority, deduplication, cooldowns, bounded queues and pause-aware timing.
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -8,25 +8,31 @@ public partial class NotificationManager : CanvasLayer
 {
     #region Configuration
     public const string ScenePath = "res://UI/Notifications/NotificationManager.tscn";
-    [ExportGroup("Major Alerts")]
-    [Export] public MajorAlertCatalog Catalog { get; set; }
-    [Export(PropertyHint.Range, "1,16,1")]
-    public int MaximumPendingAlerts { get; set; } = 8;
 
+    [ExportGroup("Resources")]
+    [Export] public MajorAlertCatalog Catalog { get; set; }
+    [Export] public NotificationSettings Settings { get; set; }
     #endregion
 
     #region State
+    private sealed class PendingAlert
+    {
+        public MajorAlertDefinition Definition;
+        public double RequestedAt;
+    }
+
     private MajorAlertDisplay _major;
     private ToastDisplay _toasts;
-    private readonly List<MajorAlertDefinition> _pending = new();
+    private readonly List<PendingAlert> _pending = new();
     private static readonly HashSet<string> _onceThisSession = new();
-    private readonly Dictionary<string, double> _lastRequested = new();
-    private string _currentId = "";
+    private readonly Dictionary<string, double> _lastDisplayed = new();
+    private MajorAlertDefinition _current;
+    private double _clock;
     #endregion
 
     #region Installation
     // =========================================================
-    // Attach the notification scene to an existing HUD without editing world scenes.
+    // Attach the system once to the existing player HUD.
     public static NotificationManager Attach(Node hud)
     {
         NotificationManager existing =
@@ -47,7 +53,7 @@ public partial class NotificationManager : CanvasLayer
     }
 
     // =========================================================
-    // Resolve the notification HUD in the same viewport as the requesting node.
+    // Find the notification manager belonging to the caller's viewport.
     public static NotificationManager Find(Node context)
     {
         if (context == null || !context.IsInsideTree()) return null;
@@ -61,31 +67,57 @@ public partial class NotificationManager : CanvasLayer
 
     #region Lifecycle
     // =========================================================
-    // Create the two display systems, independent of any gameplay event source.
+    // Build presentations once; the shared resource configures both.
     public override void _Ready()
     {
-        Layer = 22; // Above normal HUD (20), below pause menus (200).
+        Layer = 22; // Above HUD 20 and below PauseMenu 200.
         ProcessMode = ProcessModeEnum.Always;
         AddToGroup("notification_manager");
 
-        _major = new MajorAlertDisplay { Name = "MajorAlerts" };
+        Settings ??= GD.Load<NotificationSettings>(
+            "res://UI/Notifications/NotificationSettings.tres") ?? new();
+
+        ProcessModeEnum displayMode = Settings.PauseTimersWhenPaused
+            ? ProcessModeEnum.Pausable : ProcessModeEnum.Always;
+
+        _major = new MajorAlertDisplay
+        {
+            Name = "MajorAlerts",
+            ProcessMode = displayMode
+        };
         AddChild(_major);
         _major.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _major.ApplySettings(Settings);
 
-        _toasts = new ToastDisplay { Name = "Toasts" };
+        _toasts = new ToastDisplay
+        {
+            Name = "Toasts",
+            ProcessMode = displayMode
+        };
         AddChild(_toasts);
         _toasts.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        _toasts.ApplySettings(Settings);
 
         if (Catalog == null)
             GD.PushWarning("NotificationManager has no major alert catalog.");
+    }
+
+    // =========================================================
+    // Advance the internal clock only while UI timers are allowed to advance.
+    public override void _Process(double delta)
+    {
+        if (!Settings.PauseTimersWhenPaused || !GetTree().Paused)
+            _clock += Math.Max(0.0, delta);
     }
     #endregion
 
     #region Major alerts
     // =========================================================
-    // Queue a data-driven alert by ID, respecting priority and repeat rules.
+    // Request a named alert: reject duplicates/cooldowns, then queue by priority.
     public bool ShowMajor(string id)
     {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+
         MajorAlertDefinition alert = Catalog?.Find(id);
         if (alert == null)
         {
@@ -96,44 +128,74 @@ public partial class NotificationManager : CanvasLayer
         if (alert.OncePerSession && _onceThisSession.Contains(id))
             return false;
 
-        double seconds = Time.GetTicksMsec() / 1000.0;
-        if (_lastRequested.TryGetValue(id, out double previous) &&
-            seconds - previous < Mathf.Max(0f, alert.CooldownSeconds))
+        if (_current?.Id == id || _pending.Exists(x => x.Definition.Id == id))
             return false;
 
-        if (_currentId == id || _pending.Exists(x => x.Id == id) ||
-            _pending.Count >= Mathf.Max(1, MaximumPendingAlerts))
+        if (_lastDisplayed.TryGetValue(id, out double previous) &&
+            _clock - previous < Mathf.Max(0f, alert.CooldownSeconds))
             return false;
 
-        _lastRequested[id] = seconds;
-        if (alert.OncePerSession) _onceThisSession.Add(id);
+        int limit = Mathf.Max(1, Settings.MaximumPendingMajorAlerts);
+        if (_pending.Count >= limit)
+        {
+            // A more important new warning may displace the lowest queued one.
+            PendingAlert lowest = _pending[_pending.Count - 1];
+            if (alert.Priority <= lowest.Definition.Priority) return false;
+            _pending.RemoveAt(_pending.Count - 1);
+        }
 
-        _pending.Add(alert);
-        _pending.Sort((a, b) => b.Priority.CompareTo(a.Priority));
+        PendingAlert request = new() { Definition = alert, RequestedAt = _clock };
+        int insertion = _pending.FindIndex(x =>
+            x.Definition.Priority < alert.Priority);
+        if (insertion < 0) _pending.Add(request);
+        else _pending.Insert(insertion, request);
+
+        // A critical new danger can end a lesser active banner early.
+        if (Settings.InterruptForCriticalAlerts &&
+            alert.Priority >= Settings.CriticalPriorityThreshold &&
+            _current != null && alert.Priority > _current.Priority)
+            _major.Interrupt();
+
         PlayNext();
         return true;
     }
 
     // =========================================================
-    // Play one pending major alert at a time, in priority order.
+    // Skip stale entries and mark cooldown/once-only only when display begins.
     private void PlayNext()
     {
-        if (_major.IsPlaying || _pending.Count == 0) return;
+        if (_major.IsPlaying) return;
 
-        MajorAlertDefinition alert = _pending[0];
-        _pending.RemoveAt(0);
-        _currentId = alert.Id;
-        _major.Play(alert, () =>
+        while (_pending.Count > 0)
         {
-            _currentId = "";
-            PlayNext();
-        });
+            PendingAlert request = _pending[0];
+            _pending.RemoveAt(0);
+            MajorAlertDefinition alert = request.Definition;
+
+            if (_clock - request.RequestedAt >
+                Mathf.Max(1f, Settings.MajorQueueLifetimeSeconds))
+                continue;
+
+            if (alert.OncePerSession && _onceThisSession.Contains(alert.Id))
+                continue;
+
+            _current = alert;
+            _lastDisplayed[alert.Id] = _clock;
+            if (alert.OncePerSession) _onceThisSession.Add(alert.Id);
+
+            _major.Play(alert, () =>
+            {
+                _current = null;
+                PlayNext();
+            });
+            return;
+        }
     }
     #endregion
 
     #region Small toasts
     // =========================================================
-    // Display a general notification; a stable key lets duplicates coalesce.
+    // Accept general gameplay notices; the display owns merge and overflow policy.
     public void ShowToast(string key, string title, string detail = "",
         ToastTone tone = ToastTone.Information, int amount = 0)
     {
@@ -148,7 +210,7 @@ public partial class NotificationManager : CanvasLayer
     }
 
     // =========================================================
-    // Convenience helpers for future inventory and crafting event subscriptions.
+    // Merge repeated pickups by stable item ID, never by localized display name.
     public void ShowItem(string itemId, string displayName, int amount)
     {
         if (amount <= 0) return;
@@ -156,6 +218,8 @@ public partial class NotificationManager : CanvasLayer
             "Added to inventory", ToastTone.Inventory, amount);
     }
 
+    // =========================================================
+    // Keep crafting notices separate from inventory pickup notices.
     public void ShowCrafted(string itemId, string displayName, int amount)
     {
         if (amount <= 0) return;
@@ -163,6 +227,4 @@ public partial class NotificationManager : CanvasLayer
             "Crafting complete", ToastTone.Crafted, amount);
     }
     #endregion
-
-
 }
