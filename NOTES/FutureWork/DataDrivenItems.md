@@ -640,3 +640,97 @@ and validation must be checked against the actual installed formats.
 After each phase, replace its status with the precise state:
 supplied, applied, compiled, locally tested, or complete. Record failures
 and follow-up work before handing the next phase to another chat.
+
+
+ITEMS/
+└── Definitions/
+    │
+    ├── RawMaterials/
+    │   ├── Ores/
+    │   ├── Minerals/
+    │   ├── Organics/
+    │   ├── Gases/
+    │   └── Liquids/
+    │
+    ├── RefinedMaterials/
+    │   ├── Ingots/
+    │   ├── Alloys/
+    │   ├── Sheets/
+    │   ├── Polymers/
+    │   ├── Chemicals/
+    │   ├── Textiles/
+    │   ├── GlassCeramics/
+    │   └── Composites/
+    │
+    ├── Components/
+    │   ├── Fasteners/
+    │   ├── Mechanical/
+    │   ├── Structural/
+    │   ├── Electrical/
+    │   ├── Electronics/
+    │   ├── Power/
+    │   ├── Communications/
+    │   ├── Hydraulics/
+    │   └── PipesValves/
+    │
+    ├── Technology/
+    │   ├── Computing/
+    │   ├── Sensors/
+    │   ├── Modules/
+    │   ├── Robotics/
+    │   ├── Navigation/
+    │   ├── AdvancedTech/
+    │   └── AlienTech/
+    │
+    ├── Combat/
+    │   ├── Ammunition/
+    │   ├── Explosives/
+    │   ├── Grenades/
+    │   ├── Mines/
+    │   └── WeaponAttachments/
+    │
+    ├── Equipment/
+    │   ├── Tools/
+    │   ├── Weapons/
+    │   ├── Armor/
+    │   ├── Clothing/
+    │   ├── Backpacks/
+    │   └── Gadgets/
+    │
+    ├── Survival/
+    │   ├── Sleeping/
+    │   ├── Camping/
+    │   ├── Shelter/
+    │   ├── Containers/
+    │   └── Environmental/
+    │
+    ├── Food/
+    │   ├── Raw/
+    │   ├── Cooked/
+    │   ├── Ingredients/
+    │   ├── Preserved/
+    │   └── Drinks/
+    │
+    ├── Consumables/
+    │   ├── Medical/
+    │   ├── Utility/
+    │   └── Fuel/
+    │
+    ├── Placeables/
+    │   ├── Workstations/
+    │   ├── Production/
+    │   ├── Power/
+    │   ├── Storage/
+    │   ├── Structures/
+    │   ├── Furniture/
+    │   ├── Lighting/
+    │   ├── Defenses/
+    │   ├── Agriculture/
+    │   └── Communications/
+    │
+    └── Vehicles/
+        ├── Parts/
+        ├── Engines/
+        ├── Propulsion/
+        ├── Chassis/
+        └── Deployables/
