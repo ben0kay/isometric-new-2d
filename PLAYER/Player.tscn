@@ -28,6 +28,7 @@
 [ext_resource type="Resource" uid="uid://bg3j284fqrl2p" path="res://PLAYER/Survival/DefaultSurvivalProfile.tres" id="27_survival_profile"]
 [ext_resource type="Script" uid="uid://c3ovfa2f5bt24" path="res://PLAYER/Survival/PlayerConsumption.cs" id="28_consumption"]
 [ext_resource type="Script" uid="uid://bn3ufkbmya6qp" path="res://SYSTEMS/Crafting/PlayerCrafting.cs" id="28_itn3c"]
+[ext_resource type="PackedScene" path="res://VISUALS/Feedback/CameraShake/CameraShake.tscn" id="30_camera_shake"]
 [ext_resource type="Script" uid="uid://dgd652jtb6848" path="res://SYSTEMS/Placement/PlayerPlacement.cs" id="29_placement"]
 [ext_resource type="Resource" path="res://SYSTEMS/Crafting/CraftingCatalog.tres" id="29_whd4c"]
 
@@ -53,6 +54,8 @@ shape = SubResource("CircleShape_player")
 position = Vector2(0, -24)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="CameraShake" parent="Camera2D" instance=ExtResource("30_camera_shake")]
 
 [node name="Systems" type="Node" parent="." unique_id=1846477850]
 

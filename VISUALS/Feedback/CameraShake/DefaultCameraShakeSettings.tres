@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="CameraShakeSettings" format=3]
+
+[ext_resource type="Script" path="res://VISUALS/Feedback/CameraShake/CameraShakeSettings.cs" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+Enabled = true
+StrengthMultiplier = 1.0
+MaximumStrength = 1.0
+MaximumOffsetPixels = 6.0
+ShakeFrequencyHz = 15.0
+FadeInSeconds = 0.03
+FadeOutFraction = 0.45
+MaximumConcurrentRequests = 12
+DistanceFalloffPower = 1.4
