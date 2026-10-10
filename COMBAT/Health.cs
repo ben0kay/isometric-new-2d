@@ -16,6 +16,8 @@ public partial class Health : Node
 
     #region Signals
     [Signal] public delegate void ChangedEventHandler(int current, int maximum);
+    // Actual HP removed after defenses, immunity and current-health clamping.
+    [Signal] public delegate void DamageAppliedEventHandler(int amount);
     [Signal] public delegate void HitEventHandler();
     [Signal] public delegate void DiedEventHandler();
     #endregion
@@ -59,11 +61,13 @@ public bool Damage(
     if (resolved <= 0) return false;
 
     LastDamageSource = GodotObject.IsInstanceValid(source) ? source : null;
-    Current = Math.Max(0, Current - resolved);
+    int previous = Current;
+    Current = (int)Math.Max(0L, (long)Current - resolved);
     _immunity = Math.Max(0.0, DamageImmunity);
     SetPhysicsProcess(_immunity > 0.0);
 
     EmitSignal(SignalName.Changed, Current, MaxHealth);
+    EmitSignal(SignalName.DamageApplied, previous - Current);
     EmitSignal(SignalName.Hit);
     if (!IsAlive) EmitSignal(SignalName.Died);
     return true;
@@ -112,8 +116,10 @@ public void SetMaximum(int maximum, bool fill = false)
         int resolved = Defense?.ResolveDamage(amount, type) ?? amount;
         if (resolved <= 0) return false;
 
-        Current = Math.Max(0, Current - resolved);
+        int previous = Current;
+        Current = (int)Math.Max(0L, (long)Current - resolved);
         EmitSignal(SignalName.Changed, Current, MaxHealth);
+        EmitSignal(SignalName.DamageApplied, previous - Current);
         if (!IsAlive) EmitSignal(SignalName.Died);
         return true;
     }
@@ -124,8 +130,10 @@ public bool DamageSurvival(int amount)
 {
     if (!IsAlive || amount <= 0) return false;
 
-    Current = Math.Max(0, Current - amount);
+    int previous = Current;
+    Current = (int)Math.Max(0L, (long)Current - amount);
     EmitSignal(SignalName.Changed, Current, MaxHealth);
+    EmitSignal(SignalName.DamageApplied, previous - Current);
     if (!IsAlive) EmitSignal(SignalName.Died);
     return true;
 }

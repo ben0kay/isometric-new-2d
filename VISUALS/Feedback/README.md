@@ -45,3 +45,44 @@ entity; there is no separate persistence or world registry.
 8. Try species with 50, 500 and 10000 max HP: bar width stays in the set range.
 
 No Godot runtime or local rendering tests were performed from GitHub.
+
+## Damage Numbers (first pass)
+
+- Folder: `VISUALS/Feedback/DamageNumbers/`.
+- Tune `DefaultDamageNumberSettings.tres` for enable/disable, text size and
+  colors, outline, offset, duration, merging, float/fade and pop.
+- A `Health.DamageApplied(int)` signal reports **actual HP removed** after
+  resistance/immunity and clamping. It does not fire for save restoration,
+  healing, maximum-HP changes or blocked hits. It also reports environmental
+  and survival damage. No critical-hit or shield system is implied.
+- Each entity owns one idle `DamageNumbers` component with one lazily
+  created Label. Hits inside `MergeWindowSeconds` add to the same number:
+  `-24` then `-48`. Hits outside this window replace the old number
+  rather than spawning overlapping numbers. Each hit restarts the animation.
+- The number follows TerrainVisual, remains readable on facing flips and
+  disappears when its entity dies, hides, or streams out. Lethal-hit numbers
+  disappear with the dying entity (no separate death VFX lifetime yet).
+- An optional `EntityDefinition.DamageNumberOverride` can override the
+  global settings for one species.
+- For a future Options menu, `WorldFeedback.SetDamageNumbersEnabled(bool)`
+  gates an already attached display per actor, without editing shared
+  settings. The menu/global broadcast itself is **not implemented** yet.
+  `DamageNumberSettings.Enabled` is the global default resource switch.
+- No changes to inventory, AI, weapon behavior or save formats.
+
+### Damage number checks in Godot
+
+1. Damage a wildlife or robot entity by 24: see `-24` float up and fade.
+2. Hit again within 0.35 s: see `-48` rather than two labels.
+3. Hit after 0.35 s: the existing number is replaced with a new `-24`.
+4. Disable damage numbers in the default `.tres` then relaunch:
+   they are absent while the existing health bars still work.
+5. Test the pop, lifetime, color, float distance and merge tuning.
+6. Face left/right, move across elevated terrain, and retire a hurt actor.
+7. Confirm resistance-reduced damage numbers and that a blocked hit
+   (invulnerability or full resistance) produces no number.
+8. Confirm healing, changing maximum health, and save restoration do not
+   produce damage numbers.
+
+Source integration was reviewed; Godot/C# runtime compilation and gameplay
+checks still require local testing.

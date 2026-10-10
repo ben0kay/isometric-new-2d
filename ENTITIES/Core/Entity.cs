@@ -246,7 +246,8 @@ public partial class Entity : EntityBody
             // Draw shared feedback alongside artwork so terrain elevation is inherited.
             _feedback = Component<WorldFeedback>("WorldFeedback");
             _feedback.Bind(Health, _visual, Definition.SpawnVisualBounds,
-                Definition.VisualScale, Definition.HealthBarOverride);
+                Definition.VisualScale, Definition.HealthBarOverride,
+                Definition.DamageNumberOverride);
 
             Initialized = true;
             if (!SpawnPending) Activate();

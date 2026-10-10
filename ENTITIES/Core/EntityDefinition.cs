@@ -115,6 +115,7 @@ public partial class EntityDefinition : Resource
     #region Visual Feedback
     [ExportGroup("Visual Feedback")]
     [Export] public HealthBarSettings HealthBarOverride { get; set; }
+    [Export] public DamageNumberSettings DamageNumberOverride { get; set; }
     #endregion
 
     #region Artwork

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="DamageNumberSettings" format=3]
+
+[ext_resource type="Script" path="res://VISUALS/Feedback/DamageNumbers/DamageNumberSettings.cs" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+Enabled = true
+FontSize = 17
+TextColor = Color(1, 0.5608, 0.5137, 1)
+OutlineColor = Color(0.0627, 0.098, 0.1451, 1)
+OutlineSize = 2
+VerticalGap = 38.0
+FloatDistance = 25.0
+DisplaySeconds = 0.9
+MergeWindowSeconds = 0.35
+FadeStartFraction = 0.55
+PopEnabled = true
+PopScale = 1.2
+PopSeconds = 0.12
