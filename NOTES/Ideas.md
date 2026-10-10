@@ -14,3 +14,4 @@ A strong realism stack could look like this:
 - Day/night ecology — certain predators come out at night; robots patrol different zones; herbivores migrate.
 - Shelter — sleeping exposed should be much riskier than sleeping inside your base or vehicle.
 - Navigation — remote regions might initially have incomplete maps until you scan/explore them.
+- merge actions into a single 'interaction' system - the 'use' button
