@@ -38,8 +38,7 @@ public static class CampaignStore
               data.Version == 2 && data.Coverage == "world-player-resources" ||
               data.Version == 3 && data.Coverage == "world-player-resources-objects" ||
               data.Version == 4 && data.Coverage == "world-player-resources-objects-deaths" ||
-              data.Version == 5 && data.Coverage == "world-player-resources-objects-entities" ||
-              data.Version == 6 && data.Coverage == "world-player-resources-objects-entities-layer") ||
+              data.Version == 5 && data.Coverage == "world-player-resources-objects-entities") ||
             data.ProfileId != profile || !Guid.TryParseExact(data.CampaignId, "N", out _) ||
             data.Player == null || data.Settings == null || data.Resources == null ||
             data.Sections == null ||
@@ -49,16 +48,8 @@ public static class CampaignStore
                     !data.Sections.ContainsKey(ResourceChanges.Section) ||
                     !data.Sections.ContainsKey(WorldObjectSaves.Section) ||
                     (data.Version >= 4 && !data.Sections.ContainsKey(EntityDeaths.Section)) ||
-                    (data.Version >= 5 && !data.Sections.ContainsKey(EntitySaves.Section))))
+                    (data.Version == 5 && !data.Sections.ContainsKey(EntitySaves.Section))))
             throw new InvalidDataException("Unsupported or invalid campaign save.");
-        WorldLayerId.Validate(data.Player.Layer);
-        if (!float.IsFinite(data.Player.X) || !float.IsFinite(data.Player.Y) ||
-            !float.IsFinite(data.SpawnX) || !float.IsFinite(data.SpawnY) ||
-            (data.Player.Layer != WorldLayerId.Surface && (data.Version < 6 ||
-                string.IsNullOrWhiteSpace(data.Player.SurfaceEntranceId) ||
-                data.Player.SurfaceEntranceId.Length > 512 ||
-                !float.IsFinite(data.Player.SurfaceEntranceX) || !float.IsFinite(data.Player.SurfaceEntranceY))))
-            throw new InvalidDataException("Invalid saved player layer, coordinates or return entrance.");
         ResourceChanges.ReadSection(data);
         WorldObjectSaves.ReadSection(data);
         EntityDeaths.ReadSection(data);

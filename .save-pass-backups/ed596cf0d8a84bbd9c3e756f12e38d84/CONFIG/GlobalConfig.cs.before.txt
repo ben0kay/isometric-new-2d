@@ -36,47 +36,6 @@ public float CaveBiomeScaleMultiplier { get; set; } = 1f;
 public float MinimumCaveHoleDistanceTiles { get; set; } = 96f;
 #endregion
 
-    #region Layer Connection Frequency
-    [ExportGroup("LAYER CONNECTION FREQUENCY")]
-    // Source/upper layer ID -> candidate probability multiplier; restart after editing.
-    [Export] public Godot.Collections.Dictionary<string, float> LayerConnectionFrequency { get; set; }
-        = DefaultLayerConnectionFrequency();
-
-    // =========================================================
-    // Keep defaults explicit without imposing a maximum depth or naming convention.
-    public static Godot.Collections.Dictionary<string, float> DefaultLayerConnectionFrequency() => new()
-    {
-        ["surface"] = 1f, ["underground_1"] = 0.5f, ["underground_2"] = 0.25f
-    };
-
-    // =========================================================
-    // Reject invalid tuning and references to layers absent from this world's catalog.
-    public void ValidateLayerConnectionFrequency(WorldLayerCatalog catalog)
-    {
-        if (LayerConnectionFrequency == null || LayerConnectionFrequency.Count > 256)
-            throw new System.InvalidOperationException("Invalid layer connection frequency settings.");
-        foreach (var entry in LayerConnectionFrequency)
-        {
-            catalog.Get(entry.Key);
-            if (!float.IsFinite(entry.Value) || entry.Value < 0f || entry.Value > 8f)
-                throw new System.InvalidOperationException($"Connection frequency for '{entry.Key}' must be between 0 and 8.");
-        }
-    }
-
-    // =========================================================
-    // Scale seeded candidate chance; terrain validity and spacing remain separate.
-    public float ScaleLayerConnectionChance(string upperLayer, float baseChance)
-    {
-        WorldLayerId.Validate(upperLayer);
-        if (!float.IsFinite(baseChance) || baseChance < 0f || baseChance > 1f || LayerConnectionFrequency == null)
-            throw new System.ArgumentException("Invalid layer connection probability.");
-        float multiplier = LayerConnectionFrequency.TryGetValue(upperLayer, out float value) ? value : 1f;
-        if (!float.IsFinite(multiplier) || multiplier < 0f || multiplier > 8f)
-            throw new System.ArgumentException("Layer connection frequency must be between 0 and 8.");
-        return Mathf.Min(1f, baseChance * multiplier);
-    }
-    #endregion
-
 	#region Layer Transitions
 	[ExportGroup("LAYER TRANSITIONS")]
 	// Generation settings: restart the world after changing either multiplier.

@@ -16,6 +16,10 @@ config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 run/max_fps=60
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="res://AUDIO/AudioBuses.tres"
+
 [display]
 
 window/size/viewport_width=1920
@@ -77,7 +81,3 @@ wl_brush_strength={
 "type": "float",
 "value": 0.0
 }
-
-[audio]
-
-buses/default_bus_layout="res://AUDIO/AudioBuses.tres"

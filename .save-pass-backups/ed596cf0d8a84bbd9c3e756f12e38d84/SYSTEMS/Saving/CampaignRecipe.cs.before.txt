@@ -148,15 +148,6 @@ public static class CampaignRecipe
                 }
             }
         }
-        // Older campaigns had no multiplier. Preserve the old surface probability,
-        // then include these defaults in the recipe written on the next successful Save.
-        const string frequency = nameof(GlobalConfig.LayerConnectionFrequency);
-        if (!data.Settings["CONFIG"].ContainsKey(frequency))
-        {
-            WorldConfig config = WorldConfig.Find(world);
-            config.LayerConnectionFrequency = GlobalConfig.DefaultLayerConnectionFrequency();
-            data.Settings["CONFIG"][frequency] = GD.VarToStr(config.Get(frequency));
-        }
         world.GetNode<ChunkController>("Systems/ChunkController").WorldSeed = data.Seed;
     }
 }

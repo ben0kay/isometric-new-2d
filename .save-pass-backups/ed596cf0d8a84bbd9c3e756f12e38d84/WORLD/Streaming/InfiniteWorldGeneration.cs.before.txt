@@ -17,7 +17,6 @@ public partial class InfiniteWorldGeneration : Node
     private bool _initialized;
 
     public WorldLayerRuntime Worlds { get; private set; }
-    public WorldGenerationQueries Queries { get; private set; }
     #endregion
 
     #region Lifecycle
@@ -65,7 +64,6 @@ public partial class InfiniteWorldGeneration : Node
             layers.Configure(_world, player, Worlds);
         }
 
-        Queries = new WorldGenerationQueries(_world, Worlds);
         _initialized = true;
         SetProcess(false);
     }

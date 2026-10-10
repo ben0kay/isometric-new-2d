@@ -236,7 +236,7 @@ public partial class PauseMenu : CanvasLayer
             _saveAction();
             ShowMessage("Partial campaign saved", "World, player, resources, items, containers and buildings saved to your profile.\n" +
                 CampaignSession.SavedPositionFor(this) + "\n" +
-                "Player position and layer, surviving entities, deaths and groups are included.");
+                "Surviving entities, deaths and groups are included. Underground player restoration is a later pass.");
         }
         catch (Exception error)
         {

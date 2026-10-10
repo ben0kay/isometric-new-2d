@@ -22,9 +22,6 @@ public sealed class CampaignData
 public sealed class PlayerSaveData
 {
     public string Layer { get; set; } = "surface";
-    public string SurfaceEntranceId { get; set; } = "";
-    public float SurfaceEntranceX { get; set; }
-    public float SurfaceEntranceY { get; set; }
     public float X { get; set; }
     public float Y { get; set; }
     public int Health { get; set; }

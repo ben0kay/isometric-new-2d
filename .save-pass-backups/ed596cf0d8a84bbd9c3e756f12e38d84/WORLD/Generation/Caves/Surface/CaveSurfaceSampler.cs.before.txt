@@ -31,7 +31,6 @@ public sealed class CaveSurfaceSampler
     private const int CacheLimit = 256;
 
     private readonly Node _world;
-    private readonly float _connectionFrequency;
     private readonly ChunkController _chunks;
     private readonly WorldGenerator _generator;
     private readonly TerrainElevation _elevation;
@@ -52,10 +51,6 @@ public sealed class CaveSurfaceSampler
     public CaveSurfaceSampler(Node world, ChunkController chunks)
     {
         _world = world;
-        WorldConfig config = WorldConfig.Find(world);
-        config.ValidateLayerConnectionFrequency(config.GetLayerCatalog());
-        _connectionFrequency = config.LayerConnectionFrequency.TryGetValue(WorldLayerId.Surface, out float frequency)
-            ? frequency : 1f;
         _chunks = chunks;
         _generator = world.GetNode<WorldGenerator>("Systems/WorldGenerator");
         _elevation = world.GetNode<TerrainElevation>("Systems/TerrainElevation");
@@ -111,7 +106,7 @@ public sealed class CaveSurfaceSampler
 
         double roll = hash / 4294967296.0;
 
-        if (!ignoreChance && roll >= Mathf.Min(1f, profile.Chance * _connectionFrequency))
+        if (!ignoreChance && roll >= profile.Chance)
         {
             result.Reason = "Probability check";
             Remember(key, result);

@@ -7,7 +7,7 @@ using System.IO;
 public partial class CampaignSession : Node
 {
     private CampaignData _data;
-    private bool _restoring, _finished, _layerRestored;
+    private bool _restoring, _finished;
     private Node _world;
     private Player _player;
     private ChunkController _chunks;
@@ -28,10 +28,10 @@ public partial class CampaignSession : Node
         if (continueCampaign)
         {
             CampaignRecipe.Validate(data);
-            if (string.IsNullOrEmpty(data.Player.Layer) ||
+            if (data.Player.Layer != WorldLayerId.Surface ||
                 !float.IsFinite(data.Player.X) || !float.IsFinite(data.Player.Y) ||
                 !float.IsFinite(data.SpawnX) || !float.IsFinite(data.SpawnY))
-                throw new InvalidDataException("Saved player coordinates or layer are invalid.");
+                throw new InvalidDataException("This pass restores surface campaigns only.");
         }
         PackedScene scene = GD.Load<PackedScene>(MenuNavigation.CampaignScene)
             ?? throw new IOException("Campaign scene is unavailable.");
@@ -44,12 +44,7 @@ public partial class CampaignSession : Node
             {
                 CampaignRecipe.Apply(world, data);
                 // Begin loading at the actual save point, not the original landing site.
-                WorldConfig.Find(world).GetLayerCatalog().Get(data.Player.Layer);
-                // Reconstruct the seeded surface entrance before preparing underground terrain.
-                Vector2 start = data.Player.Layer == WorldLayerId.Surface
-                    ? new Vector2(data.Player.X, data.Player.Y)
-                    : new Vector2(data.Player.SurfaceEntranceX, data.Player.SurfaceEntranceY);
-                player.Position = world.GetNode<Node2D>("WorldObjects").ToLocal(start);
+                player.Position = new Vector2(data.Player.X, data.Player.Y);
             }
             else
             {
@@ -113,10 +108,6 @@ public partial class CampaignSession : Node
     }
 
     // =========================================================
-    // Keep automatic crossings frozen until campaign restoration has completed.
-    public static bool IsLoadingFor(Node context) => FindCampaign(context) is CampaignSession campaign && !campaign._finished;
-
-    // =========================================================
     // Show exactly which coordinates were committed by the manual save action.
     public static string SavedPositionFor(Node context)
     {
@@ -163,12 +154,15 @@ public partial class CampaignSession : Node
             if (_restoring)
             {
                 Vector2 position = new(_data.Player.X, _data.Player.Y);
-                if (!PrepareSavedDestination(position))
+                _player.GlobalPosition = position;
+                if (!_chunks.PrepareDestination(position))
                 {
                     if (_startup.Elapsed.TotalSeconds > 120)
-                        throw new IOException("Saved layer or destination could not be prepared.");
+                        throw new IOException("Saved destination could not be prepared.");
                     return;
                 }
+                if (!_chunks.IsNavigationPointAvailable(position, 12f))
+                    throw new InvalidDataException("Saved position is no longer on available surface terrain.");
                 RestorePlayer();
                 _player.GlobalPosition = position;
                 _player.Velocity = Vector2.Zero;
@@ -192,43 +186,6 @@ public partial class CampaignSession : Node
     }
 
     // =========================================================
-    // Prepare only the saved layer, retaining the seeded surface return entrance.
-    private bool PrepareSavedDestination(Vector2 position)
-    {
-        string layer = _data.Player.Layer;
-        if (layer == WorldLayerId.Surface)
-        {
-            _player.GlobalPosition = position;
-            if (!_chunks.PrepareDestination(position)) return false;
-            if (!_chunks.IsNavigationPointAvailable(position, 12f))
-                throw new InvalidDataException("Saved position is no longer on available surface terrain.");
-            return true;
-        }
-        WorldLayerController controller = WorldLayerController.Find(this)
-            ?? throw new InvalidDataException("This campaign has no underground layer runtime.");
-        if (!_layerRestored)
-        {
-            Vector2 entrance = new(_data.Player.SurfaceEntranceX, _data.Player.SurfaceEntranceY);
-            _player.GlobalPosition = entrance;
-            if (!_chunks.PrepareDestination(entrance)) return false;
-            WorldLayerConnection route = null;
-            foreach (WorldLayerConnection connection in controller.Worlds.Connections.All)
-                if (connection.Id == _data.Player.SurfaceEntranceId && connection.UpperLayer == WorldLayerId.Surface)
-                    route = connection;
-            if (route == null || route.LowerLayer != layer)
-                throw new InvalidDataException("The saved surface entrance could not be reconstructed.");
-            controller.RestoreCampaignLayer(layer, position, route);
-            _layerRestored = true;
-        }
-        _player.GlobalPosition = position;
-        CaveWorld cave = controller.Worlds.GetUnderground(layer);
-        if (!cave.Streaming.AreaReady(position)) return false;
-        if (!controller.Worlds.IsAvailable(layer, position, 14f))
-            throw new InvalidDataException("Saved position is no longer on available underground terrain.");
-        return true;
-    }
-
-    // =========================================================
     // Restore capacities first, physical items second, shortcuts and vitals last.
     private void RestorePlayer()
     {
@@ -243,26 +200,19 @@ public partial class CampaignSession : Node
     }
 
     // =========================================================
-    // Capture supported sections while paused and grounded in the exact active layer.
+    // Capture supported sections only while paused, on solid surface ground.
     private void Save()
     {
         if (!_finished || !GetTree().Paused || ProfileStore.Selected?.Id != _data.ProfileId)
             throw new InvalidOperationException("No paused campaign belongs to the selected profile.");
-        string layer = WorldLayerMember.For(_player);
-        WorldLayerController controller = WorldLayerController.Find(this);
-        WorldLayerConnection entrance = controller?.LastSurfaceConnection;
-        if (layer != WorldLayerId.Surface && (entrance == null || entrance.LowerLayer != layer ||
-            controller.Worlds.IsAvailable(layer, _player.GlobalPosition, 14f) != true))
-            throw new InvalidOperationException("Save on ready ground in a surface-connected cave. Deeper/custom routes require Pass 6.2.");
+        if (WorldLayerMember.For(_player) != WorldLayerId.Surface)
+            throw new InvalidOperationException("Underground saving comes with the layer-restoration pass.");
         if (_player.IsAirborne || !_player.GetNode<Health>("Systems/Health").IsAlive)
             throw new InvalidOperationException("Save while alive and standing on the ground.");
         PlayerSaveData saved = new()
         {
             X = _player.GlobalPosition.X, Y = _player.GlobalPosition.Y,
-            Layer = layer,
-            SurfaceEntranceId = layer == WorldLayerId.Surface ? "" : entrance.Id,
-            SurfaceEntranceX = layer == WorldLayerId.Surface ? 0 : entrance.UpperPosition.X,
-            SurfaceEntranceY = layer == WorldLayerId.Surface ? 0 : entrance.UpperPosition.Y,
+            Layer = WorldLayerId.Surface,
             Health = _player.GetNode<Health>("Systems/Health").Current
         };
         _player.GetNode<PlayerStats>("Systems/Stats").CaptureSave(saved);
@@ -281,8 +231,6 @@ public partial class CampaignSession : Node
         EntitySaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureObjectDefinitions(_data);
         CampaignRecipe.CaptureEntityDefinitions(_data);
-        _data.Version = 6;
-        _data.Coverage = "world-player-resources-objects-entities-layer";
         CampaignStore.Write(_data);
         GD.Print($"[CampaignSave] Profile {_data.ProfileId}: " +
             $"({saved.X}, {saved.Y}), original spawn ({_data.SpawnX}, {_data.SpawnY}).");

@@ -76,7 +76,7 @@ public partial class WorldLayerController : Node
     // Advance preparation before checking the small physical crossing boundary.
     public override void _Process(double delta)
     {
-        if (!GodotObject.IsInstanceValid(_player) || CampaignSession.IsLoadingFor(this)) return;
+        if (!GodotObject.IsInstanceValid(_player)) return;
         if (Current != WorldLayerId.Surface) _surfaceChunks.RetireUnusedChunks();
         _surface.Drain();
         _landingTimer -= delta; _hudTimer -= delta;
@@ -169,30 +169,6 @@ public partial class WorldLayerController : Node
     #endregion
 
     #region Transfer
-    // =========================================================
-    // Restore ownership/presentation directly without simulating an entrance crossing.
-    public void RestoreCampaignLayer(string layer, Vector2 position, WorldLayerConnection surfaceEntrance)
-    {
-        if (layer == WorldLayerId.Surface || surfaceEntrance == null ||
-            surfaceEntrance.UpperLayer != WorldLayerId.Surface)
-            throw new InvalidOperationException("Underground restoration requires a surface return entrance.");
-        Worlds.GetUnderground(layer);
-        CancelPending(); HidePreview();
-        LastSurfaceConnection = surfaceEntrance;
-        HoldRoute(surfaceEntrance);
-        _surface.Pause();
-        Worlds.ActivateLayer(layer);
-        _player.GlobalPosition = position;
-        _player.Velocity = Vector2.Zero;
-        CaveWorld cave = Worlds.GetUnderground(layer);
-        _arrival = cave.TransitionAt(cave.WorldToTile(position));
-        _arrivalDeparted = false;
-        _surface.SetOpacity(0f);
-        Epoch++;
-        StopMining();
-        _camera.ResetSmoothing();
-    }
-
     // =========================================================
     // Change ownership, collision and movement together once landing is validated.
     private void Transfer(WorldLayerConnection connection, Vector2 position)

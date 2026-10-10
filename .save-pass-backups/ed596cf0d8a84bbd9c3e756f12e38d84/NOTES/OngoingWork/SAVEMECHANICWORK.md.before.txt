@@ -31,9 +31,3 @@
 - Automated checks passed: full C# compilation including the latest notification sources; real transfer into a generated cave and version 6 capture; fresh-process exact underground position/layer/health/return-route restoration; underground resave, return to surface and surface resave; version 5 surface cold load/version 6 upgrade; invalid route data preserving the primary save; installer preview/application/idempotence/exact payloads and zero-write conflict rejection. Headless artwork is substituted; local visuals and walking through entrance seams still need gameplay verification.
 - Local test: enter a natural cave, walk into its room, save, close/reopen, select the same profile and Continue. Verify exact position/layer, health/inventory and return to surface. Repeat on surface and a separate profile. Custom/debug deeper connections still require Pass 6.2; this stage does not serialize their geometry or mutations. Liquid changes remain Pass 6.3.
 - Next: Pass 6.2 connection/entrance changes, Pass 6.3 liquid/basin changes, then Pass 7 combined checks/menu completion. Autosaves and drop-expiry countdown remain separate future work.
-
-## Connection Generation Planning Before Save Pass 6.2
-
-- See LayerGenerationConnections.md for the scalable layer/connection plan. Query/tuning Pass 1 adds exact-layer biome queries without chunk loading and global per-source-layer frequency multipliers. Surface tuning is connected to the existing seeded sampler; deeper permanent connection generation remains Pass 2.
-- Save Pass 6.1 was supplied separately and confirmed locally: underground position and inventory restored. Do not replace those installed changes with older pushed versions.
-- Save Pass 6.2 is deferred until permanent seeded connections are implemented. DeepCavernsTest remains temporary and unmodified; planned feature/lair queries are not implemented yet. Save Pass 6.3 and Pass 7 remain outstanding.
