@@ -11,5 +11,5 @@ MaxEnergy = 100.0
 MaxFood = 100.0
 MaxWater = 100.0
 MaxFatigue = 100.0
-MovementSpeed = 240.0
+MovementSpeed = 120.0
 MiningEfficiency = 1.0
