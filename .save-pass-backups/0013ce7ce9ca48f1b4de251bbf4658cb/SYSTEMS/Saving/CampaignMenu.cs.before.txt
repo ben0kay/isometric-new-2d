@@ -5,7 +5,6 @@ using System;
 public partial class MainMenu
 {
     private ConfirmationDialog _newCampaignConfirm;
-    private bool _openingCampaign;
 
     // =========================================================
     // Confirm replacing this profile's single current-campaign slot on its next save.
@@ -17,7 +16,6 @@ public partial class MainMenu
             _newCampaignConfirm = new ConfirmationDialog { Title = "New Campaign" };
             AddChild(_newCampaignConfirm);
             _newCampaignConfirm.Confirmed += () => OpenCampaign(false);
-            _newCampaignConfirm.GetOkButton().Text = "START NEW";
             UIButtonFactory.Apply(_newCampaignConfirm.GetOkButton());
             UIButtonFactory.Apply(_newCampaignConfirm.GetCancelButton());
         }
@@ -30,13 +28,7 @@ public partial class MainMenu
     // Report validation errors before replacing the menu with a gameplay scene.
     private void OpenCampaign(bool restore)
     {
-        if (_openingCampaign) return;
-        _openingCampaign = true;
         try { CampaignSession.Launch(this, restore); }
-        catch (Exception error)
-        {
-            _openingCampaign = false;
-            ShowMessage("Could not open campaign", error.Message);
-        }
+        catch (Exception error) { ShowMessage("Could not open campaign", error.Message); }
     }
 }

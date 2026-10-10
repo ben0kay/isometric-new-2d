@@ -1,69 +1,54 @@
 # Layer Generation and Connections
 
-## Goal
+## Status
 
-Support any number of defined depths, including future Hell layers. Query seeded world information without loading physical chunks. Reconstruct natural connections from the seed and save gameplay changes separately.
+The three planned connection stages are implemented. Restore integration also completes save Pass 6.2. Local gameplay verification remains part of the save checklist in [SAVEMECHANICWORK.md](SAVEMECHANICWORK.md).
 
-## Rules
+| Stage | Implemented behaviour |
+|---|---|
+| 1. Queries and tuning | Exact-layer biome queries without activating layers or building chunks; global connection-frequency multipliers. |
+| 2. Permanent corridors | Explicit downward layer targets; seeded cave corridors discoverable from either endpoint; local preparation, bounded caches and spatial lookup. |
+| 3. Restore integration | Save at any defined natural underground depth; prepare nearby routes before activation; restore exact position and retain the original surface return entrance. |
 
-- Every layer has a stable ID, biome/generation settings and depth. Future connection rules name their destination layer explicitly; never infer it from names or assume Deep Caverns is the final layer.
-- The upper layer owns a downward connection. Either endpoint can discover the same seeded record without visiting the other endpoint first.
-- Use a spaced candidate grid with deterministic probability checks. Connection frequency scales candidate probability, not chunk counts or guaranteed entrances. Terrain suitability and spacing still apply.
-- The lower endpoint joins the corridor to its own chamber network. Each endpoint uses its own biome and terrain rules.
-- Queries sample logical global ground coordinates. They reuse generation services and do not activate layers, build chunks or spawn objects.
-- Avoid recursive generation dependencies. Establish base biome data, then independently planned features, then physical content. Surface flowers may consult a planned underground lair before that lair is spawned.
-- Keep queries local and caches bounded. Do not scan every depth for every tile or retain physical terrain for unvisited areas.
-- Same seed, original spawn, generation settings and generator version reproduce the same base world. Seed alone is not a compatibility guarantee after generation rules change.
+## Layer Rules
+
+- Every layer has a stable ID, depth, biome catalog and generation settings. There is no maximum depth or assumption that Deep Caverns is the final layer; additional depths such as Hell require definitions and explicit incoming target rules.
+- Surface entrances use the existing seeded surface planner. Underground definitions expose `DownwardLayerId`, `ConnectionChance`, `ConnectionSpacingTiles` and `ConnectionLengthTiles`. The target must exist and have a greater depth index.
+- The upper layer owns each downward connection. Seed, stable layer-pair IDs and absolute candidate cells produce the same record whether discovered from above or below. Permanent corridor IDs are stable `L_...` identities.
+- The source chamber joins the corridor mouth; its lower end joins the destination's chamber network. Source elevation uses base biome sampling. Conflicts between permanent pairs sharing a layer resolve deterministically from candidate data and ID priority.
+- Connections are probabilistic and deliberately sparse. Configured spacing is a minimum; conservative geometry clearance may increase effective spacing. A higher chance does not guarantee a corridor in every chunk.
+- Original spawn, seed, generation settings/resources and generator behaviour jointly determine compatibility. Seed alone cannot preserve a world after generation rules change.
 
 ## Global Frequency Tuning
 
-`CONFIG/GlobalConfig.cs` exposes `LayerConnectionFrequency` on CONFIG in the Inspector, keyed by the **upper/source layer ID**.
+Select **CONFIG** in `WORLD/Scenes/world_infinite.tscn` and expand **Layer Connection Frequency**. Dictionary keys name the upper/source layer.
 
-- `surface = 1`: existing surface candidate probability.
-- `underground_1 = 0.5`: half the future downward candidate probability.
-- `underground_2 = 0.25`: quarter the future downward candidate probability.
-- `0` disables new natural downward connections from that layer; `2` doubles probability, capped at 100%. Allowed multiplier range is 0–8.
-- A defined layer without an entry defaults to 1. Add an explicit setting for Hell or another new layer when adding its definition. Unknown IDs and invalid multipliers are rejected.
-- This is generation tuning: restart after changing it and use a new campaign when assessing a changed layout. Campaign settings restore the tuning captured for that campaign.
-- Pass 1 wires the surface setting into the existing entrance sampler. Underground settings are available to queries but do not create deeper connections until Pass 2. Debug connections are unaffected.
+| Key | Default multiplier | Current meaning |
+|---|---:|---|
+| `surface` | 1 | Surface to the catalog's surface-entrance underground layer. |
+| `underground_1` | 0.5 | Upper Caverns to Deep Caverns. |
+| `underground_2` | 0.25 | Reserved for a downward target when one is configured. |
 
-## Implementation Stages
+`0` disables normal downward candidates; `1` uses base chance; `2` doubles it, capped at 100%. Allowed multipliers are 0–8. Missing entries for defined layers default to 1; unknown IDs/invalid values are rejected. Debug probability bypasses are unaffected.
 
-1. **Queries and tuning — implemented by this installer.** Shared exact-layer biome query facade reusing current samplers; central frequency dictionary; surface probability integration; preserve current surface behaviour at multiplier 1.
-2. **Permanent connection planner — implemented by Pass 2.** Explicit layer-pair rules, seeded stable connection IDs, discovery from either side, bounded planning/caching, valid corridor endpoints and shared spacing rules. Replace reliance on the temporary deep-cavern test without making that debug script permanent save data.
-3. **Restore integration — implemented by Pass 3; completes save Pass 6.2.** Reconstruct nearby routes before terrain/player activation, support loading at any defined depth, preserve necessary route discovery/pins and verify travel back through multiple layers. Save only non-reconstructible identities or gameplay modifications.
-4. **Return to save Pass 6.3 and Pass 7.** Liquid/basin changes, then combined persistence and menu verification.
+Campaign recipes capture these settings and restore them on Continue. Restart and use a new test campaign to assess Inspector tuning changes. For quicker corridor testing, temporarily use `underground_1 = 8`, then restore 0.5.
 
-## Save Boundaries
+## Queries and Streaming
 
-Seeded biomes, base chambers and unchanged natural corridors are reconstructed. Player layer/position, harvested vegetation, destroyed resources, entities, items, buildings, boss defeat and changed/player-created connections are persistent gameplay state. Feature/lair planning and flower hooks are future work; Pass 1 supplies biome queries only.
+`WorldGenerationQueries.BiomeAt(layer, logicalGlobalPosition)` reuses the exact layer's sampler, including inactive layers. Queries do not load chunks, activate layers or spawn objects. Feature/lair planning and surface flowers reacting to deeper features are future work.
 
-## Checks
+Chunk preparation builds local metadata before terrain samples it. Lookup is indexed by touching layer pairs and corridor footprints. Each pair targets 512 cached decisions, including empty decisions; protected loaded working sets may exceed the target. Evicted unpinned records unregister their spatial entries and markers and can regenerate later. Chunk leases and the remembered surface entrance protect required metadata.
 
-Biome queries must match the existing samplers at the same position, work for inactive layers, leave chunk counts/active layer unchanged and reject unknown IDs. Frequency 1 preserves surface decisions; 0 rejects normal surface probability checks; 0.5/2 scale and cap candidate probability. Existing explicit debug probability bypasses remain intact. Test loading unexplored routes from below when the permanent planner is implemented.
+Continue first reconstructs the saved surface return entrance, then plans around the saved position with a temporary lease and a 2 ms per-frame planning budget. The saved layer activates only after planning; real chunk streaming takes over protection once terrain is ready. Intervening route segments regenerate as approached; no whole-journey scan or physical loading of every depth is needed.
 
-Pass 1 automated verification passed: biome equality against existing samplers at positive/negative coordinates for all three currently defined layers; unchanged underground chunk counts/active layer; multiplier scaling/capping, normal surface 0/1 decisions and explicit debug bypass; invalid IDs/values; typed dictionary save-recipe roundtrip and migration of recipes missing the setting. Local visuals and changed-layout exploration still need gameplay checks.
+## Persistence Boundaries
 
+Base biomes, chambers and unchanged natural corridors regenerate. Exact player layer/position, original return entrance identity, and supported gameplay changes belong to the save system. Changed/player-created connections do not yet have gameplay mutation mechanics or a persistence section.
 
-## Pass 2 — Permanent Cave Corridors
+`DeepCavernsTest` is optional temporary geometry. Disable its **Enabled** property when testing natural corridors. Saving inside a `TEST_` corridor footprint is rejected. Pass 2 changed the generation recipe; older recipes may fail existing compatibility checks. Pass 3 did not introduce another schema/resource change.
 
-- Added explicit DownwardLayerId and candidate chance/spacing/length to layer definitions. Catalog validation requires a defined deeper target, so the graph cannot cycle by depth. No maximum depth or terminal layer name is assumed. Current Upper Caverns targets Deep Caverns; add Hell through its own definition and an incoming target rule later.
-- Candidates use stable layer IDs, seed and absolute cells. Either endpoint prepares the same records before chunk geometry. Frequency multiplies the upper layer's base chance; configured spacing is a minimum, increased conservatively to separate complete corridors/room connectors. Results do not depend on exploration order.
-- The source chamber joins a cardinal corridor mouth and the lower end joins a chamber in the destination's own network. Source elevation comes from base biome sampling rather than registered ramps. Adjacent permanent depth-pair overlaps resolve from seeded raw candidates and stable ID ordering.
-- Existing chunk work budgets/yields and GenerationMetadataLease pinning are reused. Each pair caches at most 512 unused/total-target decisions, permitting protected loaded working sets to exceed that target. Both successful and empty decisions are cached; retired unpinned records unregister markers and endpoints and regenerate later.
-- Layer-pair lookup is indexed by layer ID, and corridor footprints have spatial buckets. Floor/elevation sampling checks nearby endpoints rather than scanning every cached corridor on every terrain tile. Eviction removes the associated spatial entries.
-- The existing surface entrance planner is retained. DeepCavernsTest is unchanged and remains optional; disable its Enabled property when testing natural deep corridors so the debug route is not confused with the new planner.
-- This intentionally changes the generation recipe/resource. Test with a new campaign. Existing saves remain untouched but compatibility checks can refuse the changed generation resources. Restore integration/save Pass 6.2 remains next: saving in deeper layers is still blocked until direct-load routes are handled. Liquids remain 6.3.
-- Local test: new campaign, enter Upper Caverns, explore for natural descents, descend to Deep Caverns and return through the same corridor. Test frequency 0 on underground_1 in a separate new campaign, then a higher multiplier. Repeat after chunk retirement. Default candidates are deliberately sparse; a valid chance is not an entrance guarantee in every chunk.
-- Automated verification passed: full production compilation including current audio sources; identical fresh-process lower-first versus upper-first corridor records; repeated preparation without duplicates; real landing preparation and controller descent/return; lower connector floor continuity; zero-frequency suppression; cache eviction preserving a pinned route; bounded unused records, local spatial lookup and removal of evicted spatial entries; installer preview/application/idempotence/exact payloads and zero-write conflict rejection. The headless fixture uses a fixed seed/high frequency, substitutes artwork and disables the debug route and automatic crossing process; local walking through seams/visual presentation still needs gameplay verification.
+## Verification
 
+Automated checks cover biome-query equality/no activation, frequency validation, fresh-process upper-first/lower-first corridor equality, duplicate prevention, landing/controller descent and return, lower-room floor continuity, metadata eviction/pins/spatial cleanup, and a real deep save followed by fresh-process exact-depth restoration and return through Upper Caverns to surface. Guarded installers check preview, application, rerun and zero-write conflict rejection.
 
-## Pass 3 — Saved Depth Restoration (Save 6.2)
-
-- Manual saving supports ready ground in any defined underground layer while retaining the natural surface return entrance. Deep Caverns is not treated as the last depth. Existing schema 6 stores the exact layer/position and original surface entrance identity; no corridor geometry or exploration history is serialized.
-- Continue reconstructs the original surface entrance, then incrementally prepares seeded connection metadata around the saved position before activation/arrival-ramp sampling. A temporary lease protects destination metadata until real chunk streaming has prepared the area; cancellation/failure releases it. Work yields after a 2 ms planning budget. Other route segments regenerate locally when approached from either endpoint, without scanning the journey or loading every intervening depth.
-- Save/restore keeps the original spawn, campaign generation settings, surface return pin and existing item/entity/object save sections. Temporary TEST_ corridor footprints are rejected for saving because debug geometry is not deterministic campaign state. Disable DeepCavernsTest for natural-route persistence tests.
-- No schema or generation-resource changes in this pass. Saves from the Pass 2 recipe can continue; recipes predating that generation change still follow existing compatibility checks.
-- This completes the three planned connection stages. Future feature/lair queries and changed/player-created corridor persistence remain future features. Next save work is 6.3 liquids/basins, then Pass 7 combined verification/menu finishing.
-- Automated checks passed: full production compilation; real paused Deep Caverns save; fresh-process Continue restoring the exact deep position/layer, original surface anchor and nearby natural route; real landing/controller return through Upper Caverns to surface; installer preview/application/idempotence and zero-write conflict protection. Headless tests use fixed seed/high frequency and artwork substitutes; automatic walking/visual seams remain a local check.
-- Local test: save on natural Deep Caverns ground, close completely, Continue the same profile, verify exact position/items and climb back to Upper Caverns then surface. Repeat far from the original entrance, near a natural ramp, and after chunk retirement; also verify surface and Upper Caverns saves.
+Headless tests use fixed seeds, increased test frequency, artwork substitutes and controlled transitions. Local walking, visuals, camera/collision seams and long-distance travel still need gameplay checks. The planned connection phase is complete; future feature planning and mutation mechanics are separate work.

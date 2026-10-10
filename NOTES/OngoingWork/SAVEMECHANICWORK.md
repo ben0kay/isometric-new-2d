@@ -1,53 +1,76 @@
-| Pass | Scope | Check before moving on |
+# Campaign Save Persistence
+
+## Current Status
+
+Manual profile-owned campaign saving is implemented for the currently supported gameplay state. Passes 1–5 and 6.1–6.2 are implemented. Pass 7 finishes save/recovery menu messaging and provides combined verification. Local gameplay sign-off remains required; this does not claim every possible future mechanic is persistent.
+
+| Pass | Scope | Status |
 |---|---|---|
-| **1. Profile-owned save foundation** | Campaign identity, versioned save format with named sections, safe temporary-file replacement and backup recovery. Connect the existing pause Save button and basic New/Continue flow. | Profiles A and B save/load separate campaign metadata; failures preserve the previous save. Clearly mark this as partial persistence. |
-| **2. World and player restoration** | Generation configuration, world time/eclipse phase, original spawn, player stats/reserves, inventory/equipment/hotbar and crafting. Establish controlled startup and restoration. | Quit and reload on the surface with the same player state and world layout. |
-| **3. Generated resource changes** | Shared generated identities; rocks, trees, plants, ores, ground deposits and consumed/cleared grass. Integrate with chunk regeneration. | Harvest, leave until the chunk unloads, return, then quit/reload: changes remain. |
-| **4. Items, containers and structures** | Loose drops, ordinary storage, loot containers, wrecks, buildings and health. Add records where only live nodes exist today. | No lost or duplicated items; empty containers stay empty; buildings survive. |
-| **5. Entities and groups** | Population records plus live actors, persistent deaths, transferred actors and relevant group state. Coordinate death rewards with Pass 4. | Damaged, dead and transferred entities restore correctly without duplicate loot or wildlife. |
-| **6. Underground restoration and liquids** | Complete exact-depth loading, required connections, basin changes and saves on entrance ramps. | Save/load in Surface, Upper Caverns and Deep Caverns, then traverse back successfully. |
-| **7. Complete-save verification and menu finish** | Load Campaign selection, overwrite handling, recovery messages and combined regression checks. | One save restores every supported section across profiles and unloaded chunks. |
+| 1–2 | Profile ownership, atomic files/backup, world recipe/time, exact player state and surface position | Implemented; surface position confirmed locally. |
+| 3 | Changed generated resources and chunk regeneration | Implemented. |
+| 4 | Drops, storage/loot, wrecks, structures and health | Implemented; optional lifetime data stored, expiry not yet programmed. |
+| 5.1–5.3 | Stable entity identities, deaths/rewards, living/retired entities, exact layer ownership and logical groups | Implemented. |
+| 6.1 | Natural surface-connected cave restoration | Implemented; underground position/items confirmed locally. |
+| 6.2 | Permanent connections and exact deeper-layer restoration | Implemented through the three connection stages; see [LayerGenerationConnections.md](LayerGenerationConnections.md). |
+| 6.3 | Changed liquid/basin contents or levels | Deferred by agreement. `LiquidBody.SetFill` exists, but current gameplay does not mutate generated fill levels. |
+| 7 | Combined verification, profile campaign selection/overwrite behaviour and menu/recovery finish | Implemented finishing changes; automated results below; local checklist remains. |
 
-## Current Save Progress
+## Save Contents and Ownership
 
-- Passes 1–3: implemented; surface position fix confirmed locally.
-- Pass 4: installed and verified in the reviewed source. Physical drops, storage/loot, wrecks, structures and health persist. Drop lifetime is stored; the expiry countdown remains future work.
-- Pass 5.1: installed; stable origin IDs, deaths and coordinated reward identities.
-- Pass 5.2: installed; adds surviving authored/population state, retired records and exact living layer/transfer ownership with lazy restoration near available terrain.
-- Pass 5.3: installed; adds logical group membership, formation/roaming state and persistent dissolution. Streaming retirement preserves membership; restored actors cannot duplicate their origin slot.
-- Versions 1–5 upgrade to campaign version 6 on Save. Living changes made before this pass cannot be reconstructed. Local gameplay checks remain required after the supplied automated checks.
-- Pass 6.1: this installer adds exact player restoration in natural surface-connected caves, including the seeded return entrance. Deeper/custom routes remain gated.
-- Next — Pass 6.2: connection/entrance changes and deeper routes; Pass 6.3: liquid/basin changes.
-- Then — Pass 7: full combined verification, load-selection/overwrite handling and remaining menu/recovery work.
-- Persistence remains staged. Automatic saving/options and actual dropped-item expiry are separate future features. Combat targets/paths/reservations are rebuilt rather than persisted as engine references.
+Each profile has one current campaign slot. **Continue** loads that selected profile's slot. **New Campaign** asks before starting fresh when a slot exists; the old save remains until the new campaign is successfully saved. Separate profiles retain independent campaign files.
 
-## Save Pass 6.1 — Exact Player Layer Restoration
+A successful paused **Save Game** captures:
 
-- Implemented against bfb85d6. Preserve all newer UI, notifications, vegetation and unrelated work.
-- Manual Save supports a living, grounded player on available surface or natural surface-connected cave terrain. Underground saves require the surface entrance used for the journey; deeper/custom routes and debug-only placement without that route are gated until Pass 6.2.
-- Campaign version 6 stores the exact player layer/global position plus the stable seeded surface return entrance ID/position. Versions 1–5 remain readable and upgrade on the next successful Save. Earlier game versions cannot read version 6.
-- Continue freezes player actions and automatic crossings, rebuilds the seeded return entrance, pins its metadata, activates only the saved cave layer and waits for its nearby terrain before restoring inventory/vitals/time and enabling gameplay. Invalid/missing layers, entrances or terrain fail visibly while preserving the existing save; there is no silent surface fallback.
-- Respawn remains anchored to the original landing site; returning through the remembered entrance and ordinary death handling retain the existing controller flow. Camera and surface presentation are reset for the restored layer.
-- Automated checks passed: full C# compilation including the latest notification sources; real transfer into a generated cave and version 6 capture; fresh-process exact underground position/layer/health/return-route restoration; underground resave, return to surface and surface resave; version 5 surface cold load/version 6 upgrade; invalid route data preserving the primary save; installer preview/application/idempotence/exact payloads and zero-write conflict rejection. Headless artwork is substituted; local visuals and walking through entrance seams still need gameplay verification.
-- Local test: enter a natural cave, walk into its room, save, close/reopen, select the same profile and Continue. Verify exact position/layer, health/inventory and return to surface. Repeat on surface and a separate profile. Custom/debug deeper connections still require Pass 6.2; this stage does not serialize their geometry or mutations. Liquid changes remain Pass 6.3.
-- Next: Pass 6.2 connection/entrance changes, Pass 6.3 liquid/basin changes, then Pass 7 combined checks/menu completion. Autosaves and drop-expiry countdown remain separate future work.
+- Campaign identity, seed, original spawn, generation settings/resource definitions and world time/eclipse state.
+- Exact player global ground position/layer, underground surface-return entrance identity/position, health, stats/modifiers, reserves, inventory/equipment, hotbar, crafting and survival state.
+- Changed rocks, trees, plants, ores, ground deposits and consumed/cleared grass, retaining stable identities through chunk retirement.
+- Physical drops, optional remaining lifetime, container and loot contents including empty caches, wrecks, placed structures and saved health.
+- Entity deaths with reward identities, supported surviving/authored/population/retired actor state, exact layer transfers and logical group membership/formation/roaming/dissolution.
 
-## Connection Generation Planning Before Save Pass 6.2
+Unchanged seeded terrain, biomes, chambers and natural connections regenerate. Runtime targets, paths, reservations and engine references rebuild. A save requires the selected campaign's living, grounded player on available terrain. Underground saves require a known natural surface return entrance; temporary `TEST_` corridor footprints are rejected.
 
-- See LayerGenerationConnections.md for the scalable layer/connection plan. Query/tuning Pass 1 adds exact-layer biome queries without chunk loading and global per-source-layer frequency multipliers. Surface tuning is connected to the existing seeded sampler; deeper permanent connection generation remains Pass 2.
-- Save Pass 6.1 was supplied separately and confirmed locally: underground position and inventory restored. Do not replace those installed changes with older pushed versions.
-- Save Pass 6.2 is deferred until permanent seeded connections are implemented. DeepCavernsTest remains temporary and unmodified; planned feature/lair queries are not implemented yet. Save Pass 6.3 and Pass 7 remain outstanding.
+## Loading, Files and Compatibility
 
-## Permanent Layer Connection Planner — Pass 2
+Campaign schema is **version 6** with four named gameplay sections: resource changes, world objects, entity deaths and entity state. Versions 1–5 remain readable under their original supported coverage and upgrade on successful Save. Missing gameplay state from older saves cannot be reconstructed retroactively. Earlier game versions cannot read version 6.
 
-- Permanent seeded Upper Caverns to Deep Caverns corridors are implemented by this installer. Explicit layer target rules support additional depths such as Hell without a terminal-depth assumption. Both endpoints discover the same corridor; chunk preparation and metadata leases retain its geometry while needed.
-- Test with a new campaign: the layer definition/generation recipe changes. Existing save files are preserved, and compatibility checks can refuse older recipes. Disable DeepCavernsTest for natural-corridor verification; the debug script itself remains unchanged.
-- Next: connection restore integration to complete save Pass 6.2. Deeper player saving remains gated until then. Liquid persistence is Pass 6.3, followed by combined Pass 7 checks/menu work.
+Continue validates the recipe and profile identity, freezes actions/crossings during initialization, reconstructs necessary entrance/nearby route metadata, activates the saved layer, waits for terrain, and restores player/time/items before gameplay resumes. Original spawn remains the generation/respawn anchor. Unknown layers, missing routes, unavailable terrain or incompatible resources fail visibly without silently moving the player to surface.
 
+Files are written through a flushed temporary file and atomic replacement. A readable previous primary becomes the backup. Invalid replacement data cannot overwrite the primary. A readable backup can recover a damaged/missing primary without rewriting it during load. Backup recovery now opens a visible **Campaign recovered** notice with gameplay paused; dismiss it and Resume when ready. Failed loading preserves existing files and offers Main Menu.
 
-## Save Pass 6.2 / Layer Connections Pass 3 — Implemented
+The permanent connection planner changed generation resources in connection Pass 2. Saves from before that recipe change may be refused by compatibility checks. Pass 3/Pass 7 do not bypass those checks or change existing save files merely by installing.
 
-- Manual saving now supports any defined underground depth on ready natural terrain. Original surface entrance ID/position remains the return/respawn anchor, independently of saved depth. Schema 6 and existing sections are retained; seeded corridor geometry is regenerated, not written into JSON.
-- Continue prepares local incoming/outgoing connection metadata incrementally and pins it before activating the saved layer. The temporary pin transfers responsibility to streamed chunks once the destination is ready. Failures preserve the existing save and release temporary planning resources.
-- Temporary TEST_ corridor footprints are not saveable. Test natural connections with DeepCavernsTest disabled. Current resource recipe compatibility checks stay intact.
-- The planned layer-connection work is complete. Remaining persistence: 6.3 changed liquids/basins; Pass 7 combined persistence/menu regression. Autosave and actual dropped-item expiry remain future work.
+## Pass 7 Menu Finish
+
+- Removed obsolete world/player-only and partial-save messages. Save success reports the campaign and exact committed position/layer.
+- Main Menu identifies the single campaign slot per profile; Continue explains its selected-profile behaviour and is disabled only when no primary/backup exists.
+- Existing new-campaign replacement confirmation remains explicit. Repeated campaign-launch clicks are suppressed during the deferred scene transition; immediate validation failures allow retry.
+- Successful backup recovery is shown in-game rather than only in the console.
+- Options/autosave remain outside this pass. Multiple named save slots are not implemented.
+
+## Verification and Local Sign-off
+
+Previous automated stage checks cover resource mutation/retirement/regeneration; items, storage/empty loot, wrecks/structures/health; surviving/retired entities, groups, death rewards and duplicate prevention; profile separation, version upgrades, malformed-save primary preservation and backup recovery; exact surface/Upper/deep restoration and natural return routes. Headless fixtures substitute artwork and may control spawning/transitions.
+
+Pass 7 automated checks passed:
+
+- Full production C# compilation, including current audio/notification sources.
+- One combined paused campaign capture and fresh-process restoration: player inventory/equipment, restored world time, partial generated-resource work/depleted grass, drop identity/count/layer/optional lifetime, storage, empty loot, and structure health.
+- Authored/living/retired/transferred entities, health/home state, logical group reservations/dissolution, repeated remembered-actor scans without duplication, and resaving dormant state.
+- Malformed replacement data preserving the primary, readable-backup recovery, independent profile slots, real Save UI success/position text, Continue availability, and new-campaign confirmation cancellation preserving the slot.
+- A separate disposable damaged-primary run: visible paused recovery notice, Resume, combined restoration, and transferred-cave actor restoration.
+- Installer preview/application/exact payload/rerun and zero-write conflict protection.
+
+Headless checks use fixture actors/containers, controlled population/visibility and artwork substitutes; the structure fixture exercises real creation/capture/restore without an inventory placement transaction. Surface/deep position and natural return-route tests are from the preceding integration pass. These checks do not replace local walking, rendered UI or long-session gameplay tests.
+
+1. Profile A: change inventory/vitals, partially harvest and deplete resources, drop/pick up items, use storage/loot and place/damage a structure. Damage/kill nearby entities. Save, leave chunks, revisit and verify changes.
+2. Close completely, select A and Continue. Check exact position, inventory, crafting, world time and changed objects/entities; watch for duplicate items/rewards or regenerated depleted resources.
+3. Save and restart on the surface, in Upper Caverns and in natural Deep Caverns. Verify items/layer/position and walk back through natural connections. Disable DeepCavernsTest for these tests. Repeat away from the original surface entrance and near a ramp.
+4. Profile B: verify its Continue/save is independent of A. Start a new campaign, cancel the replacement prompt, then start and leave without saving; A/B's previous saved campaign must still exist. Save a new campaign only when deliberately replacing that profile's slot.
+5. Check Save success/failure, Exit's unsaved-progress confirmation, Main Menu/Continue, and backup-recovery notice. Do not damage real saves for testing; use a disposable profile/copy.
+
+## Deferred Work
+
+- Liquid/basin mutation persistence (6.3): revisit when gameplay can drain, fill or otherwise change levels/contents. Generated initial fill currently reconstructs from the recipe.
+- Autosave/options scheduling; actual dropped-item expiry/countdown.
+- Future player-created/modified connections, new gameplay systems, and feature/lair/boss mechanics: add their non-reconstructible state when implemented.
+- Complete the local checklist and investigate any reported failures before describing persistence as fully gameplay-verified.

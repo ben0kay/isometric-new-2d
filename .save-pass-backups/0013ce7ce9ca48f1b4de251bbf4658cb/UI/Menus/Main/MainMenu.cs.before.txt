@@ -156,13 +156,10 @@ public partial class MainMenu : Control
         Button continueButton = AddMenu(menu, "Continue",
             () => OpenCampaign(true), CampaignArtwork);
         continueButton.Disabled = !CampaignStore.Exists(ProfileStore.Selected.Id);
-        continueButton.TooltipText = continueButton.Disabled
-            ? "Save a campaign with this profile to enable Continue."
-            : "Resume this profile's saved campaign.";
 
         _campaign = AddMenu(menu, "New Campaign", NewCampaign, CampaignArtwork);
         menu.AddChild(UIButtonFactory.Label(
-            "ONE CAMPAIGN PER PROFILE", 14));
+            "SAVE PASS 1â€“2: WORLD + PLAYER ONLY", 14));
 
         AddMenu(menu, "Sandbox",
             () => Launch(SandboxScene), SandboxArtwork);
@@ -263,7 +260,7 @@ public partial class MainMenu : Control
 
     #region Actions
     // =========================================================
-    // Route non-campaign scenes through the shared navigation helper.
+    // Campaign persistence will extend this launch action in the next pass.
     private void Launch(string scene)
     {
         try { MenuNavigation.Open(this, scene); }

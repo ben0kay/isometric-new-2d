@@ -63,15 +63,7 @@ public partial class PauseMenu : CanvasLayer
         _save.Disabled = saveAction == null;
         _save.TooltipText = saveAction == null
             ? "Campaign saving is unavailable in this scene."
-            : "Save this campaign to the selected profile.";
-    }
-    // =========================================================
-    // Make backup recovery visible and pause before the player resumes gameplay.
-    public void ShowRecoveryNotice(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message)) return;
-        if (!_open) Open();
-        ShowMessage("Campaign recovered", message);
+            : "Partial save: world/player, resources, items, containers and buildings.";
     }
     #endregion
 
@@ -242,8 +234,9 @@ public partial class PauseMenu : CanvasLayer
         try
         {
             _saveAction();
-            ShowMessage("Campaign saved", "Your campaign was saved to this profile.\n" +
-                CampaignSession.SavedPositionFor(this));
+            ShowMessage("Partial campaign saved", "World, player, resources, items, containers and buildings saved to your profile.\n" +
+                CampaignSession.SavedPositionFor(this) + "\n" +
+                "Player position and layer, surviving entities, deaths and groups are included.");
         }
         catch (Exception error)
         {

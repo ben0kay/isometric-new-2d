@@ -188,10 +188,7 @@ public partial class CampaignSession : Node
             objects.ProcessMode = _objectsMode;
             _finished = true; SetProcess(false);
             if (_restoring && !string.IsNullOrEmpty(CampaignStore.RecoveryMessage))
-            {
                 GD.Print(CampaignStore.RecoveryMessage);
-                PauseMenu.Attach(_player, _player.Controls).ShowRecoveryNotice(CampaignStore.RecoveryMessage);
-            }
         }
         catch (Exception error) { FailLoad(error); }
     }
