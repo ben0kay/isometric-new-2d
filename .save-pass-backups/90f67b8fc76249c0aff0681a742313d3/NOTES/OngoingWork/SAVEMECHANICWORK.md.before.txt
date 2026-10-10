@@ -37,9 +37,3 @@
 - See LayerGenerationConnections.md for the scalable layer/connection plan. Query/tuning Pass 1 adds exact-layer biome queries without chunk loading and global per-source-layer frequency multipliers. Surface tuning is connected to the existing seeded sampler; deeper permanent connection generation remains Pass 2.
 - Save Pass 6.1 was supplied separately and confirmed locally: underground position and inventory restored. Do not replace those installed changes with older pushed versions.
 - Save Pass 6.2 is deferred until permanent seeded connections are implemented. DeepCavernsTest remains temporary and unmodified; planned feature/lair queries are not implemented yet. Save Pass 6.3 and Pass 7 remain outstanding.
-
-## Permanent Layer Connection Planner — Pass 2
-
-- Permanent seeded Upper Caverns to Deep Caverns corridors are implemented by this installer. Explicit layer target rules support additional depths such as Hell without a terminal-depth assumption. Both endpoints discover the same corridor; chunk preparation and metadata leases retain its geometry while needed.
-- Test with a new campaign: the layer definition/generation recipe changes. Existing save files are preserved, and compatibility checks can refuse older recipes. Disable DeepCavernsTest for natural-corridor verification; the debug script itself remains unchanged.
-- Next: connection restore integration to complete save Pass 6.2. Deeper player saving remains gated until then. Liquid persistence is Pass 6.3, followed by combined Pass 7 checks/menu work.

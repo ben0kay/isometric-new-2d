@@ -33,13 +33,11 @@ public sealed class WorldLayerConnections
 
         _records.Add(connection.Id, connection);
         CaveWorld destination = _runtime.GetUnderground(connection.LowerLayer);
-        CaveWorld source = _runtime.TryGetUnderground(connection.UpperLayer);
         connection.SampleArea = connection.RampArea.Expand(
-            destination.Generator.RoomCentre(connection.AnchorCell));
-        if (source != null) connection.SampleArea = connection.SampleArea.Expand(connection.UpperAnchor);
-        connection.SampleArea = connection.SampleArea.Grow(Mathf.Max(8f,
-            Mathf.Max(destination.Settings.MaximumTunnelWidth(), source?.Settings.MaximumTunnelWidth() ?? 0f) * 0.5f + 4f));
+            destination.Generator.RoomCentre(connection.AnchorCell)).Grow(
+                destination.Settings.MaximumTunnelWidth() * 0.5f + 2f);
         destination.AttachConnection(connection);
+        CaveWorld source = _runtime.TryGetUnderground(connection.UpperLayer);
         source?.AttachDeparture(connection);
         if (!rebuild) return;
         destination.Streaming.InvalidateArea(connection.RampArea.Expand(

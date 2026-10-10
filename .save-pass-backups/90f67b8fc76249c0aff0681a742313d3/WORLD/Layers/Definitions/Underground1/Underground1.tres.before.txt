@@ -13,4 +13,3 @@ FloorElevation = -160.0
 Kind = 1
 Biomes = ExtResource("2_biomes")
 CaveSettings = ExtResource("3_settings")
-DownwardLayerId = "underground_2"

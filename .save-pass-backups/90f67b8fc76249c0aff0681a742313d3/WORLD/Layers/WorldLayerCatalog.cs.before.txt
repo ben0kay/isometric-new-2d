@@ -44,13 +44,6 @@ public partial class WorldLayerCatalog : Resource
             throw new InvalidOperationException(
                 "SurfaceEntranceLayerId must identify an underground layer.");
 
-        foreach (WorldLayerDefinition layer in Layers)
-        {
-            if (string.IsNullOrEmpty(layer.DownwardLayerId)) continue;
-            if (!index.TryGetValue(layer.DownwardLayerId, out WorldLayerDefinition destination) ||
-                destination.Kind != WorldLayerKind.Underground || destination.DepthIndex <= layer.DepthIndex)
-                throw new InvalidOperationException($"Layer '{layer.Id}' must connect to a defined deeper underground layer.");
-        }
         _index = index;
     }
 

@@ -89,10 +89,8 @@ public partial class InfiniteWorldGeneration : Node
             throw new InvalidOperationException(
                 "Infinite generation did not initialize successfully.");
 
-        if (Worlds != null)
-            foreach (int step in Worlds.ConnectionPlanner.PrepareArea(area, layer))
-                yield return step;
-        if (layer != WorldLayerId.Surface && layer != Worlds?.SurfaceEntranceLayerId)
+        if (layer != WorldLayerId.Surface &&
+            layer != Worlds?.SurfaceEntranceLayerId)
         {
             Worlds?.GetUnderground(layer);
             yield break;
@@ -120,29 +118,24 @@ public partial class InfiniteWorldGeneration : Node
             layer != Worlds?.SurfaceEntranceLayerId)
         {
             Worlds?.GetUnderground(layer);
-            return Worlds.ConnectionPlanner.PinArea(area, layer);
+            return new GenerationLease(() => { });
         }
 
         IDisposable water = _basins.PinArea(area.Grow(4f));
         IDisposable entrances = null;
-        IDisposable connections = null;
 
         try
         {
             entrances = _planner?.PinArea(area);
-            connections = Worlds?.ConnectionPlanner.PinArea(area, layer);
         }
         catch
         {
-            entrances?.Dispose();
-            connections?.Dispose();
             water.Dispose();
             throw;
         }
 
         return new GenerationLease(() =>
         {
-            connections?.Dispose();
             entrances?.Dispose();
             water.Dispose();
         });

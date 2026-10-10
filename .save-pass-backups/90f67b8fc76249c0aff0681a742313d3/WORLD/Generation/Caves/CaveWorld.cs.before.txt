@@ -25,9 +25,6 @@ public partial class CaveWorld : Node2D
     private WorldLayerMember _objectsMember;
     private readonly List<WorldLayerConnection> _connections = new();
     public IReadOnlyList<WorldLayerConnection> Connections => _connections;
-    private const int ConnectionCellTiles = 128;
-    private readonly Dictionary<Vector2I, List<WorldLayerConnection>> _connectionIndex = new();
-    private readonly Dictionary<Vector2I, List<WorldLayerConnection>> _departureIndex = new();
     private readonly List<WorldLayerConnection> _departures = new();
     public IReadOnlyList<WorldLayerConnection> Departures => _departures;
     public bool Active { get; private set; }
@@ -241,7 +238,6 @@ public static bool IsHoleReserved(
     {
         if (_connections.Contains(hole)) return;
         _connections.Add(hole);
-        if (hole.UpperLayer != WorldLayerId.Surface) IndexConnection(_connectionIndex, hole, true);
 
         PackedScene scene = GD.Load<PackedScene>(
             "res://WORLD/Generation/Caves/CaveEntrance.tscn");
@@ -262,7 +258,6 @@ public static bool IsHoleReserved(
     public void DetachConnection(WorldLayerConnection hole)
     {
         _connections.Remove(hole);
-        if (hole.UpperLayer != WorldLayerId.Surface) IndexConnection(_connectionIndex, hole, false);
 
         if (GodotObject.IsInstanceValid(hole.Marker))
             hole.Marker.QueueFree();
@@ -274,9 +269,7 @@ public static bool IsHoleReserved(
     // Index the upper approach independently from lower ramp ownership.
     public void AttachDeparture(WorldLayerConnection connection)
     {
-        if (_departures.Contains(connection)) return;
-        _departures.Add(connection);
-        IndexConnection(_departureIndex, connection, true);
+        if (!_departures.Contains(connection)) _departures.Add(connection);
     }
 
     // =========================================================
@@ -284,7 +277,6 @@ public static bool IsHoleReserved(
     public void DetachDeparture(WorldLayerConnection connection)
     {
         _departures.Remove(connection);
-        IndexConnection(_departureIndex, connection, false);
     }
 
     // =========================================================
@@ -294,47 +286,10 @@ public static bool IsHoleReserved(
         if (Planner != null)
             foreach (WorldLayerConnection connection in Planner.Nearby(tile))
                 yield return connection;
-        foreach (WorldLayerConnection connection in IndexedConnections(_connectionIndex, tile))
-            if (connection.SampleArea.HasPoint(tile))
+        foreach (WorldLayerConnection connection in _connections)
+            if (connection.UpperLayer != WorldLayerId.Surface &&
+                connection.SampleArea.HasPoint(tile))
                 yield return connection;
-    }
-    // =========================================================
-    // Limit source floor/elevation sampling to corridors near the queried tile.
-    public IEnumerable<WorldLayerConnection> NearbyDepartures(Vector2 tile) =>
-        IndexedConnections(_departureIndex, tile);
-
-    // =========================================================
-    // Resolve one spatial bucket without scanning distant retained records.
-    private static IEnumerable<WorldLayerConnection> IndexedConnections(
-        Dictionary<Vector2I, List<WorldLayerConnection>> index, Vector2 tile)
-    {
-        Vector2I cell = new(Mathf.FloorToInt(tile.X / ConnectionCellTiles), Mathf.FloorToInt(tile.Y / ConnectionCellTiles));
-        return index.TryGetValue(cell, out List<WorldLayerConnection> entries) ? entries : System.Array.Empty<WorldLayerConnection>();
-    }
-
-    // =========================================================
-    // Index the complete corridor/room connector footprint and remove empty buckets.
-    private static void IndexConnection(Dictionary<Vector2I, List<WorldLayerConnection>> index,
-        WorldLayerConnection connection, bool add)
-    {
-        Rect2 area = connection.SampleArea;
-        Vector2I first = new(Mathf.FloorToInt(area.Position.X / ConnectionCellTiles), Mathf.FloorToInt(area.Position.Y / ConnectionCellTiles));
-        Vector2I last = new(Mathf.FloorToInt(area.End.X / ConnectionCellTiles), Mathf.FloorToInt(area.End.Y / ConnectionCellTiles));
-        for (int y = first.Y; y <= last.Y; y++)
-        for (int x = first.X; x <= last.X; x++)
-        {
-            Vector2I cell = new(x, y);
-            if (add)
-            {
-                if (!index.TryGetValue(cell, out List<WorldLayerConnection> entries)) index.Add(cell, entries = new());
-                entries.Add(connection);
-            }
-            else if (index.TryGetValue(cell, out List<WorldLayerConnection> entries))
-            {
-                entries.Remove(connection);
-                if (entries.Count == 0) index.Remove(cell);
-            }
-        }
     }
     #endregion
 }

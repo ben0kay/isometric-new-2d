@@ -74,7 +74,7 @@ public bool IsFloor(Vector2I tile)
 {
     Vector2 point = new(tile.X, tile.Y);
 
-    foreach (WorldLayerConnection departure in _world.NearbyDepartures(point))
+    foreach (WorldLayerConnection departure in _world.Departures)
     {
         Vector2 local = departure.Coordinates(point);
         if (local.X >= -2f && local.X <= 1f && Mathf.Abs(local.Y) <= 3f)
@@ -130,7 +130,7 @@ public bool IsFloor(Vector2I tile)
         Vector2 a = new(tile.X, tile.Y);
         Vector2 b = new(neighbour.X, neighbour.Y);
 
-        foreach (WorldLayerConnection departure in _world.NearbyDepartures(a))
+        foreach (WorldLayerConnection departure in _world.Departures)
         {
             Vector2 localA = departure.Coordinates(a);
             Vector2 localB = departure.Coordinates(b);
@@ -159,7 +159,7 @@ public bool IsFloor(Vector2I tile)
     {
         float floor = _baseHeight + Biomes.At(tile).FloorHeight(tile);
 
-        foreach (WorldLayerConnection departure in _world.NearbyDepartures(tile))
+        foreach (WorldLayerConnection departure in _world.Departures)
         {
             Vector2 local = departure.Coordinates(tile);
             if (local.X >= -2f && local.X <= 0.6f && Mathf.Abs(local.Y) <= 2.5f)

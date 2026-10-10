@@ -22,14 +22,6 @@ public partial class WorldLayerDefinition : Resource
     [Export] public float FloorElevation { get; set; }
     #endregion
 
-    #region Downward Connections
-    [ExportGroup("DOWNWARD CONNECTIONS")]
-    [Export] public string DownwardLayerId { get; set; } = "";
-    [Export(PropertyHint.Range, "0,1,0.01")] public float ConnectionChance { get; set; } = 0.2f;
-    [Export(PropertyHint.Range, "64,2048,16")] public float ConnectionSpacingTiles { get; set; } = 256f;
-    [Export(PropertyHint.Range, "6,128,1")] public float ConnectionLengthTiles { get; set; } = 24f;
-    #endregion
-
     #region Validation
     // =========================================================
     // Validate ownership and required resources before world construction.
@@ -58,17 +50,6 @@ public partial class WorldLayerDefinition : Resource
         }
         else
             throw new InvalidOperationException($"Layer '{Id}' has an invalid kind.");
-
-        if (DownwardLayerId == null || !float.IsFinite(ConnectionChance) || ConnectionChance < 0f || ConnectionChance > 1f ||
-            !float.IsFinite(ConnectionSpacingTiles) || ConnectionSpacingTiles < 64f || ConnectionSpacingTiles > 2048f ||
-            !float.IsFinite(ConnectionLengthTiles) || ConnectionLengthTiles < 6f || ConnectionLengthTiles > 128f)
-            throw new InvalidOperationException($"Layer '{Id}' has invalid connection rules.");
-        if (!string.IsNullOrEmpty(DownwardLayerId))
-        {
-            WorldLayerId.Validate(DownwardLayerId);
-            if (Kind != WorldLayerKind.Underground || DownwardLayerId == Id)
-                throw new InvalidOperationException("The surface uses its existing entrance planner; cave targets must be distinct.");
-        }
 
         foreach (BiomeDefinition biome in Biomes.GetEnabledBiomes())
             if ((biome is CaveBiomeDefinition) !=
