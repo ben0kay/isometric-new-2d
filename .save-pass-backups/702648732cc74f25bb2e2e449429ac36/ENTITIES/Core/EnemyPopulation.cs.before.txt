@@ -2,8 +2,6 @@
 // Actors prepare hidden, activate off screen, and retain session state after retirement.
 using Godot;
 using System.Collections.Generic;
-using System;
-using System.IO;
 
 public partial class EnemyPopulation : Node
 {
@@ -38,7 +36,6 @@ public partial class EnemyPopulation : Node
         public int Vitality;
         public bool Chosen, Dead;
         public Entity Actor;
-        public EntitySaveData State;
     }
 
     private readonly Dictionary<Vector3I, SpawnRecord> _records = new();
@@ -51,10 +48,6 @@ public partial class EnemyPopulation : Node
 
     private string _identityOwner, _originLayer;
     private EntityDeaths _deaths;
-    private readonly Dictionary<(string Layer, Vector2I Cell), List<SpawnRecord>> _remembered = new();
-    private readonly Dictionary<(string Layer, Vector2I Cell), int> _rememberCursors = new();
-    private int _rememberCursor;
-    private const float RememberCellSize = 1024f;
     private ChunkController _chunks;
     private WorldGenerator _generator;
     private TerrainElevation _elevation;
@@ -96,7 +89,6 @@ public partial class EnemyPopulation : Node
         });
 
         if (EnemyScene == null) GD.PushError("EnemyPopulation requires EnemyScene.");
-        RestoreRecords();
     }
 
     // =========================================================
@@ -127,13 +119,11 @@ public partial class EnemyPopulation : Node
         if (_players.Count == 0) return;
 
         MaintainActors();
-        foreach (Player player in _players) ScanRemembered(player);
 
         int work = System.Math.Clamp(ChunksPerUpdate, 1, 16);
         for (int i = 0; i < work; i++)
         {
             Player player = _players[_cursor % _players.Count];
-            if (WorldLayerMember.For(player) != _originLayer) continue;
             Vector2 tile = IsoGrid.WorldToTile(
                 _ground.ToLocal(player.GlobalPosition), _chunks.TileSize);
             Vector2I centre = new(
@@ -144,117 +134,6 @@ public partial class EnemyPopulation : Node
             DiscoverChunk(coordinate);
         }
     }
-    #endregion
-
-    #region Persistence And Remembered Locations
-    // =========================================================
-    // Hydrate chosen records without instantiating distant or inactive-layer actors.
-    private void RestoreRecords()
-    {
-        EntitySaves saves = EntitySaves.Find(this); if (saves == null) return;
-        foreach (EntitySaveData state in saves.SavedEntities)
-        {
-            if (state.Owner != _identityOwner) continue;
-            if (state.OriginLayer != _originLayer || state.Scene != EnemyScene?.ResourcePath)
-                throw new InvalidDataException("Population origin or prefab changed: " + state.Id);
-            EntityDefinition definition = GD.Load<EntityDefinition>(state.Definition);
-            if (definition == null || state.Health > definition.MaxHealth)
-                throw new InvalidDataException("Invalid saved population definition or health.");
-            SpawnRecord record = new()
-            {
-                Id = state.Id, Coordinate = new(state.ChunkX, state.ChunkY), Slot = state.Slot,
-                Candidates = Array.Empty<Vector2>(), Definition = definition, Position = new(state.X, state.Y),
-                Home = new(state.HomeX, state.HomeY), Vitality = state.Health, Chosen = true, State = state
-            };
-            _records.Add(new(state.ChunkX, state.ChunkY, state.Slot), record); IndexRecord(record);
-        }
-    }
-
-    // =========================================================
-    // Index by actual saved location so migrated actors need not revisit their origin chunk.
-    private void IndexRecord(SpawnRecord record)
-    {
-        var key = (record.State.Layer, RememberCell(record.Position));
-        if (!_remembered.TryGetValue(key, out List<SpawnRecord> entries)) _remembered[key] = entries = new();
-        if (!entries.Contains(record)) entries.Add(record);
-    }
-
-    // =========================================================
-    // Move the remembered location only when a live actor is captured or retired.
-    private void RememberActor(SpawnRecord record)
-    {
-        var previous = (record.State.Layer, RememberCell(record.Position));
-        if (_remembered.TryGetValue(previous, out List<SpawnRecord> entries))
-        { entries.Remove(record); if (entries.Count == 0) { _remembered.Remove(previous); _rememberCursors.Remove(previous); } }
-        record.State = record.Actor.CaptureSave(record.State); record.Position = new(record.State.X, record.State.Y);
-        record.Home = new(record.State.HomeX, record.State.HomeY); record.Vitality = record.State.Health; IndexRecord(record);
-    }
-
-    // =========================================================
-    // Check a bounded set of nearby cells and candidates, keeping the existing one-create budget.
-    private void ScanRemembered(Player player)
-    {
-        if (_created != 0 || _active.Count >= Math.Max(1, MaximumLiveEnemies)) return;
-        string layer = WorldLayerMember.For(player); Vector2I centre = RememberCell(player.GlobalPosition);
-        int work = Math.Clamp(ChunksPerUpdate, 1, 16);
-        for (int cell = 0; cell < work; cell++)
-        {
-            var key = (layer, centre + _scanOffsets[_rememberCursor++ % _scanOffsets.Count]);
-            if (!_remembered.TryGetValue(key, out List<SpawnRecord> entries) || entries.Count == 0) continue;
-            _rememberCursors.TryGetValue(key, out int cursor);
-            int candidates = Math.Min(entries.Count, Math.Max(1, PhysicsChecksPerUpdate));
-            for (int i = 0; i < candidates; i++)
-            {
-                SpawnRecord record = entries[cursor++ % entries.Count];
-                if (!record.Dead && record.Actor == null && record.State.HasRuntimeState &&
-                    record.Position.DistanceSquaredTo(player.GlobalPosition) <= RetireDistance * RetireDistance)
-                    PrepareActor(record);
-                if (_created != 0) break;
-            }
-            _rememberCursors[key] = cursor % entries.Count;
-            if (_created != 0) return;
-        }
-    }
-
-    // =========================================================
-    // Saved actors may restore on screen, but require available terrain and clear collision.
-    private bool CanRestore(SpawnRecord record)
-    {
-        WorldLayerRuntime layers = WorldLayerRuntime.Find(this); string layer = record.State.Layer;
-        if (layers == null || layers.ActiveLayer != layer || !layers.IsAvailable(layer, record.Position, 12) ||
-            _checksRemaining <= 0 || layer == WorldLayerId.Surface && WorldPlacement.IsBasinReserved(
-                this, record.Position, new(24, 24), Vector2.Zero)) return false;
-        _checksRemaining--; _spawnQuery.Transform = new(0, record.Position); _spawnQuery.Motion = Vector2.Zero;
-        // An already prepared actor owns its own collider; activation need not query it again.
-        return GodotObject.IsInstanceValid(record.Actor) || _objects.GetWorld2D().DirectSpaceState.IntersectShape(_spawnQuery, 1).Count == 0;
-    }
-
-    // =========================================================
-    // Retire passive actors only when no same-layer player remains nearby.
-    private bool NearLayerPlayers(Vector2 point, string layer, float distance)
-    {
-        foreach (Player player in _players)
-            if (WorldLayerMember.For(player) == layer && point.DistanceSquaredTo(player.GlobalPosition) <= distance * distance) return true;
-        return false;
-    }
-
-    // =========================================================
-    // Snapshot every chosen living record, including actors retired or transferred between layers.
-    public IEnumerable<EntitySaveData> CaptureEntities()
-    {
-        foreach (SpawnRecord record in _records.Values)
-        {
-            if (!record.Chosen || record.Dead || _deaths?.WasKilled(record.Id) == true) continue;
-            if (GodotObject.IsInstanceValid(record.Actor) && !record.Actor.IsQueuedForDeletion() && record.Actor.Health?.IsAlive == true)
-                RememberActor(record);
-            yield return record.State;
-        }
-    }
-
-    // =========================================================
-    // Use cheap logical world cells rather than retaining generated terrain nodes.
-    private static Vector2I RememberCell(Vector2 point) => new(
-        Mathf.FloorToInt(point.X / RememberCellSize), Mathf.FloorToInt(point.Y / RememberCellSize));
     #endregion
 
     #region Stage 1 - Discover Seeded Records
@@ -348,35 +227,25 @@ public partial class EnemyPopulation : Node
                 record.Position = record.Home = point;
                 record.Vitality = definition.MaxHealth;
                 record.Chosen = true;
-                record.State = new EntitySaveData
-                {
-                    Id = record.Id, Owner = _identityOwner, OriginLayer = _originLayer,
-                    ChunkX = record.Coordinate.X, ChunkY = record.Coordinate.Y, Slot = record.Slot,
-                    Scene = EnemyScene.ResourcePath, Definition = definition.ResourcePath, Layer = _originLayer,
-                    X = point.X, Y = point.Y, HomeX = point.X, HomeY = point.Y, Health = definition.MaxHealth,
-                    RandomSeed = SeedFor(record.Coordinate, record.Slot + 1)
-                };
-                IndexRecord(record);
                 break;
             }
         }
 
-        if (!record.Chosen) return;
-        bool restoring = record.State?.HasRuntimeState == true;
-        if (restoring ? !CanRestore(record) : !CanActivate(record.Definition, record.Position)) return;
+        if (!record.Chosen || !CanActivate(record.Definition, record.Position)) return;
 
         Entity actor = EnemyScene.Instantiate<Entity>();
-        EntitySaves.Prepare(actor, record.State);
+        actor.PersistentId = record.Id;
+        actor.Definition = record.Definition;
         actor.SpawnPending = true;
         actor.SpawnHome = record.Home;
-        actor.RandomSeed = record.State.RandomSeed;
+        actor.RandomSeed = SeedFor(record.Coordinate, record.Slot + 1);
         actor.Position = _objects.ToLocal(record.Position);
         actor.Visible = false;
         actor.Died += () => record.Dead = true;
 
         record.Actor = actor;
         _objects.AddChild(actor);
-        // Health and saved behaviour are restored by Entity before its artwork await.
+        actor.Health.RestoreState(record.Vitality);
         _active.Add(record);
         _created++;
     }
@@ -454,25 +323,31 @@ private void MaintainActors()
             continue;
         }
 
-        string layer = WorldLayerMember.For(actor);
+        if (WorldLayerMember.For(actor) != WorldLayerId.Surface)
+            continue;
+
         Vector2 point = actor.GlobalPosition;
-        bool visible = layer == (WorldLayerRuntime.Find(this)?.ActiveLayer ?? WorldLayerId.Surface) &&
-            IsOnScreen(record.Definition, point);
+        bool visible = IsOnScreen(record.Definition, point);
         bool retire = !actor.HasTarget && !visible &&
-            (!NearLayerPlayers(point, layer, RetireDistance) ||
-             !(WorldLayerRuntime.Find(this)?.IsAvailable(layer, point) ?? false));
+            (!NearPlayers(point, RetireDistance) ||
+             !_chunks.IsNavigationPointAvailable(point));
 
         if (retire)
         {
-            RememberActor(record);
-            actor.RetireForStreaming();
+            record.Position = point;
+            record.Home = actor.Home;
+            record.Vitality = actor.Health.Current;
+            actor.CollisionLayer = 0;
+            actor.Hide();
+            actor.SetPhysicsProcess(false);
+            actor.QueueFree();
             record.Actor = null;
             _active.RemoveAt(i);
             continue;
         }
 
         if (!actor.IsActivated && actor.Initialized &&
-            (record.State?.HasRuntimeState == true ? CanRestore(record) : CanActivate(record.Definition, point)))
+            CanActivate(record.Definition, point))
             actor.Activate();
     }
 }

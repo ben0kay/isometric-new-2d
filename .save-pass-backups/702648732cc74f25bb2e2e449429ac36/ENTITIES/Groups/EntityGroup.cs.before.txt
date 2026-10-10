@@ -13,50 +13,12 @@ public partial class EntityGroup : Node2D
     #endregion
 
     #region State
-    public string PersistentId { get; set; } = "";
     public GroupRoaming Roaming { get; private set; }
     public bool FormationComplete { get; private set; }
-    public int MemberCount => _members.Count + _retired.Count;
+    public int MemberCount => _members.Count;
 
     private readonly List<EntityGroupMember> _members = new();
-    private readonly HashSet<string> _retired = new();
     private bool _closing;
-    #endregion
-
-    #region Persistence
-    // =========================================================
-    // Reserve one living member while its actor is retired by streaming.
-    public void Suspend(EntityGroupMember member)
-    {
-        if (!_members.Remove(member) || _closing) return;
-        if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId)) _retired.Add(actor.PersistentId);
-    }
-
-    // =========================================================
-    // Capture group configuration, logical membership and optional roaming state.
-    public EntityGroupSaveData CaptureSave()
-    {
-        EntityGroupSaveData state = new()
-        {
-            Id = PersistentId, GroupId = GroupId, Layer = WorldLayerMember.For(this), DisplayName = DisplayName,
-            ShareThreats = ShareThreats, MinimumMembers = System.Math.Max(1, MinimumMembers), FormationComplete = FormationComplete,
-            X = GlobalPosition.X, Y = GlobalPosition.Y, Members = new(_retired)
-        };
-        foreach (EntityGroupMember member in _members)
-            if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId)) state.Members.Add(actor.PersistentId);
-        Roaming?.CaptureSave(state);
-        return state;
-    }
-
-    // =========================================================
-    // Count dormant members before any live join can trigger minimum-member rules.
-    public void RestoreSave(EntityGroupSaveData state)
-    {
-        DisplayName = state.DisplayName; ShareThreats = state.ShareThreats; MinimumMembers = state.MinimumMembers;
-        FormationComplete = state.FormationComplete; _retired.Clear();
-        foreach (string id in state.Members) _retired.Add(id);
-        Roaming?.RestoreSave(state);
-    }
     #endregion
 
     #region Lifecycle
@@ -65,9 +27,8 @@ public partial class EntityGroup : Node2D
     public override void _Ready()
     {
         AddToGroup("entity_groups");
-        WorldLayerMember.Attach(this, WorldLayerMember.For(this));
+        WorldLayerMember.Attach(this, WorldLayerId.Surface);
         Roaming = GetNodeOrNull<GroupRoaming>("Systems/Roaming");
-        EntitySaves.Find(this)?.ApplyGroup(this);
         SetProcess(false);
         SetPhysicsProcess(false);
     }
@@ -95,8 +56,7 @@ public partial class EntityGroup : Node2D
         foreach (Node node in actor.GetTree().GetNodesInGroup("entity_groups"))
             if (node is EntityGroup group && !group._closing &&
                 !group.IsQueuedForDeletion() && group.GroupId == id &&
-                WorldLayerMember.Same(actor, group) &&
-                WorldConfig.TryFind(actor)?.GetParent() == WorldConfig.TryFind(group)?.GetParent())
+                WorldLayerMember.Same(actor, group))
                 return group;
 
         return null;
@@ -108,11 +68,6 @@ public partial class EntityGroup : Node2D
     {
         if (_closing || IsQueuedForDeletion()) return false;
         if (!_members.Contains(member)) _members.Add(member);
-        if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId))
-        {
-            _retired.Remove(actor.PersistentId);
-            EntitySaves.Find(this)?.RegisterGroup(this);
-        }
         return true;
     }
 
@@ -133,7 +88,6 @@ public partial class EntityGroup : Node2D
     // Remove a member and apply the completed group's survival policy.
     public void Leave(EntityGroupMember member)
     {
-        if (member.Actor is Entity actor) _retired.Remove(actor.PersistentId);
         if (!_members.Remove(member) || _closing || !FormationComplete)
             return;
 
@@ -144,12 +98,10 @@ public partial class EntityGroup : Node2D
     // Dissolve below the configured minimum and notify remaining members.
     private void CheckMembership()
     {
-        if (MemberCount >= System.Math.Max(1, MinimumMembers))
+        if (_members.Count >= System.Math.Max(1, MinimumMembers))
             return;
 
         _closing = true;
-        EntitySaves.Find(this)?.GroupDissolved(this);
-        _retired.Clear();
         Roaming?.Stop();
 
         while (_members.Count > 0)

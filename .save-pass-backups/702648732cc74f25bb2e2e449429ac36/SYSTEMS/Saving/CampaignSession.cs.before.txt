@@ -59,9 +59,6 @@ public partial class CampaignSession : Node
             EntityDeaths deaths = new() { Name = "EntityDeaths" };
             deaths.Initialize(data, world);
             world.AddChild(deaths);
-            EntitySaves entities = new() { Name = "EntitySaves" };
-            entities.Initialize(data, world);
-            world.AddChild(entities);
             ResourceChanges resources = new() { Name = "ResourceChanges" };
             resources.Initialize(data);
             world.AddChild(resources);
@@ -228,7 +225,6 @@ public partial class CampaignSession : Node
         WorldObjectSaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureResourceDefinitions(_data);
         EntityDeaths.Find(this).Capture(_data);
-        EntitySaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureObjectDefinitions(_data);
         CampaignRecipe.CaptureEntityDefinitions(_data);
         CampaignStore.Write(_data);

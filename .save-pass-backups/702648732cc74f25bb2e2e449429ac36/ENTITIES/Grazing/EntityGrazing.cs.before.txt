@@ -16,16 +16,6 @@ public partial class EntityGrazing : Node
     public Vector2 TargetPosition => _target.GlobalPosition;
     #endregion
 
-    #region Persistence
-    // =========================================================
-    // Keep feeding cooldown; an unfinished meal releases its transient reservation.
-    public void CaptureSave(EntitySaveData state) { state.FeedingCooldown = System.Math.Max(0, _cooldown); }
-
-    // =========================================================
-    // Resume gameplay time without consuming feeding cooldown while offline.
-    public void RestoreSave(EntitySaveData state) { Release(); _cooldown = state.FeedingCooldown; }
-    #endregion
-
     #region Lifecycle
     // =========================================================
     // Bind grazing once without adding another processing loop.

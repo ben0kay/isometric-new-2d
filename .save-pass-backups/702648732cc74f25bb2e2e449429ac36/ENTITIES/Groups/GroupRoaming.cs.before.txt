@@ -24,30 +24,6 @@ public partial class GroupRoaming : Node
     private readonly RandomNumberGenerator _rng = new();
     #endregion
 
-    #region Persistence
-    // =========================================================
-    // Snapshot roaming configuration, original home, random state and remaining gameplay time.
-    public void CaptureSave(EntityGroupSaveData state)
-    {
-        state.HasRoaming = true; state.Mode = (int)Mode; state.WanderRadius = WanderRadius; state.RoamRadius = RoamRadius;
-        state.StepDistance = StepDistance; state.Interval = System.Math.Max(1, IntervalSeconds);
-        state.HomeX = Home.X; state.HomeY = Home.Y; state.RandomState = _rng.State;
-        state.RoamingRunning = GodotObject.IsInstanceValid(_timer) && !_timer.IsStopped();
-        state.RemainingStep = state.RoamingRunning ? _timer.TimeLeft : 0;
-    }
-
-    // =========================================================
-    // Restore after Ready has initialized the helper, without applying offline elapsed time.
-    public void RestoreSave(EntityGroupSaveData state)
-    {
-        Mode = (GroupRoamingMode)state.Mode; WanderRadius = state.WanderRadius; RoamRadius = state.RoamRadius;
-        StepDistance = state.StepDistance; IntervalSeconds = state.Interval; Home = new(state.HomeX, state.HomeY);
-        _rng.State = state.RandomState;
-        if (state.RoamingRunning && Mode != GroupRoamingMode.Fixed) { Start(); _timer.Start(System.Math.Max(0.001, state.RemainingStep)); }
-        else Stop();
-    }
-    #endregion
-
     #region Lifecycle
     // =========================================================
     // Retain the original anchor without starting a processing loop.

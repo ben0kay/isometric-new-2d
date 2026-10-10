@@ -35,19 +35,6 @@ public partial class EntityWandering : Node
     private bool HasThreat => _hasThreat?.Invoke() == true;
     #endregion
 
-    #region Persistence
-    // =========================================================
-    // Preserve waiting and solo home; routes and grass reservations are replanned.
-    public void CaptureSave(EntitySaveData state) { state.WanderWait = Math.Max(0, _wait); }
-
-    // =========================================================
-    // Apply after membership callbacks so they cannot overwrite the saved solo anchor.
-    public void RestoreSave(EntitySaveData state)
-    {
-        Home = new(state.HomeX, state.HomeY); _wait = state.WanderWait; _travelTime = 0;
-    }
-    #endregion
-
     #region Lifecycle
     // =========================================================
     // Bind shared movement with optional membership, grazing and threat policy.

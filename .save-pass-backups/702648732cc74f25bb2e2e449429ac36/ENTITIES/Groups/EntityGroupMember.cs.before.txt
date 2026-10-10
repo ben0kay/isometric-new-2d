@@ -41,8 +41,7 @@ public partial class EntityGroupMember : Node
     // Leave membership and release shared health subscriptions.
     public override void _ExitTree()
     {
-        if (Actor is Entity entity && entity.StreamingRetirement) SuspendForStreaming();
-        else LeaveGroup();
+        LeaveGroup();
         if (GodotObject.IsInstanceValid(_health))
         {
             _health.Hit -= OnHit;
@@ -56,9 +55,7 @@ public partial class EntityGroupMember : Node
     // Join after the actor has bound its behaviour components and layer.
     public void JoinAssignedGroup()
     {
-        EntityGroup next = Actor is Entity entity
-            ? EntitySaves.Find(this)?.ResolveGroup(entity, GroupId) ?? EntityGroup.Find(Actor, GroupId)
-            : EntityGroup.Find(Actor, GroupId);
+        EntityGroup next = EntityGroup.Find(Actor, GroupId);
         if (next == Group) return;
 
         LeaveGroup();
@@ -83,14 +80,6 @@ public partial class EntityGroupMember : Node
 
         if (GodotObject.IsInstanceValid(previous))
             previous.Leave(this);
-    }
-
-    // =========================================================
-    // Keep an unloaded living member in the group's logical membership.
-    public void SuspendForStreaming()
-    {
-        EntityGroup previous = Group; Group = null;
-        if (GodotObject.IsInstanceValid(previous)) previous.Suspend(this);
     }
 
     // =========================================================

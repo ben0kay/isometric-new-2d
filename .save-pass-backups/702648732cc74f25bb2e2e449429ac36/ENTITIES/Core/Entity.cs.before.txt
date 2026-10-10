@@ -27,8 +27,6 @@ public partial class Entity : EntityBody
 
     // Assigned by the owning population or detached scene; unchanged by layer transfers.
     public string PersistentId { get; set; } = "";
-    public EntitySaveData PendingSave { get; set; }
-    public bool StreamingRetirement { get; private set; }
     public Vector2? SpawnHome { get; set; }
     public ulong RandomSeed { get; set; }
     public bool SpawnPending { get; set; }
@@ -61,31 +59,6 @@ public partial class Entity : EntityBody
 
     private bool Proactive =>
         Definition.Awareness == EntityAwareness.Proactive;
-    #endregion
-
-    #region Persistence
-    // =========================================================
-    // Snapshot durable state while leaving targets, paths and in-flight combat transient.
-    public EntitySaveData CaptureSave(EntitySaveData state)
-    {
-        state.Id = PersistentId; state.Scene = SceneFilePath; state.Definition = Definition.ResourcePath;
-        state.Layer = WorldLayerMember.For(this); state.X = GlobalPosition.X; state.Y = GlobalPosition.Y;
-        state.HomeX = Home.X; state.HomeY = Home.Y; state.Health = Health.Current;
-        state.RandomSeed = RandomSeed; state.RandomState = _rng.State; state.HasRuntimeState = true;
-        state.TargetTimer = Math.Max(0, _targetTimer); state.DecisionTimer = Math.Max(0, _decisionTimer);
-        state.GroupId = Membership?.Group != null ? Membership.GroupId : "";
-        Wandering?.CaptureSave(state); Grazing?.CaptureSave(state);
-        return state;
-    }
-
-    // =========================================================
-    // Retirement reserves logical group membership rather than removing a living member.
-    public void RetireForStreaming()
-    {
-        StreamingRetirement = true;
-        Membership?.SuspendForStreaming();
-        CollisionLayer = 0; CollisionMask = 0; Hide(); SetPhysicsProcess(false); QueueFree();
-    }
     #endregion
 
     #region Lifecycle
@@ -204,26 +177,13 @@ public partial class Entity : EntityBody
             }, SpawnHome ?? GlobalPosition, Membership, Grazing,
                 () => HasThreat, _rng, Definition.InitialWanderPause);
 
-            if (PendingSave != null) Membership.GroupId = PendingSave.GroupId;
             Membership.JoinAssignedGroup();
-            if (PendingSave != null)
-            {
-                Health.RestoreState(PendingSave.Health);
-                if (PendingSave.HasRuntimeState)
-                {
-                    _rng.State = PendingSave.RandomState;
-                    _targetTimer = PendingSave.TargetTimer; _decisionTimer = PendingSave.DecisionTimer;
-                    Wandering.RestoreSave(PendingSave);
-                    Grazing?.RestoreSave(PendingSave);
-                }
-                PendingSave = null;
-            }
 
             Component<EntityDeathLoot>("DeathLoot");
             Health.Died += OnDeath;
 
             ImageTexture texture = await Definition.GetArtwork(this);
-            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
+            if (!IsInsideTree() || IsQueuedForDeletion()) return;
 
             Rect2 region = Definition.PlaceholderDrawing != null
                 ? new Rect2(Vector2.Zero, Definition.ArtworkSize)
@@ -497,7 +457,6 @@ public partial class Entity : EntityBody
     public void CrossWorldLayer(string layer, Vector2 position)
     {
         ResetPursuitMovement();
-        if (Membership?.Group != null && WorldLayerMember.For(Membership.Group) != layer) Membership.LeaveGroup();
 
         WorldLayerMember.Attach(
             this, WorldLayerMember.For(this)).SetLayer(layer);

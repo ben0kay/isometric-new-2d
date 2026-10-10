@@ -10,12 +10,11 @@
 
 ## Current Save Progress
 
-- Passes 1–3: implemented; surface position fix confirmed locally.
-- Pass 4: installed and verified in the reviewed source. Physical drops, storage/loot, wrecks, structures and health persist. Drop lifetime is stored; the expiry countdown remains future work.
-- Pass 5.1: installed; stable origin IDs, deaths and coordinated reward identities.
-- Pass 5.2: this installer adds surviving authored/population state, retired records and exact living layer/transfer ownership with lazy restoration near available terrain.
-- Pass 5.3: this installer adds logical group membership, formation/roaming state and persistent dissolution. Streaming retirement preserves membership; restored actors cannot duplicate their origin slot.
-- Versions 1–4 upgrade to campaign version 5 on Save. Living changes made before this pass cannot be reconstructed. Local gameplay checks remain required after the supplied automated checks.
-- Next — Pass 6: exact underground player restoration, required connections and liquid/basin changes. Saving the player underground is still blocked.
-- Then — Pass 7: full combined verification, load-selection/overwrite handling and remaining menu/recovery work.
-- Persistence remains staged. Automatic saving/options and actual dropped-item expiry are separate future features. Combat targets/paths/reservations are rebuilt rather than persisted as engine references.
+- Passes 1–3: implemented. Surface position fix confirmed locally.
+- Pass 4: installer supplied; items, containers, wrecks, structures and health; optional drop lifetime stored, no expiry countdown. The reviewed push 3ccdd95 does not yet include this installer's files. Verify local installation and push before the next code review.
+- Pass 5 Stage 1: this installer adds stable population/scene entity IDs, saved deaths and coordinated reward identities. Existing saves upgrade to version 4 on Save; prior entity deaths cannot be reconstructed.
+- Pass 5 Stage 2: surviving entities and population records — position, health, home and live layer/transfer ownership.
+- Pass 5 Stage 3: relevant group/population state and duplicate-free restoration.
+- Pass 6: exact underground player restoration, required connections and liquid/basin changes.
+- Pass 7: full combined verification and remaining menu/recovery work.
+- Persistence remains partial. Automatic saving/options and the actual dropped-item expiry timer are future features.

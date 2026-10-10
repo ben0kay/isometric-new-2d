@@ -1,5 +1,4 @@
-﻿# Installs save Pass 5 Stage 1: stable entity identities and deaths. Requires Pass 4.
-# Entity baseline reviewed at 3ccdd95; save baseline is the supplied Pass 4 installer. No Git operations.
+﻿# Installs Pass 5.2 and 5.3 against aa113d59. No Git operations.
 # Run from your project root with Godot closed. -Preview checks without writing.
 [CmdletBinding()]
 param([string]$ProjectRoot = (Get-Location).Path, [switch]$Preview)
@@ -51,6 +50,8 @@ public partial class Entity : EntityBody
 
     // Assigned by the owning population or detached scene; unchanged by layer transfers.
     public string PersistentId { get; set; } = "";
+    public EntitySaveData PendingSave { get; set; }
+    public bool StreamingRetirement { get; private set; }
     public Vector2? SpawnHome { get; set; }
     public ulong RandomSeed { get; set; }
     public bool SpawnPending { get; set; }
@@ -83,6 +84,31 @@ public partial class Entity : EntityBody
 
     private bool Proactive =>
         Definition.Awareness == EntityAwareness.Proactive;
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Snapshot durable state while leaving targets, paths and in-flight combat transient.
+    public EntitySaveData CaptureSave(EntitySaveData state)
+    {
+        state.Id = PersistentId; state.Scene = SceneFilePath; state.Definition = Definition.ResourcePath;
+        state.Layer = WorldLayerMember.For(this); state.X = GlobalPosition.X; state.Y = GlobalPosition.Y;
+        state.HomeX = Home.X; state.HomeY = Home.Y; state.Health = Health.Current;
+        state.RandomSeed = RandomSeed; state.RandomState = _rng.State; state.HasRuntimeState = true;
+        state.TargetTimer = Math.Max(0, _targetTimer); state.DecisionTimer = Math.Max(0, _decisionTimer);
+        state.GroupId = Membership?.Group != null ? Membership.GroupId : "";
+        Wandering?.CaptureSave(state); Grazing?.CaptureSave(state);
+        return state;
+    }
+
+    // =========================================================
+    // Retirement reserves logical group membership rather than removing a living member.
+    public void RetireForStreaming()
+    {
+        StreamingRetirement = true;
+        Membership?.SuspendForStreaming();
+        CollisionLayer = 0; CollisionMask = 0; Hide(); SetPhysicsProcess(false); QueueFree();
+    }
     #endregion
 
     #region Lifecycle
@@ -201,13 +227,26 @@ public partial class Entity : EntityBody
             }, SpawnHome ?? GlobalPosition, Membership, Grazing,
                 () => HasThreat, _rng, Definition.InitialWanderPause);
 
+            if (PendingSave != null) Membership.GroupId = PendingSave.GroupId;
             Membership.JoinAssignedGroup();
+            if (PendingSave != null)
+            {
+                Health.RestoreState(PendingSave.Health);
+                if (PendingSave.HasRuntimeState)
+                {
+                    _rng.State = PendingSave.RandomState;
+                    _targetTimer = PendingSave.TargetTimer; _decisionTimer = PendingSave.DecisionTimer;
+                    Wandering.RestoreSave(PendingSave);
+                    Grazing?.RestoreSave(PendingSave);
+                }
+                PendingSave = null;
+            }
 
             Component<EntityDeathLoot>("DeathLoot");
             Health.Died += OnDeath;
 
             ImageTexture texture = await Definition.GetArtwork(this);
-            if (!IsInsideTree() || IsQueuedForDeletion()) return;
+            if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
 
             Rect2 region = Definition.PlaceholderDrawing != null
                 ? new Rect2(Vector2.Zero, Definition.ArtworkSize)
@@ -481,6 +520,7 @@ public partial class Entity : EntityBody
     public void CrossWorldLayer(string layer, Vector2 position)
     {
         ResetPursuitMovement();
+        if (Membership?.Group != null && WorldLayerMember.For(Membership.Group) != layer) Membership.LeaveGroup();
 
         WorldLayerMember.Attach(
             this, WorldLayerMember.For(this)).SetLayer(layer);
@@ -543,6 +583,8 @@ $Changes['ENTITIES/Core/EnemyPopulation.cs'] = @'
 // Actors prepare hidden, activate off screen, and retain session state after retirement.
 using Godot;
 using System.Collections.Generic;
+using System;
+using System.IO;
 
 public partial class EnemyPopulation : Node
 {
@@ -577,6 +619,7 @@ public partial class EnemyPopulation : Node
         public int Vitality;
         public bool Chosen, Dead;
         public Entity Actor;
+        public EntitySaveData State;
     }
 
     private readonly Dictionary<Vector3I, SpawnRecord> _records = new();
@@ -589,6 +632,10 @@ public partial class EnemyPopulation : Node
 
     private string _identityOwner, _originLayer;
     private EntityDeaths _deaths;
+    private readonly Dictionary<(string Layer, Vector2I Cell), List<SpawnRecord>> _remembered = new();
+    private readonly Dictionary<(string Layer, Vector2I Cell), int> _rememberCursors = new();
+    private int _rememberCursor;
+    private const float RememberCellSize = 1024f;
     private ChunkController _chunks;
     private WorldGenerator _generator;
     private TerrainElevation _elevation;
@@ -630,6 +677,7 @@ public partial class EnemyPopulation : Node
         });
 
         if (EnemyScene == null) GD.PushError("EnemyPopulation requires EnemyScene.");
+        RestoreRecords();
     }
 
     // =========================================================
@@ -660,11 +708,13 @@ public partial class EnemyPopulation : Node
         if (_players.Count == 0) return;
 
         MaintainActors();
+        foreach (Player player in _players) ScanRemembered(player);
 
         int work = System.Math.Clamp(ChunksPerUpdate, 1, 16);
         for (int i = 0; i < work; i++)
         {
             Player player = _players[_cursor % _players.Count];
+            if (WorldLayerMember.For(player) != _originLayer) continue;
             Vector2 tile = IsoGrid.WorldToTile(
                 _ground.ToLocal(player.GlobalPosition), _chunks.TileSize);
             Vector2I centre = new(
@@ -675,6 +725,117 @@ public partial class EnemyPopulation : Node
             DiscoverChunk(coordinate);
         }
     }
+    #endregion
+
+    #region Persistence And Remembered Locations
+    // =========================================================
+    // Hydrate chosen records without instantiating distant or inactive-layer actors.
+    private void RestoreRecords()
+    {
+        EntitySaves saves = EntitySaves.Find(this); if (saves == null) return;
+        foreach (EntitySaveData state in saves.SavedEntities)
+        {
+            if (state.Owner != _identityOwner) continue;
+            if (state.OriginLayer != _originLayer || state.Scene != EnemyScene?.ResourcePath)
+                throw new InvalidDataException("Population origin or prefab changed: " + state.Id);
+            EntityDefinition definition = GD.Load<EntityDefinition>(state.Definition);
+            if (definition == null || state.Health > definition.MaxHealth)
+                throw new InvalidDataException("Invalid saved population definition or health.");
+            SpawnRecord record = new()
+            {
+                Id = state.Id, Coordinate = new(state.ChunkX, state.ChunkY), Slot = state.Slot,
+                Candidates = Array.Empty<Vector2>(), Definition = definition, Position = new(state.X, state.Y),
+                Home = new(state.HomeX, state.HomeY), Vitality = state.Health, Chosen = true, State = state
+            };
+            _records.Add(new(state.ChunkX, state.ChunkY, state.Slot), record); IndexRecord(record);
+        }
+    }
+
+    // =========================================================
+    // Index by actual saved location so migrated actors need not revisit their origin chunk.
+    private void IndexRecord(SpawnRecord record)
+    {
+        var key = (record.State.Layer, RememberCell(record.Position));
+        if (!_remembered.TryGetValue(key, out List<SpawnRecord> entries)) _remembered[key] = entries = new();
+        if (!entries.Contains(record)) entries.Add(record);
+    }
+
+    // =========================================================
+    // Move the remembered location only when a live actor is captured or retired.
+    private void RememberActor(SpawnRecord record)
+    {
+        var previous = (record.State.Layer, RememberCell(record.Position));
+        if (_remembered.TryGetValue(previous, out List<SpawnRecord> entries))
+        { entries.Remove(record); if (entries.Count == 0) { _remembered.Remove(previous); _rememberCursors.Remove(previous); } }
+        record.State = record.Actor.CaptureSave(record.State); record.Position = new(record.State.X, record.State.Y);
+        record.Home = new(record.State.HomeX, record.State.HomeY); record.Vitality = record.State.Health; IndexRecord(record);
+    }
+
+    // =========================================================
+    // Check a bounded set of nearby cells and candidates, keeping the existing one-create budget.
+    private void ScanRemembered(Player player)
+    {
+        if (_created != 0 || _active.Count >= Math.Max(1, MaximumLiveEnemies)) return;
+        string layer = WorldLayerMember.For(player); Vector2I centre = RememberCell(player.GlobalPosition);
+        int work = Math.Clamp(ChunksPerUpdate, 1, 16);
+        for (int cell = 0; cell < work; cell++)
+        {
+            var key = (layer, centre + _scanOffsets[_rememberCursor++ % _scanOffsets.Count]);
+            if (!_remembered.TryGetValue(key, out List<SpawnRecord> entries) || entries.Count == 0) continue;
+            _rememberCursors.TryGetValue(key, out int cursor);
+            int candidates = Math.Min(entries.Count, Math.Max(1, PhysicsChecksPerUpdate));
+            for (int i = 0; i < candidates; i++)
+            {
+                SpawnRecord record = entries[cursor++ % entries.Count];
+                if (!record.Dead && record.Actor == null && record.State.HasRuntimeState &&
+                    record.Position.DistanceSquaredTo(player.GlobalPosition) <= RetireDistance * RetireDistance)
+                    PrepareActor(record);
+                if (_created != 0) break;
+            }
+            _rememberCursors[key] = cursor % entries.Count;
+            if (_created != 0) return;
+        }
+    }
+
+    // =========================================================
+    // Saved actors may restore on screen, but require available terrain and clear collision.
+    private bool CanRestore(SpawnRecord record)
+    {
+        WorldLayerRuntime layers = WorldLayerRuntime.Find(this); string layer = record.State.Layer;
+        if (layers == null || layers.ActiveLayer != layer || !layers.IsAvailable(layer, record.Position, 12) ||
+            _checksRemaining <= 0 || layer == WorldLayerId.Surface && WorldPlacement.IsBasinReserved(
+                this, record.Position, new(24, 24), Vector2.Zero)) return false;
+        _checksRemaining--; _spawnQuery.Transform = new(0, record.Position); _spawnQuery.Motion = Vector2.Zero;
+        // An already prepared actor owns its own collider; activation need not query it again.
+        return GodotObject.IsInstanceValid(record.Actor) || _objects.GetWorld2D().DirectSpaceState.IntersectShape(_spawnQuery, 1).Count == 0;
+    }
+
+    // =========================================================
+    // Retire passive actors only when no same-layer player remains nearby.
+    private bool NearLayerPlayers(Vector2 point, string layer, float distance)
+    {
+        foreach (Player player in _players)
+            if (WorldLayerMember.For(player) == layer && point.DistanceSquaredTo(player.GlobalPosition) <= distance * distance) return true;
+        return false;
+    }
+
+    // =========================================================
+    // Snapshot every chosen living record, including actors retired or transferred between layers.
+    public IEnumerable<EntitySaveData> CaptureEntities()
+    {
+        foreach (SpawnRecord record in _records.Values)
+        {
+            if (!record.Chosen || record.Dead || _deaths?.WasKilled(record.Id) == true) continue;
+            if (GodotObject.IsInstanceValid(record.Actor) && !record.Actor.IsQueuedForDeletion() && record.Actor.Health?.IsAlive == true)
+                RememberActor(record);
+            yield return record.State;
+        }
+    }
+
+    // =========================================================
+    // Use cheap logical world cells rather than retaining generated terrain nodes.
+    private static Vector2I RememberCell(Vector2 point) => new(
+        Mathf.FloorToInt(point.X / RememberCellSize), Mathf.FloorToInt(point.Y / RememberCellSize));
     #endregion
 
     #region Stage 1 - Discover Seeded Records
@@ -768,25 +929,35 @@ public partial class EnemyPopulation : Node
                 record.Position = record.Home = point;
                 record.Vitality = definition.MaxHealth;
                 record.Chosen = true;
+                record.State = new EntitySaveData
+                {
+                    Id = record.Id, Owner = _identityOwner, OriginLayer = _originLayer,
+                    ChunkX = record.Coordinate.X, ChunkY = record.Coordinate.Y, Slot = record.Slot,
+                    Scene = EnemyScene.ResourcePath, Definition = definition.ResourcePath, Layer = _originLayer,
+                    X = point.X, Y = point.Y, HomeX = point.X, HomeY = point.Y, Health = definition.MaxHealth,
+                    RandomSeed = SeedFor(record.Coordinate, record.Slot + 1)
+                };
+                IndexRecord(record);
                 break;
             }
         }
 
-        if (!record.Chosen || !CanActivate(record.Definition, record.Position)) return;
+        if (!record.Chosen) return;
+        bool restoring = record.State?.HasRuntimeState == true;
+        if (restoring ? !CanRestore(record) : !CanActivate(record.Definition, record.Position)) return;
 
         Entity actor = EnemyScene.Instantiate<Entity>();
-        actor.PersistentId = record.Id;
-        actor.Definition = record.Definition;
+        EntitySaves.Prepare(actor, record.State);
         actor.SpawnPending = true;
         actor.SpawnHome = record.Home;
-        actor.RandomSeed = SeedFor(record.Coordinate, record.Slot + 1);
+        actor.RandomSeed = record.State.RandomSeed;
         actor.Position = _objects.ToLocal(record.Position);
         actor.Visible = false;
         actor.Died += () => record.Dead = true;
 
         record.Actor = actor;
         _objects.AddChild(actor);
-        actor.Health.RestoreState(record.Vitality);
+        // Health and saved behaviour are restored by Entity before its artwork await.
         _active.Add(record);
         _created++;
     }
@@ -864,158 +1035,900 @@ private void MaintainActors()
             continue;
         }
 
-        if (WorldLayerMember.For(actor) != WorldLayerId.Surface)
-            continue;
-
+        string layer = WorldLayerMember.For(actor);
         Vector2 point = actor.GlobalPosition;
-        bool visible = IsOnScreen(record.Definition, point);
+        bool visible = layer == (WorldLayerRuntime.Find(this)?.ActiveLayer ?? WorldLayerId.Surface) &&
+            IsOnScreen(record.Definition, point);
         bool retire = !actor.HasTarget && !visible &&
-            (!NearPlayers(point, RetireDistance) ||
-             !_chunks.IsNavigationPointAvailable(point));
+            (!NearLayerPlayers(point, layer, RetireDistance) ||
+             !(WorldLayerRuntime.Find(this)?.IsAvailable(layer, point) ?? false));
 
         if (retire)
         {
-            record.Position = point;
-            record.Home = actor.Home;
-            record.Vitality = actor.Health.Current;
-            actor.CollisionLayer = 0;
-            actor.Hide();
-            actor.SetPhysicsProcess(false);
-            actor.QueueFree();
+            RememberActor(record);
+            actor.RetireForStreaming();
             record.Actor = null;
             _active.RemoveAt(i);
             continue;
         }
 
         if (!actor.IsActivated && actor.Initialized &&
-            CanActivate(record.Definition, point))
+            (record.State?.HasRuntimeState == true ? CanRestore(record) : CanActivate(record.Definition, point)))
             actor.Activate();
     }
 }
     #endregion
 }
 '@
-$Changes['ENTITIES/Death/EntityDeathLoot.cs'] = @'
-// Generates entity death drops or records the configured robot wreck.
-// Delivery is separate from actor movement, combat and presentation.
+$Changes['ENTITIES/Groups/EntityGroup.cs'] = @'
+// Owns generic group membership, formation and shared threat alerts.
+// Herds and squads choose their own minimum member count and optional roaming.
 using Godot;
-using System;
+using System.Collections.Generic;
 
-public partial class EntityDeathLoot : Node
+public partial class EntityGroup : Node2D
 {
-    #region State
-    public InventoryStorage GeneratedContents { get; private set; }
+    #region Configuration
+    [Export] public string GroupId { get; set; } = "";
+    [Export] public string DisplayName { get; set; } = "Group";
+    [Export] public bool ShareThreats { get; set; } = true;
+    [Export] public int MinimumMembers { get; set; } = 2;
+    #endregion
 
-    private Entity _actor;
-    private bool _generated;
+    #region State
+    public string PersistentId { get; set; } = "";
+    public GroupRoaming Roaming { get; private set; }
+    public bool FormationComplete { get; private set; }
+    public int MemberCount => _members.Count + _retired.Count;
+
+    private readonly List<EntityGroupMember> _members = new();
+    private readonly HashSet<string> _retired = new();
+    private bool _closing;
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Reserve one living member while its actor is retired by streaming.
+    public void Suspend(EntityGroupMember member)
+    {
+        if (!_members.Remove(member) || _closing) return;
+        if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId)) _retired.Add(actor.PersistentId);
+    }
+
+    // =========================================================
+    // Capture group configuration, logical membership and optional roaming state.
+    public EntityGroupSaveData CaptureSave()
+    {
+        EntityGroupSaveData state = new()
+        {
+            Id = PersistentId, GroupId = GroupId, Layer = WorldLayerMember.For(this), DisplayName = DisplayName,
+            ShareThreats = ShareThreats, MinimumMembers = System.Math.Max(1, MinimumMembers), FormationComplete = FormationComplete,
+            X = GlobalPosition.X, Y = GlobalPosition.Y, Members = new(_retired)
+        };
+        foreach (EntityGroupMember member in _members)
+            if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId)) state.Members.Add(actor.PersistentId);
+        Roaming?.CaptureSave(state);
+        return state;
+    }
+
+    // =========================================================
+    // Count dormant members before any live join can trigger minimum-member rules.
+    public void RestoreSave(EntityGroupSaveData state)
+    {
+        DisplayName = state.DisplayName; ShareThreats = state.ShareThreats; MinimumMembers = state.MinimumMembers;
+        FormationComplete = state.FormationComplete; _retired.Clear();
+        foreach (string id in state.Members) _retired.Add(id);
+        Roaming?.RestoreSave(state);
+    }
     #endregion
 
     #region Lifecycle
     // =========================================================
-    // Subscribe after the shared actor has cached its health component.
+    // Discover optional roaming without starting a group processing loop.
     public override void _Ready()
     {
-        _actor = GetParent().GetParent<Entity>();
-        _actor.Health.Died += OnDeath;
-
+        AddToGroup("entity_groups");
+        WorldLayerMember.Attach(this, WorldLayerMember.For(this));
+        Roaming = GetNodeOrNull<GroupRoaming>("Systems/Roaming");
+        EntitySaves.Find(this)?.ApplyGroup(this);
         SetProcess(false);
         SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Remove the subscription when the actor leaves the world.
+    // Detach surviving members when the group itself is removed.
     public override void _ExitTree()
     {
-        if (GodotObject.IsInstanceValid(_actor?.Health))
-            _actor.Health.Died -= OnDeath;
+        _closing = true;
+        for (int i = _members.Count - 1; i >= 0; i--)
+            if (GodotObject.IsInstanceValid(_members[i]))
+                _members[i].LeaveGroup();
+
+        _members.Clear();
     }
     #endregion
 
-    #region Delivery
+    #region Membership
     // =========================================================
-    // Deliver the configured death result once.
+    // Resolve a group by ID within the member's world layer.
+    public static EntityGroup Find(Node2D actor, string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return null;
+
+        foreach (Node node in actor.GetTree().GetNodesInGroup("entity_groups"))
+            if (node is EntityGroup group && !group._closing &&
+                !group.IsQueuedForDeletion() && group.GroupId == id &&
+                WorldLayerMember.Same(actor, group) &&
+                WorldConfig.TryFind(actor)?.GetParent() == WorldConfig.TryFind(group)?.GetParent())
+                return group;
+
+        return null;
+    }
+
+    // =========================================================
+    // Accept one member without coupling membership to a species or AI class.
+    public bool Join(EntityGroupMember member)
+    {
+        if (_closing || IsQueuedForDeletion()) return false;
+        if (!_members.Contains(member)) _members.Add(member);
+        if (member.Actor is Entity actor && !string.IsNullOrEmpty(actor.PersistentId))
+        {
+            _retired.Remove(actor.PersistentId);
+            EntitySaves.Find(this)?.RegisterGroup(this);
+        }
+        return true;
+    }
+
+    // =========================================================
+    // Finish staged spawning before applying minimum-member rules.
+    public void CompleteFormation()
+    {
+        if (FormationComplete || _closing) return;
+
+        FormationComplete = true;
+        CheckMembership();
+
+        if (!_closing)
+            Roaming?.Start();
+    }
+
+    // =========================================================
+    // Remove a member and apply the completed group's survival policy.
+    public void Leave(EntityGroupMember member)
+    {
+        if (member.Actor is Entity actor) _retired.Remove(actor.PersistentId);
+        if (!_members.Remove(member) || _closing || !FormationComplete)
+            return;
+
+        CheckMembership();
+    }
+
+    // =========================================================
+    // Dissolve below the configured minimum and notify remaining members.
+    private void CheckMembership()
+    {
+        if (MemberCount >= System.Math.Max(1, MinimumMembers))
+            return;
+
+        _closing = true;
+        EntitySaves.Find(this)?.GroupDissolved(this);
+        _retired.Clear();
+        Roaming?.Stop();
+
+        while (_members.Count > 0)
+        {
+            EntityGroupMember member = _members[^1];
+            if (GodotObject.IsInstanceValid(member))
+                member.LeaveGroup();
+            else
+                _members.RemoveAt(_members.Count - 1);
+        }
+
+        QueueFree();
+    }
+    #endregion
+
+    #region Coordination
+    // =========================================================
+    // Check active threats only when a roaming step is due.
+    public bool HasThreat()
+    {
+        foreach (EntityGroupMember member in _members)
+            if (GodotObject.IsInstanceValid(member) &&
+                member.IsAlive && member.ThreatActive?.Invoke() == true)
+                return true;
+
+        return false;
+    }
+
+    // =========================================================
+    // Broadcast a threat without recipients rebroadcasting the alert.
+    public void Alert(Node2D attacker, EntityGroupMember source)
+    {
+        if (!ShareThreats || _closing) return;
+
+        foreach (EntityGroupMember member in _members)
+            if (member != source && GodotObject.IsInstanceValid(member) &&
+                member.IsAlive)
+                member.ReceiveThreat(attacker);
+    }
+
+    // =========================================================
+    // Let members reconsider movement when their shared area changes.
+    public void NotifyAreaChanged()
+    {
+        foreach (EntityGroupMember member in _members)
+            if (GodotObject.IsInstanceValid(member) && member.IsAlive)
+                member.NotifyAreaChanged();
+    }
+    #endregion
+}
+'@
+$Changes['ENTITIES/Groups/EntityGroupMember.cs'] = @'
+// Connects a health-bearing actor to generic group membership and alerts.
+// Movement and threat behaviour subscribe to events rather than living here.
+using Godot;
+using System;
+
+public partial class EntityGroupMember : Node
+{
+    #region Configuration
+    [Export] public string GroupId { get; set; } = "";
+    #endregion
+
+    #region State
+    public Node2D Actor { get; private set; }
+    public EntityGroup Group { get; private set; }
+    public Func<bool> ThreatActive { get; set; }
+
+    public event Action GroupChanged;
+    public event Action AreaChanged;
+    public event Action<Node2D> ThreatReceived;
+
+    private Health _health;
+    public bool IsAlive => GodotObject.IsInstanceValid(Actor) &&
+        Actor.IsInsideTree() && !Actor.IsQueuedForDeletion() &&
+        _health?.IsAlive == true;
+    #endregion
+
+    #region Lifecycle
+    // =========================================================
+    // Bind shared health before the actor begins its own ready callback.
+    public override void _Ready()
+    {
+        Actor = GetParent().GetParent<Node2D>();
+        _health = Actor.GetNode<Health>("Systems/Health");
+        _health.Hit += OnHit;
+        _health.Died += OnDeath;
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Leave membership and release shared health subscriptions.
+    public override void _ExitTree()
+    {
+        if (Actor is Entity entity && entity.StreamingRetirement) SuspendForStreaming();
+        else LeaveGroup();
+        if (GodotObject.IsInstanceValid(_health))
+        {
+            _health.Hit -= OnHit;
+            _health.Died -= OnDeath;
+        }
+    }
+    #endregion
+
+    #region Membership
+    // =========================================================
+    // Join after the actor has bound its behaviour components and layer.
+    public void JoinAssignedGroup()
+    {
+        EntityGroup next = Actor is Entity entity
+            ? EntitySaves.Find(this)?.ResolveGroup(entity, GroupId) ?? EntityGroup.Find(Actor, GroupId)
+            : EntityGroup.Find(Actor, GroupId);
+        if (next == Group) return;
+
+        LeaveGroup();
+        if (next == null || !next.Join(this)) return;
+
+        Group = next;
+        GroupId = next.GroupId;
+        GroupChanged?.Invoke();
+    }
+
+    // =========================================================
+    // Clear membership before notifying movement and the previous group.
+    public void LeaveGroup()
+    {
+        EntityGroup previous = Group;
+        Group = null;
+
+        if (previous == null) return;
+
+        GroupId = "";
+        GroupChanged?.Invoke();
+
+        if (GodotObject.IsInstanceValid(previous))
+            previous.Leave(this);
+    }
+
+    // =========================================================
+    // Keep an unloaded living member in the group's logical membership.
+    public void SuspendForStreaming()
+    {
+        EntityGroup previous = Group; Group = null;
+        if (GodotObject.IsInstanceValid(previous)) previous.Suspend(this);
+    }
+
+    // =========================================================
+    // Deliver an alert to the actor's chosen threat behaviour.
+    public void ReceiveThreat(Node2D attacker)
+    {
+        ThreatReceived?.Invoke(attacker);
+    }
+
+    // =========================================================
+    // Notify movement without specifying how that movement is implemented.
+    public void NotifyAreaChanged()
+    {
+        AreaChanged?.Invoke();
+    }
+    #endregion
+
+    #region Health Events
+    // =========================================================
+    // Deliver the local threat and optionally alert other group members.
+    private void OnHit()
+    {
+        Node2D attacker = _health.LastDamageSource;
+        ReceiveThreat(attacker);
+
+        if (GodotObject.IsInstanceValid(Group) &&
+            !Group.IsQueuedForDeletion())
+            Group.Alert(attacker, this);
+    }
+
+    // =========================================================
+    // Update membership immediately when this actor dies.
     private void OnDeath()
     {
-        if (_generated) return;
-        _generated = true;
+        LeaveGroup();
+    }
+    #endregion
+}
+'@
+$Changes['ENTITIES/Groups/GroupRoaming.cs'] = @'
+// Supplies an optional shared wander area for a generic group.
+// Fixed areas do no roaming work; periodic areas use one timer.
+using Godot;
 
-        try
+public enum GroupRoamingMode { Fixed, PeriodicSteps }
+
+public partial class GroupRoaming : Node
+{
+    #region Configuration
+    [Export] public GroupRoamingMode Mode { get; set; } =
+        GroupRoamingMode.PeriodicSteps;
+    [Export] public float WanderRadius { get; set; } = 300f;
+    [Export] public float RoamRadius { get; set; } = 500f;
+    [Export] public float StepDistance { get; set; } = 60f;
+    [Export] public double IntervalSeconds { get; set; } = 60.0;
+    #endregion
+
+    #region State
+    public Vector2 Home { get; private set; }
+    public Vector2 Centre => _group.GlobalPosition;
+
+    private EntityGroup _group;
+    private Timer _timer;
+    private readonly RandomNumberGenerator _rng = new();
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Snapshot roaming configuration, original home, random state and remaining gameplay time.
+    public void CaptureSave(EntityGroupSaveData state)
+    {
+        state.HasRoaming = true; state.Mode = (int)Mode; state.WanderRadius = WanderRadius; state.RoamRadius = RoamRadius;
+        state.StepDistance = StepDistance; state.Interval = System.Math.Max(1, IntervalSeconds);
+        state.HomeX = Home.X; state.HomeY = Home.Y; state.RandomState = _rng.State;
+        state.RoamingRunning = GodotObject.IsInstanceValid(_timer) && !_timer.IsStopped();
+        state.RemainingStep = state.RoamingRunning ? _timer.TimeLeft : 0;
+    }
+
+    // =========================================================
+    // Restore after Ready has initialized the helper, without applying offline elapsed time.
+    public void RestoreSave(EntityGroupSaveData state)
+    {
+        Mode = (GroupRoamingMode)state.Mode; WanderRadius = state.WanderRadius; RoamRadius = state.RoamRadius;
+        StepDistance = state.StepDistance; IntervalSeconds = state.Interval; Home = new(state.HomeX, state.HomeY);
+        _rng.State = state.RandomState;
+        if (state.RoamingRunning && Mode != GroupRoamingMode.Fixed) { Start(); _timer.Start(System.Math.Max(0.001, state.RemainingStep)); }
+        else Stop();
+    }
+    #endregion
+
+    #region Lifecycle
+    // =========================================================
+    // Retain the original anchor without starting a processing loop.
+    public override void _Ready()
+    {
+        _group = GetParent().GetParent<EntityGroup>();
+        Home = _group.GlobalPosition;
+        _rng.Randomize();
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Release roaming resources when the group ends.
+    public override void _ExitTree()
+    {
+        if (GodotObject.IsInstanceValid(_timer))
+            _timer.Timeout -= Step;
+
+        _rng.Dispose();
+    }
+    #endregion
+
+    #region Roaming
+    // =========================================================
+    // Start periodic movement only after group formation is complete.
+    public void Start()
+    {
+        if (Mode == GroupRoamingMode.Fixed) return;
+
+        if (_timer == null)
         {
-            EntityDeaths deaths = EntityDeaths.Find(this);
-            if (deaths != null && !deaths.TryClaimRewards(_actor)) return;
-
-            if (_actor.Definition.DeathDelivery ==
-                EntityDeathDelivery.RobotWreck)
+            _timer = new Timer
             {
-                RecordWreck();
-                return;
-            }
-
-            LootTable table = _actor.Definition.DeathLoot;
-            if (table == null) return;
-
-            ResourceWorld resources = ResourceWorld.Find(this);
-
-            if (resources == null)
-                throw new InvalidOperationException(
-                    "Entity loot requires ResourceWorld.");
-
-            StorageDefinition capacity = new()
-            {
-                SlotCount = 96,
-                MaximumWeightKg = float.MaxValue,
-                CapacityLitres = float.MaxValue
+                Name = "CentreStepTimer",
+                ProcessCallback = Timer.TimerProcessCallback.Physics
             };
-
-            ulong seed = _actor.RandomSeed != 0
-                ? _actor.RandomSeed : !string.IsNullOrEmpty(_actor.PersistentId)
-                    ? EntityDeaths.IdentitySeed(_actor.PersistentId) : _actor.GetInstanceId();
-
-            GeneratedContents = table.Generate(
-                resources.Catalog, capacity, seed);
-
-            DeliverGroundDrops(resources);
+            AddChild(_timer);
+            _timer.Timeout += Step;
         }
-        catch (Exception error)
+
+        _timer.Start(System.Math.Max(1.0, IntervalSeconds));
+    }
+
+    // =========================================================
+    // Suspend future roaming steps without moving the current centre.
+    public void Stop()
+    {
+        if (GodotObject.IsInstanceValid(_timer))
+            _timer.Stop();
+    }
+
+    // =========================================================
+    // Attempt one bounded centre step while the group is calm.
+    private void Step()
+    {
+        _timer.WaitTime = System.Math.Max(1.0, IntervalSeconds);
+
+        if (Mode == GroupRoamingMode.Fixed)
         {
-            GD.PushError(
-                $"Entity '{_actor.Definition.SpeciesId}' death delivery failed: {error}");
+            Stop();
+            return;
+        }
+
+        if (_group.IsQueuedForDeletion() ||
+            !_group.FormationComplete || _group.HasThreat() ||
+            StepDistance <= 0f || RoamRadius <= 0f)
+            return;
+
+        WorldNavigation navigation = WorldNavigation.For(_group);
+        if (navigation == null) return;
+
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Vector2 point = Centre +
+                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) * StepDistance;
+
+            if (point.DistanceSquaredTo(Home) > RoamRadius * RoamRadius ||
+                !navigation.CanTravelDirectly(Centre, point))
+                continue;
+
+            _group.GlobalPosition = point;
+            _group.NotifyAreaChanged();
+            return;
+        }
+    }
+    #endregion
+}
+'@
+$Changes['ENTITIES/Movement/EntityWandering.cs'] = @'
+// Shares wandering, waiting and optional grazing between entity species.
+// The actor owns the single motor tick; group roaming remains optional.
+using Godot;
+using System;
+
+public partial class EntityWandering : Node
+{
+    #region State
+    public Vector2 Home { get; private set; }
+
+    private EntityBody _actor;
+    private EntityGroupMember _membership;
+    private EntityGrazing _grazing;
+    private Func<bool> _hasThreat;
+    private RandomNumberGenerator _rng;
+    private bool _ownsRandom;
+    private EntityWanderSettings _settings;
+    private double _wait, _travelTime;
+
+    private GroupRoaming SharedArea
+    {
+        get
+        {
+            EntityGroup group = _membership?.Group;
+            return GodotObject.IsInstanceValid(group) &&
+                !group.IsQueuedForDeletion() ? group.Roaming : null;
+        }
+    }
+
+    public bool UsesSharedArea => GodotObject.IsInstanceValid(SharedArea);
+    public Vector2 Centre => UsesSharedArea ? SharedArea.Centre : Home;
+    public float Radius => UsesSharedArea
+        ? SharedArea.WanderRadius : _settings.Radius;
+
+    private bool HasThreat => _hasThreat?.Invoke() == true;
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Preserve waiting and solo home; routes and grass reservations are replanned.
+    public void CaptureSave(EntitySaveData state) { state.WanderWait = Math.Max(0, _wait); }
+
+    // =========================================================
+    // Apply after membership callbacks so they cannot overwrite the saved solo anchor.
+    public void RestoreSave(EntitySaveData state)
+    {
+        Home = new(state.HomeX, state.HomeY); _wait = state.WanderWait; _travelTime = 0;
+    }
+    #endregion
+
+    #region Lifecycle
+    // =========================================================
+    // Bind shared movement with optional membership, grazing and threat policy.
+    public void Bind(
+        EntityBody actor, EntityWanderSettings settings, Vector2 home,
+        EntityGroupMember membership = null,
+        EntityGrazing grazing = null,
+        Func<bool> hasThreat = null,
+        RandomNumberGenerator random = null,
+        bool initialPause = false)
+    {
+        _actor = actor;
+        _settings = settings;
+        Home = home;
+        _membership = membership;
+        _grazing = grazing;
+        _hasThreat = hasThreat;
+        _rng = random;
+        _ownsRandom = random == null;
+
+        if (_ownsRandom)
+        {
+            _rng = new RandomNumberGenerator();
+            _rng.Randomize();
+        }
+
+        if (_membership != null)
+        {
+            _membership.GroupChanged += OnGroupChanged;
+            _membership.AreaChanged += OnAreaChanged;
+        }
+
+        if (initialPause) Pause();
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Release optional subscriptions and owned random resources.
+    public override void _ExitTree()
+    {
+        if (GodotObject.IsInstanceValid(_membership))
+        {
+            _membership.GroupChanged -= OnGroupChanged;
+            _membership.AreaChanged -= OnAreaChanged;
+        }
+
+        if (_ownsRandom) _rng?.Dispose();
+    }
+
+    // =========================================================
+    // Move the solo home anchor when the actor changes world layers.
+    public void SetHome(Vector2 position)
+    {
+        Home = position;
+    }
+    #endregion
+
+    #region Movement
+    // =========================================================
+    // Advance peaceful activity without executing movement a second time.
+    public void Tick(double delta)
+    {
+        _wait -= delta;
+
+        if (_grazing?.Tick(delta) == true ||
+            !_actor.Motor.HasGoal)
+            return;
+
+        if (HasThreat)
+        {
+            _travelTime = 0.0;
+            return;
+        }
+
+        _travelTime += delta;
+
+        if (_actor.Motor.Arrived)
+        {
+            _actor.Motor.Stop();
+            _travelTime = 0.0;
+
+            if (_grazing?.BeginEating() != true)
+                Pause();
+        }
+        else if (_actor.Motor.IsStuck || _travelTime > 20.0)
+        {
+            Interrupt();
+            _wait = 2.0;
         }
     }
 
     // =========================================================
-    // Preserve the existing persistent robot wreck identity and delivery.
-    private void RecordWreck()
+    // Choose optional forage or a destination within the current wander area.
+    public void Decide()
     {
-        string layer = WorldLayerMember.For(_actor);
-        ulong identity = _actor.RandomSeed != 0
-            ? _actor.RandomSeed : _actor.GetInstanceId();
+        EntityMotor motor = _actor.Motor;
 
-        string wreckId = !string.IsNullOrEmpty(_actor.PersistentId)
-            ? "dead_entity:" + _actor.PersistentId
-            : $"{layer}:dead_robot:{_actor.Definition.SpeciesId}:{identity}";
+        if (!_settings.Enabled)
+        {
+            motor.Stop();
+            return;
+        }
 
-        LootWorld.GetOrCreate(this).RecordRobotDeath(
-            wreckId, _actor.GlobalPosition, layer);
+        Vector2 centre = Centre;
+        float radius = Radius;
+        Vector2 position = _actor.GlobalPosition;
+
+        if (_settings.HomeLeash > 0f &&
+            position.DistanceSquaredTo(centre) >
+                _settings.HomeLeash * _settings.HomeLeash)
+        {
+            _wait = 0.0;
+            ReturnToCentre();
+            return;
+        }
+
+        if (_grazing?.HasTarget == true)
+        {
+            if (_grazing.TargetInside(centre, radius)) return;
+            Interrupt();
+        }
+
+        if (motor.HasGoal)
+        {
+            if (!motor.Arrived && !motor.IsStuck) return;
+            motor.Stop();
+            Pause();
+        }
+
+        if (_settings.ReturnBeforeWaiting &&
+            position.DistanceSquaredTo(centre) > radius * radius)
+        {
+            ReturnToCentre();
+            return;
+        }
+
+        if (_wait > 0.0) return;
+
+        if (position.DistanceSquaredTo(centre) > radius * radius)
+        {
+            ReturnToCentre();
+            return;
+        }
+
+        WorldNavigation navigation = _actor.Navigation;
+        if (navigation == null) return;
+
+        if (_grazing?.TryReserve(centre, radius) == true)
+        {
+            _travelTime = 0.0;
+            motor.SetGoal(_grazing.TargetPosition, _settings.Speed, 18f);
+            return;
+        }
+
+        for (int attempt = 0; attempt < 4; attempt++)
+        {
+            Vector2 point = centre +
+                Vector2.FromAngle(_rng.RandfRange(0f, Mathf.Tau)) *
+                Mathf.Sqrt(_rng.Randf()) * radius;
+
+            Vector2 start = _settings.RequireDirectPath ? position : point;
+
+            if (!navigation.CanTravelDirectly(start, point))
+                continue;
+
+            _travelTime = 0.0;
+            motor.SetGoal(
+                point, _settings.Speed, _settings.ArrivalDistance);
+            return;
+        }
+
+        _wait = 2.0;
     }
 
     // =========================================================
-    // Deliver generated stacks as ordinary same-layer world pickups.
-    private void DeliverGroundDrops(ResourceWorld resources)
+    // Return to the solo home or optional shared roaming centre.
+    public void ReturnToCentre()
     {
-        for (int i = 0; i < GeneratedContents.SlotCount; i++)
+        _travelTime = 0.0;
+        _actor.Motor.SetGoal(
+            Centre, _settings.Speed, _settings.ReturnDistance);
+    }
+
+    // =========================================================
+    // Pause between destinations or after an optional meal.
+    public void Pause()
+    {
+        _wait = _rng.RandfRange(_settings.Wait.X, _settings.Wait.Y);
+    }
+
+    // =========================================================
+    // Release peaceful activity while optionally preserving combat movement.
+    public void Interrupt(bool preserveCombat = true)
+    {
+        _grazing?.Release();
+        _travelTime = 0.0;
+        _wait = 0.0;
+
+        if (!preserveCombat || !HasThreat)
+            _actor.Motor.Stop();
+    }
+    #endregion
+
+    #region Group Events
+    // =========================================================
+    // Establish a solo anchor when a shared roaming area is lost.
+    private void OnGroupChanged()
+    {
+        if (!UsesSharedArea)
+            Home = _actor.GlobalPosition;
+
+        Interrupt();
+    }
+
+    // =========================================================
+    // Reconsider peaceful movement when an optional group anchor changes.
+    private void OnAreaChanged()
+    {
+        if (HasThreat || _grazing?.TargetInside(Centre, Radius) == true)
+            return;
+
+        Interrupt();
+    }
+    #endregion
+}
+'@
+$Changes['ENTITIES/Grazing/EntityGrazing.cs'] = @'
+// Owns grass reservations, eating progress and feeding cooldown.
+// The existing GrazingWorld remains the shared grass index and depletion service.
+using Godot;
+
+public partial class EntityGrazing : Node
+{
+    #region State
+    private Entity _actor;
+    private GrazingWorld _world;
+    private Grass _target;
+    private bool _eating;
+    private double _elapsed, _cooldown;
+
+    public bool HasTarget => GodotObject.IsInstanceValid(_target) &&
+        !_target.IsQueuedForDeletion();
+    public Vector2 TargetPosition => _target.GlobalPosition;
+    #endregion
+
+    #region Persistence
+    // =========================================================
+    // Keep feeding cooldown; an unfinished meal releases its transient reservation.
+    public void CaptureSave(EntitySaveData state) { state.FeedingCooldown = System.Math.Max(0, _cooldown); }
+
+    // =========================================================
+    // Resume gameplay time without consuming feeding cooldown while offline.
+    public void RestoreSave(EntitySaveData state) { Release(); _cooldown = state.FeedingCooldown; }
+    #endregion
+
+    #region Lifecycle
+    // =========================================================
+    // Bind grazing once without adding another processing loop.
+    public void Bind(Entity actor)
+    {
+        _actor = actor;
+        _world = GrazingWorld.GetOrCreate(actor);
+        SetProcess(false);
+        SetPhysicsProcess(false);
+    }
+
+    // =========================================================
+    // Relinquish any grass reservation when the component exits.
+    public override void _ExitTree()
+    {
+        Release();
+    }
+    #endregion
+
+    #region Feeding
+    // =========================================================
+    // Advance feeding; return true while eating occupies this movement tick.
+    public bool Tick(double delta)
+    {
+        _cooldown -= delta;
+
+        if (_target != null && !HasTarget)
         {
-            InventoryStack stack = GeneratedContents.Get(i);
-            if (stack.IsEmpty) continue;
-
-            Vector2 offset = Vector2.FromAngle(i * 2.4f) * 12f;
-
-            if (!resources.SpawnItemFor(
-                _actor, stack.Item, stack.Count,
-                _actor.GlobalPosition + offset))
-                GD.PushError(
-                    $"Could not deliver death loot '{stack.Item.Id}'.");
+            Release();
+            _actor.Motor.Stop();
         }
+
+        if (!_eating || !HasTarget) return false;
+
+        _elapsed += delta;
+        if (_elapsed >= _actor.Definition.GrazingDuration)
+        {
+            _world.Consume(_actor, _target);
+            Release();
+            _cooldown = _actor.Definition.FeedingCooldown;
+            _actor.Wandering.Pause();
+        }
+
+        return true;
+    }
+
+    // =========================================================
+    // Reserve reachable grass within the current wander area.
+    public bool TryReserve(Vector2 centre, float radius)
+    {
+        if (!_actor.Definition.GrazingEnabled || _cooldown > 0.0)
+            return false;
+
+        _target = _world.Reserve(_actor, centre, radius);
+        return HasTarget;
+    }
+
+    // =========================================================
+    // Start the eating timer once movement reaches the reserved tuft.
+    public bool BeginEating()
+    {
+        if (!HasTarget) return false;
+        _eating = true;
+        _elapsed = 0.0;
+        return true;
+    }
+
+    // =========================================================
+    // Check whether reserved grass still belongs to a changed wander area.
+    public bool TargetInside(Vector2 centre, float radius)
+    {
+        return HasTarget &&
+            centre.DistanceSquaredTo(_target.GlobalPosition) <= radius * radius;
+    }
+
+    // =========================================================
+    // Release reservations and eating state without resetting feeding cooldown.
+    public void Release()
+    {
+        if (GodotObject.IsInstanceValid(_world))
+            _world.Release(_actor, _target);
+
+        _target = null;
+        _eating = false;
+        _elapsed = 0.0;
     }
     #endregion
 }
@@ -1082,6 +1995,9 @@ public partial class CampaignSession : Node
             EntityDeaths deaths = new() { Name = "EntityDeaths" };
             deaths.Initialize(data, world);
             world.AddChild(deaths);
+            EntitySaves entities = new() { Name = "EntitySaves" };
+            entities.Initialize(data, world);
+            world.AddChild(entities);
             ResourceChanges resources = new() { Name = "ResourceChanges" };
             resources.Initialize(data);
             world.AddChild(resources);
@@ -1248,6 +2164,7 @@ public partial class CampaignSession : Node
         WorldObjectSaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureResourceDefinitions(_data);
         EntityDeaths.Find(this).Capture(_data);
+        EntitySaves.Find(this).Capture(_data);
         CampaignRecipe.CaptureObjectDefinitions(_data);
         CampaignRecipe.CaptureEntityDefinitions(_data);
         CampaignStore.Write(_data);
@@ -1315,20 +2232,23 @@ public static class CampaignStore
             !(data.Version == 1 && data.Coverage == "world-player-only" ||
               data.Version == 2 && data.Coverage == "world-player-resources" ||
               data.Version == 3 && data.Coverage == "world-player-resources-objects" ||
-              data.Version == 4 && data.Coverage == "world-player-resources-objects-deaths") ||
+              data.Version == 4 && data.Coverage == "world-player-resources-objects-deaths" ||
+              data.Version == 5 && data.Coverage == "world-player-resources-objects-entities") ||
             data.ProfileId != profile || !Guid.TryParseExact(data.CampaignId, "N", out _) ||
             data.Player == null || data.Settings == null || data.Resources == null ||
             data.Sections == null ||
             (data.Version == 1 ? data.Sections.Count != 0 :
                 data.Version == 2 ? data.Sections.Count != 1 || !data.Sections.ContainsKey(ResourceChanges.Section) :
-                data.Sections.Count != (data.Version == 3 ? 2 : 3) ||
+                data.Sections.Count != (data.Version == 3 ? 2 : data.Version == 4 ? 3 : 4) ||
                     !data.Sections.ContainsKey(ResourceChanges.Section) ||
                     !data.Sections.ContainsKey(WorldObjectSaves.Section) ||
-                    (data.Version == 4 && !data.Sections.ContainsKey(EntityDeaths.Section))))
+                    (data.Version >= 4 && !data.Sections.ContainsKey(EntityDeaths.Section)) ||
+                    (data.Version == 5 && !data.Sections.ContainsKey(EntitySaves.Section))))
             throw new InvalidDataException("Unsupported or invalid campaign save.");
         ResourceChanges.ReadSection(data);
         WorldObjectSaves.ReadSection(data);
         EntityDeaths.ReadSection(data);
+        EntitySaves.ReadSection(data);
         return data;
     }
 
@@ -1448,6 +2368,10 @@ public static class CampaignRecipe
     // Include entity recipes so death identities cannot silently change species or prefab.
     public static void CaptureEntityDefinitions(CampaignData data)
     {
+        foreach (EntitySaveData actor in EntitySaves.ReadSection(data).Entities)
+        {
+            Stamp(actor.Definition, data.Resources); Stamp(actor.Scene, data.Resources);
+        }
         foreach (EntityDeathData entry in EntityDeaths.ReadSection(data).Entries)
         {
             Stamp(entry.Definition, data.Resources);
@@ -1531,185 +2455,641 @@ public static class CampaignRecipe
     }
 }
 '@
-$Changes['SYSTEMS/Saving/EntityDeaths.cs'] = @'
-// Remembers killed entity identities without retaining actors or running frame updates.
-// Origin identities remain unchanged when actors move between world layers.
+$Changes['UI/Menus/Pause/PauseMenu.cs'] = @'
+// Pauses gameplay while its own UI remains active; save support binds separately.
 using Godot;
 using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
 
-public sealed class EntityDeathData
+public partial class PauseMenu : CanvasLayer
 {
-    public string Id { get; set; } = "";
-    public string Layer { get; set; } = WorldLayerId.Surface;
-    public string Definition { get; set; } = "";
-    public string Scene { get; set; } = "";
-}
-public sealed class EntityDeathsData
-{
-    public int Version { get; set; } = 1;
-    public List<EntityDeathData> Entries { get; set; } = new();
-}
+    #region Configuration
+    [ExportGroup("Layout")]
+    [Export] public float PanelWidth { get; set; } = 440f;
+    #endregion
 
-public partial class EntityDeaths : Node
-{
-    #region State And Ownership
-    public const string Section = "entity-deaths";
-    private readonly Dictionary<string, EntityDeathData> _dead = new();
-    private readonly HashSet<string> _rewarded = new();
-    public int Count => _dead.Count;
+    #region State
+    private PlayerInput _controls;
+    private InputModes _modes;
+    private Control _screen;
+    private Button _resume, _save;
+    private AcceptDialog _message;
+    private ConfirmationDialog _confirm;
+    private Action _saveAction, _exitAction;
+    private bool _open;
+    private Input.MouseModeEnum _previousMouse;
+    public bool IsOpen => _open;
+    #endregion
 
+    #region Setup
     // =========================================================
-    // Resolve only the helper owned by the current campaign world.
-    public static EntityDeaths Find(Node context)
+    // Attach once per player without editing every playable world scene.
+    public static PauseMenu Attach(Player player, PlayerInput controls)
     {
-        return WorldConfig.TryFind(context)?.GetParent().GetNodeOrNull<EntityDeaths>("EntityDeaths");
+        PauseMenu existing = player.GetNodeOrNull<PauseMenu>("PauseMenu");
+        if (existing != null) return existing;
+
+        PauseMenu menu = GD.Load<PackedScene>(
+            "res://UI/Menus/Pause/PauseMenu.tscn")
+            .Instantiate<PauseMenu>();
+
+        menu.Name = "PauseMenu";
+        menu._controls = controls;
+        menu._modes = InputModes.For(player);
+        player.AddChild(menu);
+        return menu;
     }
 
     // =========================================================
-    // Remembering deaths requires no periodic scans or per-entity helper nodes.
+    // Only this menu branch ignores the scene-tree pause state.
     public override void _Ready()
     {
+        ProcessMode = ProcessModeEnum.Always;
+        Layer = 200;
+        BuildUi();
+        _screen.Hide();
         SetProcess(false);
         SetPhysicsProcess(false);
     }
 
     // =========================================================
-    // Distinguish population owners, origin layers, world seeds, chunks and slots.
-    public static string PopulationId(string owner, string layer, uint seed, Vector2I chunk, int slot)
+    // Enable saving only when the real persistent saver is connected.
+    public void BindSave(Action saveAction)
     {
-        WorldLayerId.Validate(layer);
-        if (string.IsNullOrWhiteSpace(owner) || slot < 0)
-            throw new ArgumentException("Population identity requires an owner and nonnegative slot.");
-        return string.Join(":", "population", layer, owner,
-            seed.ToString(CultureInfo.InvariantCulture), chunk.X.ToString(CultureInfo.InvariantCulture),
-            chunk.Y.ToString(CultureInfo.InvariantCulture), slot.ToString(CultureInfo.InvariantCulture));
-    }
+        _saveAction = saveAction;
+        if (_save == null) return;
 
-    // =========================================================
-    // Look up a death before instantiating or preparing any population actor.
-    public bool WasKilled(string id) => !string.IsNullOrEmpty(id) && _dead.ContainsKey(id);
-
-    // =========================================================
-    // Use a stable fallback loot seed for authored actors without population seeds.
-    public static ulong IdentitySeed(string id)
-    {
-        unchecked
-        {
-            ulong seed = 14695981039346656037UL;
-            foreach (char character in id) { seed ^= character; seed *= 1099511628211UL; }
-            return seed == 0 ? 1UL : seed;
-        }
+        _save.Disabled = saveAction == null;
+        _save.TooltipText = saveAction == null
+            ? "Campaign saving is unavailable in this scene."
+            : "Partial save: world/player, resources, items, containers and buildings.";
     }
     #endregion
 
-    #region Load And Validation
+    #region Input and Pause
     // =========================================================
-    // Older saves start with no death history; new saves require their named section.
-    public static EntityDeathsData ReadSection(CampaignData data)
+    // Let existing interfaces consume ESC before opening pause.
+    public override void _UnhandledInput(InputEvent input)
+    {
+        if (_controls == null || !PlayerInput.IsPauseRequest(input))
+            return;
+
+        if (!_open && (!_modes.GameplayAllowed ||
+            GetTree().Paused || GetViewport().GuiIsDragging()))
+            return;
+
+        GetViewport().SetInputAsHandled();
+
+        if (_open) ResumeGame();
+        else Open();
+    }
+
+    // =========================================================
+    // Stop player actions, claim input, then pause the scene tree.
+    private void Open()
+    {
+        _open = true;
+        _previousMouse = Input.MouseMode;
+        _modes.Push(this, PlayerInputMode.Pause);
+        _controls.Suspend();
+
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        _screen.Show();
+        GetTree().Paused = true;
+        _resume.GrabFocus();
+    }
+
+    // =========================================================
+    // Release ownership and prevent held-input retriggers.
+    private void ResumeGame()
+    {
+        if (!_open) return;
+
+        _message.Hide();
+        _confirm.Hide();
+        _exitAction = null;
+        _screen.Hide();
+        _modes.Release(this);
+        _controls.Resume();
+
+        Input.MouseMode = _previousMouse;
+        _open = false;
+        GetTree().Paused = false;
+    }
+
+    // =========================================================
+    // Never leave the tree paused if the owning player is removed.
+    public override void _ExitTree()
+    {
+        if (!_open) return;
+
+        if (GodotObject.IsInstanceValid(_modes))
+            _modes.Release(this);
+
+        GetTree().Paused = false;
+        Input.MouseMode = _previousMouse;
+    }
+    #endregion
+
+    #region Layout
+    // =========================================================
+    // Build a blocking overlay with the existing shared button styles.
+    private void BuildUi()
+    {
+        _screen = new Control
+        {
+            MouseFilter = Control.MouseFilterEnum.Stop
+        };
+
+        AddChild(_screen);
+        _screen.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        ColorRect dim = new()
+        {
+            Color = new Color(0.015f, 0.035f, 0.05f, 0.78f),
+            MouseFilter = Control.MouseFilterEnum.Stop
+        };
+
+        _screen.AddChild(dim);
+        dim.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        CenterContainer centre = new();
+        _screen.AddChild(centre);
+        centre.SetAnchorsAndOffsetsPreset(
+            Control.LayoutPreset.FullRect);
+
+        PanelContainer panel = new()
+        {
+            CustomMinimumSize = new Vector2(PanelWidth, 0)
+        };
+
+        panel.AddThemeStyleboxOverride(
+            "panel", UIButtonFactory.Box(
+                UIButtonFactory.Ink, UIButtonFactory.Accent));
+
+        centre.AddChild(panel);
+
+        VBoxContainer contents = new();
+        contents.AddThemeConstantOverride("separation", 12);
+        panel.AddChild(contents);
+        contents.AddChild(UIButtonFactory.Label("PAUSED", 30));
+
+        _resume = AddButton(contents, "Resume", ResumeGame);
+        _save = AddButton(contents, "Save Game", SaveGame);
+
+        AddButton(contents, "Options", () => ShowMessage(
+            "Options", "Options will be added later."));
+
+        AddButton(contents, "Exit to Main Menu",
+            () => ConfirmExit(false));
+
+        AddButton(contents, "Exit Game",
+            () => ConfirmExit(true));
+
+        AddButton(contents, "About", () => ShowMessage(
+            "About", "A science-fiction survival world.\n" +
+            "About content is a placeholder."));
+
+        _message = new AcceptDialog { Exclusive = true };
+        AddChild(_message);
+        UIButtonFactory.Apply(_message.GetOkButton());
+
+        _confirm = new ConfirmationDialog
+        {
+            Exclusive = true,
+            Title = "Leave game?"
+        };
+
+        AddChild(_confirm);
+        _confirm.GetOkButton().Text = "LEAVE";
+        UIButtonFactory.Apply(_confirm.GetOkButton());
+        UIButtonFactory.Apply(_confirm.GetCancelButton());
+
+        _confirm.Confirmed += CompleteExit;
+        _confirm.Canceled += () => _exitAction = null;
+        BindSave(_saveAction);
+    }
+
+    // =========================================================
+    // Share button construction, focus handling and styling.
+    private static Button AddButton(
+        VBoxContainer parent, string text, Action action)
+    {
+        Button button = UIButtonFactory.Create(text, action);
+        parent.AddChild(button);
+        return button;
+    }
+    #endregion
+
+    #region Actions
+    // =========================================================
+    // Invoke only an explicitly connected persistent saver.
+    private void SaveGame()
+    {
+        if (_saveAction == null) return;
+
+        try
+        {
+            _saveAction();
+            ShowMessage("Partial campaign saved", "World, player, resources, items, containers and buildings saved to your profile.\n" +
+                CampaignSession.SavedPositionFor(this) + "\n" +
+                "Surviving entities, deaths and groups are included. Underground player restoration is a later pass.");
+        }
+        catch (Exception error)
+        {
+            ShowMessage("Save failed", error.Message);
+        }
+    }
+
+    // =========================================================
+    // Ask before leaving unsaved gameplay.
+    private void ConfirmExit(bool quit)
+    {
+        _exitAction = quit
+            ? () => GetTree().Quit()
+            : () => MenuNavigation.Open(
+                this, ProfileStore.Selected == null
+                    ? MenuNavigation.BootScene
+                    : MenuNavigation.MainScene);
+
+        _confirm.DialogText =
+            "Leave this game? Any unsaved progress will be lost.";
+
+        _confirm.PopupCentered(new Vector2I(460, 180));
+    }
+
+    // =========================================================
+    // Keep gameplay paused if returning to a menu fails.
+    private void CompleteExit()
+    {
+        Action action = _exitAction;
+        _exitAction = null;
+
+        try { action?.Invoke(); }
+        catch (Exception error)
+        {
+            ShowMessage("Could not leave", error.Message);
+        }
+    }
+
+    // =========================================================
+    // Show placeholders or errors while gameplay remains paused.
+    private void ShowMessage(string title, string text)
+    {
+        _message.Title = title;
+        _message.DialogText = text;
+        _message.PopupCentered(new Vector2I(460, 180));
+    }
+    #endregion
+}
+'@
+$Changes['SYSTEMS/Saving/EntitySaves.cs'] = @'
+// Saves surviving population/scene entities and logical groups without storing engine nodes.
+// Population restores stay budgeted; authored actors restore only on available active terrain.
+using Godot;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+
+public sealed class EntitySaveData
+{
+    public string Id { get; set; } = "";
+    public string Owner { get; set; } = "";
+    public string OriginLayer { get; set; } = WorldLayerId.Surface;
+    public int ChunkX { get; set; }
+    public int ChunkY { get; set; }
+    public int Slot { get; set; }
+    public string Scene { get; set; } = "";
+    public string Definition { get; set; } = "";
+    public string Layer { get; set; } = WorldLayerId.Surface;
+    public float X { get; set; }
+    public float Y { get; set; }
+    public float HomeX { get; set; }
+    public float HomeY { get; set; }
+    public int Health { get; set; }
+    public ulong RandomSeed { get; set; }
+    public ulong RandomState { get; set; }
+    public bool HasRuntimeState { get; set; }
+    public double WanderWait { get; set; }
+    public double FeedingCooldown { get; set; }
+    public double TargetTimer { get; set; }
+    public double DecisionTimer { get; set; }
+    public string GroupId { get; set; } = "";
+}
+public sealed class EntityGroupSaveData
+{
+    public string Id { get; set; } = "";
+    public string GroupId { get; set; } = "";
+    public string Layer { get; set; } = WorldLayerId.Surface;
+    public string DisplayName { get; set; } = "Group";
+    public bool ShareThreats { get; set; }
+    public int MinimumMembers { get; set; }
+    public bool FormationComplete { get; set; }
+    public bool Dissolved { get; set; }
+    public float X { get; set; }
+    public float Y { get; set; }
+    public List<string> Members { get; set; } = new();
+    public bool HasRoaming { get; set; }
+    public int Mode { get; set; }
+    public float WanderRadius { get; set; }
+    public float RoamRadius { get; set; }
+    public float StepDistance { get; set; }
+    public double Interval { get; set; }
+    public float HomeX { get; set; }
+    public float HomeY { get; set; }
+    public ulong RandomState { get; set; }
+    public double RemainingStep { get; set; }
+    public bool RoamingRunning { get; set; }
+}
+public sealed class EntitySavesData
+{
+    public int Version { get; set; } = 1;
+    public List<EntitySaveData> Entities { get; set; } = new();
+    public List<EntityGroupSaveData> Groups { get; set; } = new();
+}
+
+public partial class EntitySaves : Node
+{
+    #region State And Ownership
+    public const string Section = "entities-groups";
+    private readonly Dictionary<string, EntitySaveData> _entities = new();
+    private readonly Dictionary<string, EntityGroupSaveData> _groups = new();
+    private readonly Dictionary<string, Entity> _sceneNodes = new();
+    private readonly Dictionary<string, EntityGroup> _groupNodes = new();
+    private readonly List<string> _pendingScenes = new();
+    private int _sceneCursor;
+    private double _timer;
+    public IEnumerable<EntitySaveData> SavedEntities => _entities.Values;
+
+    // =========================================================
+    // Resolve only this gameplay world's helper.
+    public static EntitySaves Find(Node context) =>
+        WorldConfig.TryFind(context)?.GetParent().GetNodeOrNull<EntitySaves>("EntitySaves");
+
+    // =========================================================
+    // Keep authored restoration on one low-frequency budget, independent of actor count.
+    public override void _Ready() { SetProcess(false); SetPhysicsProcess(_pendingScenes.Count > 0); }
+
+    // =========================================================
+    // Release detached authored scene branches if their world closes before restoration.
+    public override void _ExitTree()
+    {
+        foreach (Entity actor in _sceneNodes.Values)
+            if (GodotObject.IsInstanceValid(actor) && !actor.IsInsideTree()) actor.Free();
+        foreach (EntityGroup group in _groupNodes.Values)
+            if (GodotObject.IsInstanceValid(group) && !group.IsInsideTree()) group.Free();
+        _sceneNodes.Clear(); _groupNodes.Clear();
+    }
+
+    // =========================================================
+    // Validate durable paths rather than runtime resources or traversal paths.
+    private static bool Path(string value, string extension) => !string.IsNullOrEmpty(value) &&
+        value.Length <= 1024 && value.StartsWith("res://", StringComparison.Ordinal) &&
+        !value.Contains("::") && !value.Any(char.IsControl) && value.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
+    // =========================================================
+    // Bound stable identities and labels before allocating save lookup tables.
+    private static bool Text(string value, bool empty = false) => value != null && value.Length <= 1024 &&
+        (empty || !string.IsNullOrWhiteSpace(value)) && !value.Any(char.IsControl);
+    // =========================================================
+    // Reject invalid timer values before restoring gameplay-time state.
+    private static bool TimeValue(double value) => double.IsFinite(value) && value >= 0 && value <= 1e9;
+    #endregion
+
+    #region Format And Detached Initialization
+    // =========================================================
+    // Accept older campaigns with empty living/group history and reject conflicting records.
+    public static EntitySavesData ReadSection(CampaignData data)
     {
         if (!data.Sections.TryGetValue(Section, out JsonElement section))
         {
-            if (data.Version <= 3) return new EntityDeathsData();
-            throw new InvalidDataException("Missing entity-death save section.");
+            if (data.Version <= 4) return new();
+            throw new InvalidDataException("Missing living-entity/group save section.");
         }
-        EntityDeathsData saved = section.Deserialize<EntityDeathsData>();
-        if (saved == null || saved.Version != 1 || saved.Entries == null || saved.Entries.Count > 100000)
-            throw new InvalidDataException("Invalid entity-death save section.");
+        EntitySavesData saved = section.Deserialize<EntitySavesData>();
+        if (saved == null || saved.Version != 1 || saved.Entities == null || saved.Groups == null ||
+            saved.Entities.Count + saved.Groups.Count > 100000) throw new InvalidDataException("Invalid entity/group section.");
+        HashSet<string> dead = EntityDeaths.ReadSection(data).Entries.Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
         HashSet<string> ids = new();
-        foreach (EntityDeathData entry in saved.Entries)
+        Dictionary<string, EntitySaveData> actors = new();
+        foreach (EntitySaveData actor in saved.Entities)
         {
-            if (entry == null || string.IsNullOrWhiteSpace(entry.Id) || entry.Id.Length > 1024 ||
-                entry.Id.Any(char.IsControl) || !ids.Add(entry.Id) ||
-                string.IsNullOrEmpty(entry.Layer) || entry.Layer.Length > 128 ||
-                !ResourcePath(entry.Definition, ".tres") || !ResourcePath(entry.Scene, ".tscn"))
-                throw new InvalidDataException("Invalid entity-death record.");
-            WorldLayerId.Validate(entry.Layer);
+            if (actor == null || !Text(actor.Id) || !ids.Add(actor.Id) || dead.Contains(actor.Id) ||
+                !Text(actor.Owner, true) || !Text(actor.GroupId, true) || !Path(actor.Scene, ".tscn") || !Path(actor.Definition, ".tres") ||
+                !float.IsFinite(actor.X) || !float.IsFinite(actor.Y) || !float.IsFinite(actor.HomeX) || !float.IsFinite(actor.HomeY) ||
+                actor.Health <= 0 || !TimeValue(actor.WanderWait) || !TimeValue(actor.FeedingCooldown) ||
+                !TimeValue(actor.TargetTimer) || !TimeValue(actor.DecisionTimer) || actor.Slot < 0 || actor.Slot > 7)
+                throw new InvalidDataException("Invalid or conflicting living entity.");
+            WorldLayerId.Validate(actor.Layer); WorldLayerId.Validate(actor.OriginLayer);
+            actors.Add(actor.Id, actor);
+            string identity = actor.Owner.Length > 0
+                ? EntityDeaths.PopulationId(actor.Owner, actor.OriginLayer, data.Seed, new(actor.ChunkX, actor.ChunkY), actor.Slot)
+                : actor.Id;
+            if (identity != actor.Id || actor.Owner.Length == 0 && !actor.Id.StartsWith("scene:", StringComparison.Ordinal))
+                throw new InvalidDataException("Invalid entity origin identity.");
         }
+        ids.Clear(); HashSet<string> keys = new(); HashSet<string> memberships = new();
+        foreach (EntityGroupSaveData group in saved.Groups)
+        {
+            if (group == null || !Text(group.Id) || !ids.Add(group.Id) || !Text(group.GroupId) ||
+                !Text(group.DisplayName, true) || group.MinimumMembers < 1 || group.MinimumMembers > 100000 ||
+                !float.IsFinite(group.X) || !float.IsFinite(group.Y) || group.Members == null || group.Members.Count > 100000 ||
+                !keys.Add(group.Layer + ":" + group.GroupId) || group.Dissolved && group.Members.Count > 0 ||
+                group.HasRoaming && (group.Mode is < 0 or > 1 || !float.IsFinite(group.HomeX) || !float.IsFinite(group.HomeY) ||
+                    !float.IsFinite(group.WanderRadius) || group.WanderRadius <= 0 || !float.IsFinite(group.RoamRadius) || group.RoamRadius <= 0 ||
+                    !float.IsFinite(group.StepDistance) || group.StepDistance < 0 || !TimeValue(group.Interval) || group.Interval < 1 ||
+                    !TimeValue(group.RemainingStep))) throw new InvalidDataException("Invalid entity group.");
+            WorldLayerId.Validate(group.Layer);
+            foreach (string member in group.Members)
+            {
+                actors.TryGetValue(member ?? "", out EntitySaveData actor);
+                if (!Text(member) || !memberships.Add(member) || actor == null || actor.Layer != group.Layer || actor.GroupId != group.GroupId)
+                    throw new InvalidDataException("Invalid logical group membership.");
+            }
+        }
+        foreach (EntitySaveData actor in saved.Entities)
+            if (actor.GroupId.Length > 0 && !memberships.Contains(actor.Id))
+                throw new InvalidDataException("Missing saved group membership.");
         return saved;
     }
 
     // =========================================================
-    // Require stable external resource paths rather than runtime resource identities.
-    private static bool ResourcePath(string path, string extension)
-    {
-        return !string.IsNullOrEmpty(path) && path.Length <= 1024 &&
-            path.StartsWith("res://", StringComparison.Ordinal) && !path.Contains("::") &&
-            !path.Any(char.IsControl) && path.EndsWith(extension, StringComparison.OrdinalIgnoreCase);
-    }
-
-    // =========================================================
-    // Restore history and remove dead scene actors before any child Ready callback.
+    // Hydrate before Ready, preserving authored scene branches and their custom children.
     public void Initialize(CampaignData data, Node world)
     {
-        foreach (EntityDeathData entry in ReadSection(data).Entries)
+        EntitySavesData saved = ReadSection(data);
+        foreach (EntitySaveData actor in saved.Entities)
         {
-            if (!Godot.FileAccess.FileExists(entry.Definition) || !Godot.FileAccess.FileExists(entry.Scene))
-                throw new InvalidDataException("A saved entity recipe is unavailable: " + entry.Id);
-            _dead.Add(entry.Id, entry);
-            _rewarded.Add(entry.Id);
+            if (!Godot.FileAccess.FileExists(actor.Scene) || !Godot.FileAccess.FileExists(actor.Definition))
+                throw new InvalidDataException("Saved entity recipe is unavailable: " + actor.Id);
+            EntityDefinition definition = GD.Load<EntityDefinition>(actor.Definition);
+            definition.Validate();
+            if (actor.Health > definition.MaxHealth) throw new InvalidDataException("Saved entity health exceeds its definition.");
+            if (actor.Owner.Length > 0)
+            {
+                EnemyPopulation owner = world.GetNodeOrNull<EnemyPopulation>(actor.Owner);
+                if (owner == null || owner.EnemyScene?.ResourcePath != actor.Scene || WorldLayerMember.For(owner) != actor.OriginLayer)
+                    throw new InvalidDataException("Saved population owner or prefab changed: " + actor.Owner);
+            }
+            if (!WorldConfig.Find(world).GetLayerCatalog().Layers.Any(l => l.Id == actor.Layer))
+                throw new InvalidDataException("Saved entity layer is unavailable: " + actor.Layer);
+            _entities.Add(actor.Id, actor);
         }
-        List<Entity> actors = new();
-        CollectSceneActors(world.GetNode("WorldObjects"), actors);
-        HashSet<string> identities = new();
-        foreach (Entity actor in actors)
+        foreach (EntityGroupSaveData group in saved.Groups) _groups.Add(group.Id, group);
+        List<Node> branches = new(); Collect(world.GetNode("WorldObjects"), branches);
+        foreach (Node node in branches)
         {
-            if (string.IsNullOrEmpty(actor.PersistentId))
-                actor.PersistentId = $"scene:{WorldLayerMember.For(actor)}:{world.GetPathTo(actor)}";
-            if (!identities.Add(actor.PersistentId))
-                throw new InvalidDataException("Duplicate scene entity identity: " + actor.PersistentId);
-            if (!WasKilled(actor.PersistentId)) continue;
-            actor.GetParent().RemoveChild(actor);
-            actor.Free();
+            if (node is Entity actor && _entities.TryGetValue(actor.PersistentId, out EntitySaveData state))
+            {
+                actor.GetParent().RemoveChild(actor); _sceneNodes.Add(state.Id, actor); _pendingScenes.Add(state.Id);
+            }
+            else if (node is EntityGroup group)
+            {
+                group.PersistentId = $"scene_group:{WorldLayerMember.For(group)}:{world.GetPathTo(group)}";
+                if (!_groups.TryGetValue(group.PersistentId, out EntityGroupSaveData groupState)) continue;
+                if ((group.GetNodeOrNull<GroupRoaming>("Systems/Roaming") != null) != groupState.HasRoaming)
+                    throw new InvalidDataException("Authored group roaming recipe changed: " + groupState.Id);
+                group.GetParent().RemoveChild(group);
+                if (groupState.Dissolved) group.Free(); else _groupNodes.Add(groupState.Id, group);
+            }
+        }
+        foreach (EntitySaveData state in saved.Entities.Where(e => e.Owner.Length == 0))
+            if (!_sceneNodes.ContainsKey(state.Id)) throw new InvalidDataException("Authored entity scene changed: " + state.Id);
+    }
+
+    // =========================================================
+    // Stop at independently persisted entity/group branches.
+    private static void Collect(Node node, List<Node> branches)
+    {
+        if (node is Entity) { branches.Add(node); return; }
+        if (node is EntityGroup) branches.Add(node);
+        foreach (Node child in node.GetChildren()) Collect(child, branches);
+    }
+
+    // =========================================================
+    // Restore one authored actor per interval; inactive/distant layers keep only records.
+    public override void _PhysicsProcess(double delta)
+    {
+        _timer -= delta; if (_timer > 0) return; _timer = 0.25;
+        WorldLayerRuntime layers = WorldLayerRuntime.Find(this); if (layers == null) return;
+        for (int work = 0; work < Math.Min(8, _pendingScenes.Count); work++)
+        {
+            _sceneCursor %= _pendingScenes.Count; string id = _pendingScenes[_sceneCursor];
+            EntitySaveData state = _entities[id]; Vector2 point = new(state.X, state.Y);
+            if (state.Layer != layers.ActiveLayer || !layers.IsAvailable(state.Layer, point, 12)) { _sceneCursor++; continue; }
+            Entity actor = _sceneNodes[id]; Prepare(actor, state);
+            Node2D root = GetParent().GetNode<Node2D>("WorldObjects"); actor.Position = root.ToLocal(point); root.AddChild(actor);
+            _sceneNodes.Remove(id); _pendingScenes.RemoveAt(_sceneCursor);
+            if (_pendingScenes.Count == 0) SetPhysicsProcess(false);
+            return;
         }
     }
 
     // =========================================================
-    // Only authored actors already in the detached scene receive scene identities.
-    private static void CollectSceneActors(Node branch, List<Entity> actors)
+    // Apply ownership before child Ready callbacks bind health, membership and navigation.
+    public static void Prepare(Entity actor, EntitySaveData state)
     {
-        if (branch is Entity actor) { actors.Add(actor); return; }
-        foreach (Node child in branch.GetChildren()) CollectSceneActors(child, actors);
+        actor.PersistentId = state.Id; actor.Definition = GD.Load<EntityDefinition>(state.Definition)
+            ?? throw new InvalidDataException("Entity definition is unavailable.");
+        actor.Definition.Validate();
+        if (state.Health > actor.Definition.MaxHealth) throw new InvalidDataException("Saved entity health exceeds its definition.");
+        actor.SpawnHome = new(state.HomeX, state.HomeY); actor.RandomSeed = state.RandomSeed;
+        actor.GroupId = state.GroupId; actor.PendingSave = state;
+        WorldLayerMember.Attach(actor, state.Layer).SetLayer(state.Layer);
     }
     #endregion
 
-    #region Death And Rewards
+    #region Logical Groups
     // =========================================================
-    // Keep a lightweight tombstone; retirement and QueueFree do not call this method.
-    public void Record(Entity actor)
+    // Use authored identities or stable layer-scoped IDs for generic runtime groups.
+    public void RegisterGroup(EntityGroup group)
     {
-        if (string.IsNullOrEmpty(actor.PersistentId) || _dead.ContainsKey(actor.PersistentId)) return;
-        EntityDeathData entry = new()
+        if (string.IsNullOrEmpty(group.PersistentId)) group.PersistentId = $"group:{WorldLayerMember.For(group)}:{group.GroupId}";
+        if (!_groups.ContainsKey(group.PersistentId)) _groups.Add(group.PersistentId, group.CaptureSave());
+    }
+
+    // =========================================================
+    // Recreate a saved group before its first live member joins; dormant members count logically.
+    public EntityGroup ResolveGroup(Entity actor, string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        string layer = WorldLayerMember.For(actor);
+        EntityGroup existing = EntityGroup.Find(actor, id); if (existing != null) return existing;
+        EntityGroupSaveData state = _groups.Values.FirstOrDefault(g => g.GroupId == id && g.Layer == layer);
+        if (state == null || state.Dissolved) return null;
+        EntityGroup group;
+        if (_groupNodes.Remove(state.Id, out EntityGroup authored)) group = authored;
+        else
         {
-            Id = actor.PersistentId, Layer = WorldLayerMember.For(actor),
-            Definition = actor.Definition.ResourcePath, Scene = actor.SceneFilePath
-        };
-        if (!ResourcePath(entry.Definition, ".tres") || !ResourcePath(entry.Scene, ".tscn"))
-            throw new InvalidDataException("Persistent entity requires external definition and scene: " + entry.Id);
-        _dead.Add(entry.Id, entry);
+            group = new EntityGroup { Name = "RestoredGroup" };
+            if (state.HasRoaming)
+            {
+                Node systems = new() { Name = "Systems" }; group.AddChild(systems);
+                systems.AddChild(new GroupRoaming { Name = "Roaming" });
+            }
+        }
+        group.PersistentId = state.Id; group.GroupId = state.GroupId;
+        group.Position = GetParent().GetNode<Node2D>("WorldObjects").ToLocal(new(state.X, state.Y));
+        WorldLayerMember.Attach(group, state.Layer).SetLayer(state.Layer);
+        GetParent().GetNode("WorldObjects").AddChild(group);
+        return group;
     }
 
     // =========================================================
-    // Coordinate both health callbacks without delivering the same identity twice.
-    public bool TryClaimRewards(Entity actor)
+    // Restore configuration, reserved memberships and roaming before normal group use.
+    public void ApplyGroup(EntityGroup group)
     {
-        if (string.IsNullOrEmpty(actor.PersistentId)) return true;
-        Record(actor);
-        return _rewarded.Add(actor.PersistentId);
+        if (string.IsNullOrEmpty(group.PersistentId) || !_groups.TryGetValue(group.PersistentId, out EntityGroupSaveData saved)) return;
+        group.RestoreSave(saved);
     }
 
     // =========================================================
-    // Snapshot all tombstones, including actors whose chunks or layers are unloaded.
+    // Preserve dissolution so an authored group cannot reappear on the next load.
+    public void GroupDissolved(EntityGroup group)
+    {
+        if (string.IsNullOrEmpty(group.PersistentId)) return;
+        EntityGroupSaveData state = group.CaptureSave(); state.Dissolved = true; state.Members.Clear(); _groups[state.Id] = state;
+    }
+    #endregion
+
+    #region Capture
+    // =========================================================
+    // Snapshot all population caches first, then live actors and groups without duplicating IDs.
     public void Capture(CampaignData data)
     {
-        EntityDeathsData saved = new() { Entries = _dead.Values.OrderBy(e => e.Id, StringComparer.Ordinal).ToList() };
-        data.Sections[Section] = JsonSerializer.SerializeToElement(saved);
-        data.Version = 4;
-        data.Coverage = "world-player-resources-objects-deaths";
+        Node world = GetParent(); EntityDeaths deaths = EntityDeaths.Find(this);
+        foreach (EnemyPopulation population in world.GetNode("Systems").GetChildren().OfType<EnemyPopulation>())
+            foreach (EntitySaveData state in population.CaptureEntities()) _entities[state.Id] = state;
+        HashSet<string> live = new();
+        foreach (Node node in GetTree().GetNodesInGroup("entities"))
+        {
+            if (node is not Entity actor || !world.IsAncestorOf(actor) || string.IsNullOrEmpty(actor.PersistentId) ||
+                actor.IsQueuedForDeletion() || actor.Health?.IsAlive != true) continue;
+            if (!live.Add(actor.PersistentId)) throw new InvalidDataException("Duplicate live entity identity.");
+            _entities.TryGetValue(actor.PersistentId, out EntitySaveData state);
+            if (state == null && !actor.PersistentId.StartsWith("scene:", StringComparison.Ordinal))
+                throw new InvalidDataException("Persistent runtime entity has no owning population.");
+            _entities[actor.PersistentId] = actor.CaptureSave(state ?? new() { Id = actor.PersistentId });
+        }
+        foreach (string id in _entities.Keys.ToArray()) if (deaths.WasKilled(id)) _entities.Remove(id);
+        foreach (Node node in GetTree().GetNodesInGroup("entity_groups"))
+            if (node is EntityGroup group && world.IsAncestorOf(group) && !group.IsQueuedForDeletion() && !string.IsNullOrEmpty(group.PersistentId))
+                _groups[group.PersistentId] = group.CaptureSave();
+        var memberships = _entities.Values.Where(e => e.GroupId.Length > 0).ToLookup(e => e.Layer + ":" + e.GroupId);
+        foreach (EntityGroupSaveData group in _groups.Values)
+        {
+            group.Members = group.Dissolved ? new() : memberships[group.Layer + ":" + group.GroupId].Select(e => e.Id).ToList();
+            if (!group.Dissolved && group.FormationComplete && group.Members.Count < group.MinimumMembers) group.Dissolved = true;
+        }
+        HashSet<string> availableGroups = _groups.Values.Where(g => !g.Dissolved).Select(g => g.Layer + ":" + g.GroupId).ToHashSet(StringComparer.Ordinal);
+        foreach (EntitySaveData actor in _entities.Values)
+            if (actor.GroupId.Length > 0 && !availableGroups.Contains(actor.Layer + ":" + actor.GroupId)) actor.GroupId = "";
+        foreach (EntityGroupSaveData group in _groups.Values.Where(g => g.Dissolved)) group.Members.Clear();
+        EntitySavesData saved = new() { Entities = _entities.Values.OrderBy(e => e.Id, StringComparer.Ordinal).ToList(),
+            Groups = _groups.Values.OrderBy(g => g.Id, StringComparer.Ordinal).ToList() };
+        data.Sections[Section] = JsonSerializer.SerializeToElement(saved); data.Version = 5; data.Coverage = "world-player-resources-objects-entities";
         ReadSection(data);
     }
     #endregion
@@ -2009,6 +3389,22 @@ Checks: two separate profiles; pause/save/quit/Continue; same surface position, 
 - Stage 1 does not restore surviving entity position, health, home, AI timers, transferred living actors or group state. Stage 2 handles surviving population/actor state; Stage 3 handles population/group restoration. A death that happened before this stage cannot be reconstructed from an older save's wreck alone.
 - Automated verification passed: full production C# compilation; real health/death delivery with controlled headless actor fixtures; origin/death-layer identity separation; population rediscovery after clearing records; retirement exclusion; duplicate reward suppression; invalid death-section rejection preserving the primary; separate-process restore, backup recovery and profile isolation; version 3 load/version 4 upgrade and the surviving-state stage boundary; installer preview/apply/idempotence and zero-write conflict rejection. Artwork is substituted for headless testing; local visual gameplay remains to be checked.
 - Local check: kill a normal streamed robot; save, quit, Continue and revisit its origin chunk. It stays absent and its existing reward does not duplicate. Leave/revisit the chunk before saving too. Confirm a second profile has its own death history. Test transferred deaths when convenient; player saves remain surface-only until Pass 6.
+
+## Save Pass 5, Stages 2–3 — Living Entities, Population and Groups
+
+- Implemented against reviewed push aa113d5. Preserve the newer notification, inventory and vegetation work; this installer changes only entity/group persistence, save coordination, pause-save wording and the two ongoing-work save notes.
+- Campaign version 5 adds the named entities-groups section. Versions 1–4 remain readable and upgrade on the next successful Save; prior unsaved living-entity changes cannot be reconstructed. Earlier game code cannot read version 5.
+- Chosen population records preserve stable origin identity, prefab/species, actual position, solo home, health, exact current layer, random seed/state, waiting/feeding cooldowns and group membership. Both live and retired records are included, independently of loaded origin chunks.
+- Remembered actors are indexed by actual saved position and exact layer. Existing population intervals, physics-check limits and one-create-per-update budgets remain in use. Loaded survivors may restore on screen; new seeded spawns retain their original visibility/distance checks.
+- Inactive/distant cave survivors remain lightweight records and never force all cave chunks to load. They can restore when that exact layer is active and nearby terrain/collision checks permit. Origin identity remains unchanged across transfers, so the original surface slot cannot create a duplicate.
+- Authored scene entities retain their scene branches/custom children. Saved authored actors are detached before Ready and reattach when their terrain is available, with definition, ownership and membership configured before behaviour binding. Dead authored actors remain governed by Stage 1.
+- Group persistence includes stable identity, layer, centre, formation/minimum-member settings, threat-sharing policy, logical member IDs and optional roaming home/configuration/random state/remaining timer. Offline time does not advance roaming or actor cooldowns.
+- Streaming retirement reserves a living member's logical slot instead of dissolving a group. Returning actors replace the reserved slot. Real deaths, departures and cross-layer departures can dissolve undersized groups; dissolution tombstones prevent authored groups from returning on Continue.
+- Combat targets, navigation paths, in-flight attacks and grass reservations are transient and are reacquired. Unfinished grazing meals restart; already consumed grass remains covered by Pass 3. Do not describe this as serialization of every temporary AI action.
+- Debug TallowbackTest and deep-cavity test placement remain outside persistent entity identity, as previously requested. Generic groups persist when authored or linked to persistent members; the temporary debug herd is not the entity save verification target.
+- Automated checks passed: full production C# compilation including the latest notification/inventory sources; actual seeded population preparation and retirement; real health/death callbacks; authored and retired cold-process restoration; home/health/wait and logical group state; remaining roaming timer; dissolution; repeated scans without duplicate actors; dormant cave records followed by actual cave activation/restoration; backup recovery/profile isolation; version 4 load/version 5 upgrade retaining previous deaths; invalid entity-section rejection preserving the primary; installer preview/application/idempotence and zero-write conflict rejection. Headless fixtures substitute artwork and the visibility predicate, using the established biome assets; local visuals and newly edited biome content remain to be checked.
+- Local checks: damage/move a streamed robot, retire/revisit it, Save/quit/Continue and verify health/home/location; repeat with a transferred survivor when convenient. Verify group membership after retirement and permanent dissolution after deaths. Check a second profile. Player saves remain surface-only until Pass 6.
+- Next: Pass 6 exact underground player restoration/connections/liquid changes; Pass 7 combined regression checks and remaining menu work. Drop expiry and automatic saving/options remain future features.
 '@
 $Changes['NOTES/OngoingWork/SAVEMECHANICWORK.md'] = @'
 | Pass | Scope | Check before moving on |
@@ -2023,32 +3419,33 @@ $Changes['NOTES/OngoingWork/SAVEMECHANICWORK.md'] = @'
 
 ## Current Save Progress
 
-- Passes 1–3: implemented. Surface position fix confirmed locally.
-- Pass 4: installer supplied; items, containers, wrecks, structures and health; optional drop lifetime stored, no expiry countdown. The reviewed push 3ccdd95 does not yet include this installer's files. Verify local installation and push before the next code review.
-- Pass 5 Stage 1: this installer adds stable population/scene entity IDs, saved deaths and coordinated reward identities. Existing saves upgrade to version 4 on Save; prior entity deaths cannot be reconstructed.
-- Pass 5 Stage 2: surviving entities and population records — position, health, home and live layer/transfer ownership.
-- Pass 5 Stage 3: relevant group/population state and duplicate-free restoration.
-- Pass 6: exact underground player restoration, required connections and liquid/basin changes.
-- Pass 7: full combined verification and remaining menu/recovery work.
-- Persistence remains partial. Automatic saving/options and the actual dropped-item expiry timer are future features.
+- Passes 1–3: implemented; surface position fix confirmed locally.
+- Pass 4: installed and verified in the reviewed source. Physical drops, storage/loot, wrecks, structures and health persist. Drop lifetime is stored; the expiry countdown remains future work.
+- Pass 5.1: installed; stable origin IDs, deaths and coordinated reward identities.
+- Pass 5.2: this installer adds surviving authored/population state, retired records and exact living layer/transfer ownership with lazy restoration near available terrain.
+- Pass 5.3: this installer adds logical group membership, formation/roaming state and persistent dissolution. Streaming retirement preserves membership; restored actors cannot duplicate their origin slot.
+- Versions 1–4 upgrade to campaign version 5 on Save. Living changes made before this pass cannot be reconstructed. Local gameplay checks remain required after the supplied automated checks.
+- Next — Pass 6: exact underground player restoration, required connections and liquid/basin changes. Saving the player underground is still blocked.
+- Then — Pass 7: full combined verification, load-selection/overwrite handling and remaining menu/recovery work.
+- Persistence remains staged. Automatic saving/options and actual dropped-item expiry are separate future features. Combat targets/paths/reservations are rebuilt rather than persisted as engine references.
 '@
-$Expected['SYSTEMS/Saving/CampaignSession.cs'] = '6b2a1ecc974222cbc44726638da213e617219c43bd48c1e76c4ae9dc7aa0910c'
-$Expected['SYSTEMS/Saving/CampaignRecipe.cs'] = 'd70e2e5b2c0f476b084e7765561fbce02bea2d32a35579b6408bdd006b3deb83'
-$Expected['SYSTEMS/Saving/CampaignStore.cs'] = '5d0af41c6d1818cbe310b8833a295e7828fae2b91769c193b8a9ea634c90c028'
-$Expected['ITEMS/World/WorldPickup.cs'] = '347a70bd49de95aa9758f4205e05aafd35f1a607619e044d4d8c545444b10a74'
-$Expected['ITEMS/World/ResourceWorld.cs'] = '5ebe6b4abeae584e6da1537172e2024dd8db1408864aff85bcba3e9a77378b84'
-$Expected['SYSTEMS/Storage/WorldStorage.cs'] = 'b5017033da52195be7467aca79708b01cb516f0f3bea9e04321fdc706d3bf33d'
-$Expected['SYSTEMS/Loot/LootContainer.cs'] = 'b940c444f080ef070da7731e32e456c9886948b0a9c66e31f72b9733ae027f40'
-$Expected['SYSTEMS/Loot/LootWorld.cs'] = '3dc2a01b859e341c1f93da484a179314a5463a8b973c2409dd7a442434cfdeab'
-$Expected['SYSTEMS/Placement/PlacedObject.cs'] = 'ee5053c95d028b201241acca7d85880607920a6f52669357c92147c4019f8f14'
-$Expected['SYSTEMS/Placement/PlacementWorld.cs'] = 'aa9c57c8eb30e7ee9a0908136dfdbcd6b1b2d5ae6b85ab622ab0fb29e0fdceb2'
+$Expected['ENTITIES/Core/Entity.cs'] = 'b19cf0ace3ae577b5974c963b31c7e51f93e7e3228d25fcce1a06afaff8c61a4'
+$Expected['ENTITIES/Core/EnemyPopulation.cs'] = '669f82a6a01aa0c291ba4a96b81147bfa5ca34879f8d43861920dc8f64c26ea9'
+$Expected['ENTITIES/Groups/EntityGroup.cs'] = '456fee67f7b4cf450df249c7a7678e4ef44241a96db244d8539c34533432c3f5'
+$Expected['ENTITIES/Groups/EntityGroupMember.cs'] = '01f6a0891fc74c98b8c6ca77d725f27da33b87637ae8e96b1c5fbf9ad1ec8176'
+$Expected['ENTITIES/Groups/GroupRoaming.cs'] = 'c79374b09a77be29125709996c0eb22e509dea66a28ac1fcbfcc225e32242085'
+$Expected['ENTITIES/Movement/EntityWandering.cs'] = '61bc64e901199e01f222f539dc7e199217a3666eaeec89141731a313982e134c'
+$Expected['ENTITIES/Grazing/EntityGrazing.cs'] = '537e673dd525537d98e49eca03ba57fd37f84fb6c291abd730c015dd9cb04603'
+$Expected['SYSTEMS/Saving/CampaignSession.cs'] = 'e41ecf5c8a1c5978c49a25c468520fd9b4124c338604afc272eab59b85c92392'
+$Expected['SYSTEMS/Saving/CampaignStore.cs'] = 'dbeb9cc84f1b1063b56e3f9d9db8eb2cbdb960f1800b996a60f8c3226a8e18ad'
+$Expected['SYSTEMS/Saving/CampaignRecipe.cs'] = '24d5590c26d385f8e2437473014903dabfba6aab22ffc4b686acd9c6e88953d7'
 $Expected['UI/Menus/Pause/PauseMenu.cs'] = 'fc4157a4be9b63f118e462d2748f05c280c2f7e45b2204ffd0db119344c0ed42'
+$Expected['NOTES/OngoingWork/PersistentSave_LocalLighting.md'] = 'da28869aa83210663fa7f39e69b7a70cf3cad90e7206c32145bd154c764df45f'
+$Expected['NOTES/OngoingWork/SAVEMECHANICWORK.md'] = '26934e79f4c8618f3132f36a209252c90fa870ee6f69443c6dd1b6d089ba9b1b'
+$Expected['SYSTEMS/Saving/EntityDeaths.cs'] = '1aa9054eb40e56653d831badcddd7c2e58fca4e62bd4a7c170ad3994876b01e4'
 $Expected['SYSTEMS/Saving/WorldObjectSaves.cs'] = '1db1da422ac930f1a07e9d001ebaf7cc2b51e97715b507fe68f97a5bab16401f'
-$Expected['NOTES/OngoingWork/PersistentSave_LocalLighting.md'] = '82247c43c8d91e33518a247b0eb7dc3ccc2481a40b19db396ff10f59f6b240e7'
-$Expected['ENTITIES/Core/Entity.cs'] = 'fe6b299907bd84f77abccb7113e1d87859e80764db89cb7b5b3bbbe4c06eb75f'
-$Expected['ENTITIES/Core/EnemyPopulation.cs'] = 'a942e071f5bdc9cf4158e070bbfd2d56a6066fc5e4275d354956e03b7cc301e9'
-$Expected['ENTITIES/Death/EntityDeathLoot.cs'] = '770d6d428b5d3d9b69e7717e939ac6f958d158b29fc7933a0fa6075d56f91964'
-$Expected['NOTES/OngoingWork/SAVEMECHANICWORK.md'] = 'b707433817c88d772e9e8a1fb3a01eeb8eb2f9cfa382e39ecf32da9318199238'
+$Expected['WORLD/Layers/WorldLayerMember.cs'] = 'b67af24c730e6102476627f7f71811c208fc09883c96669652c2b63a217107ec'
+$Expected['ENTITIES/Core/EntityBody.cs'] = 'ab5dc4fc93a3b5a4dd79764798ec554345722216053a25db2dd44446cc5fdbe9'
 # Validate all dependencies and targets before touching any project file.
 $Conflicts = New-Object System.Collections.Generic.List[string]
 $Pending = New-Object System.Collections.Generic.List[string]
@@ -2068,7 +3465,7 @@ foreach ($Relative in $Changes.Keys) {
     $Pending.Add($Relative)
 }
 if ($Conflicts.Count) { throw ($Conflicts -join "`n") }
-if (!$Pending.Count) { Write-Host 'Pass 5 Stage 1 is already installed. No files changed.'; return }
+if (!$Pending.Count) { Write-Host 'Pass 5.2 and 5.3 are already installed. No files changed.'; return }
 Write-Host ('Files to install/update: ' + $Pending.Count)
 $Pending | ForEach-Object { Write-Host ('  ' + $_) }
 if ($Preview) { Write-Host 'Preview complete. No files changed.'; return }
@@ -2104,5 +3501,5 @@ catch {
 }
 Write-Host ('Installed. Original files backed up in: ' + $Backup)
 Write-Host 'Reopen Godot, build C#, and use Continue with the same profile.'
-Write-Host 'Kill a normal streamed robot, save, quit, Continue and revisit its origin chunk.'
-Write-Host 'Existing saves upgrade on next Save. Surviving entity and group state are later stages.'
+Write-Host 'Damage/move a normal entity; retire/revisit it; save, quit and Continue with the same profile.'
+Write-Host 'Existing saves upgrade to version 5 on Save. Underground player restoration remains Pass 6.'

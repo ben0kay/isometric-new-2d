@@ -37,23 +37,20 @@ public static class CampaignStore
             !(data.Version == 1 && data.Coverage == "world-player-only" ||
               data.Version == 2 && data.Coverage == "world-player-resources" ||
               data.Version == 3 && data.Coverage == "world-player-resources-objects" ||
-              data.Version == 4 && data.Coverage == "world-player-resources-objects-deaths" ||
-              data.Version == 5 && data.Coverage == "world-player-resources-objects-entities") ||
+              data.Version == 4 && data.Coverage == "world-player-resources-objects-deaths") ||
             data.ProfileId != profile || !Guid.TryParseExact(data.CampaignId, "N", out _) ||
             data.Player == null || data.Settings == null || data.Resources == null ||
             data.Sections == null ||
             (data.Version == 1 ? data.Sections.Count != 0 :
                 data.Version == 2 ? data.Sections.Count != 1 || !data.Sections.ContainsKey(ResourceChanges.Section) :
-                data.Sections.Count != (data.Version == 3 ? 2 : data.Version == 4 ? 3 : 4) ||
+                data.Sections.Count != (data.Version == 3 ? 2 : 3) ||
                     !data.Sections.ContainsKey(ResourceChanges.Section) ||
                     !data.Sections.ContainsKey(WorldObjectSaves.Section) ||
-                    (data.Version >= 4 && !data.Sections.ContainsKey(EntityDeaths.Section)) ||
-                    (data.Version == 5 && !data.Sections.ContainsKey(EntitySaves.Section))))
+                    (data.Version == 4 && !data.Sections.ContainsKey(EntityDeaths.Section))))
             throw new InvalidDataException("Unsupported or invalid campaign save.");
         ResourceChanges.ReadSection(data);
         WorldObjectSaves.ReadSection(data);
         EntityDeaths.ReadSection(data);
-        EntitySaves.ReadSection(data);
         return data;
     }
 
