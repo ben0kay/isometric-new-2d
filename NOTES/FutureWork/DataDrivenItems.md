@@ -3,8 +3,9 @@
 Reviewed repository: ben0kay/isometric-new-2d
 Reviewed commit: fc09adffd29daea18295b28105804fd292e2559c
 
-Status: source inspection and planning only.
-No implementation or gameplay verification performed for this assessment.
+Status: original assessment was planning-only. See the Progress Record below
+for subsequent implementation. No local gameplay verification has been
+performed by the planning assessment.
 
 ## Objective
 
@@ -389,15 +390,18 @@ Review that completed stage before beginning the broader migration.
 ## Six-Phase Delivery and ChatGPT Handoff Plan
 
 Planning update: 2026-10-10. This restores the original six phases.
-All phases below are planned, not implemented or tested by this update.
+At this planning update all phases were proposed. See the Progress Record
+below for implementation status and outstanding local checks.
 The assessment above describes fc09adf; the planning file was refreshed
 from main at c677eca. Future implementers must inspect the latest source
 and current save notes before generating replacements.
 
 ### Delivery Rules for Every Phase
 
-Follow the save-mechanic workflow: one numbered PS1 installer per phase,
-then local application, testing and a push before the next phase.
+Deliver one reviewable change set per phase and perform local Godot testing
+before proceeding. Use a numbered PS1 installer for larger local migrations;
+small phases can instead be committed directly to GitHub when requested.
+Phase 1 uses one direct GitHub commit, not an installer.
 Internal tasks below are work packages, not extra mandatory phases.
 
 Suggested installer names: InstallContentPass1.ps1 through
@@ -408,7 +412,7 @@ Each installer must:
 - Support preview without writing project files.
 - Check every affected file against the inspected baseline before writes.
 - Reject unexpected changes without partially applying the pass.
-- Back up replaced files and record newly created files for rollback.
+- Do not make separate backup copies; Git history supplies rollback.
 - Preserve unrelated changes, including newer save and layer work.
 - Apply exact UTF-8 payloads with valid PowerShell quoting.
 - Safely recognize a complete previous application.
@@ -430,7 +434,7 @@ baselines.
 
 | Phase | Dependency | Installer | Natural handoff |
 |---|---|---|---|
-| 1. External item registration | Latest source inspection | InstallContentPass1.ps1 | Suitable for a whole regular ChatGPT phase |
+| 1. External item registration | Latest source inspection | Direct GitHub commit | Suitable for a whole regular ChatGPT phase |
 | 2. Existing item migration | Phase 1 conventions | InstallContentPass2.ps1 | Resource conversion and artwork extraction |
 | 3. Harvest configuration | Item identity contract settled | InstallContentPass3.ps1 | Species data after shared engine integration |
 | 4. Ores and ground resources | Phase 3 reward contract | InstallContentPass4.ps1 | Data audit; extraction transactions need careful integration |
@@ -467,8 +471,9 @@ fixture rather than silently changing tree rewards.
 Regular ChatGPT prompt:
 > Read Phase 1 of NOTES/FutureWork/DataDrivenItems.md and the latest relevant
 > repository files. Implement only external Bark registration using the
-> existing catalog. Supply one previewable, backed-up, conflict-checked PS1
-> installer. Preserve built-in items and saves. Report checks honestly.
+> existing catalog. Supply a focused GitHub change set or a previewable,
+> conflict-checked PS1 installer. Preserve built-in items and saves.
+> Report checks honestly.
 
 ### Phase 2 — Detailed Work Packages
 
@@ -630,7 +635,7 @@ and validation must be checked against the actual installed formats.
 
 | Phase | Status | Applied baseline/commit | Evidence / remaining checks |
 |---|---|---|---|
-| 1 | Planned | — | Not implemented |
+| 1 | Implemented in repository; local Godot checks pending | 072e048 (pre-change baseline) | Bark and nested category catalogs committed; in-engine inventory, pickup, save/load and duplicate tests remain local |
 | 2 | Planned | — | Not implemented |
 | 3 | Planned | — | Not implemented |
 | 4 | Planned | — | Multi-reward ore scope remains a decision |
@@ -734,3 +739,32 @@ ITEMS/
         ├── Propulsion/
         ├── Chassis/
         └── Deployables/
+
+### Phase 1 — Implementation Record (2026-10-10)
+
+Applied directly to GitHub at the user's request (without a PS1 installer
+or separate backup copies). Changes are limited to resource definitions,
+catalog references and documentation.
+
+- Added `ITEMS/Definitions/RawMaterials/Organics/Bark/Bark.tres` as a
+  standard `ItemDefinition`, ID `bark`, stack 40, weight 0.1 kg,
+  volume 0.2 litres, with the existing placeholder icon fallback.
+- Added `OrganicsCatalog.tres` and `RawMaterialsCatalog.tres` with
+  explicit nested catalog references.
+- Registered the RawMaterials catalog from `ITEMS/ItemCatalog.tres`.
+  The master still has `IncludeBuiltInItems = true`.
+- Added `ITEMS/Definitions/README.md` with approved sci-fi categories,
+  per-item folder naming, stable IDs, registration steps and local checks.
+- No gameplay C# files, inventory transactions, harvest logic, save
+  formats or existing item identifiers were changed.
+- Do not create additional empty category folders; future tooling should
+  follow the documented paths when adding new content.
+
+**Validation performed:** compared referenced project paths and Godot
+resource syntax against existing resource patterns and re-read repository
+files after commit. No Godot or .NET execution was available; the actual
+Godot resource load, inventory collection, duplicate rejection and save/load
+tests require local verification. Bark has no natural drop in Phase 1.
+
+**Next:** after local Phase 1 checks, proceed to Phase 2 item migration
+using the category convention in `ITEMS/Definitions/README.md`.

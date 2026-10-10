@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ItemCatalog" format=3]
+
+[ext_resource type="Script" uid="uid://sm76vxbux235" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/OrganicsCatalog.tres" id="2_organics"]
+
+[resource]
+script = ExtResource("1_catalog")
+Categories = Array[ExtResource("1_catalog")]([ExtResource("2_organics")])
