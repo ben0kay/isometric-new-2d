@@ -385,3 +385,258 @@ the existing catalog, preserve all current items and saves, verify the
 registration path, and document the convention.
 
 Review that completed stage before beginning the broader migration.
+
+## Six-Phase Delivery and ChatGPT Handoff Plan
+
+Planning update: 2026-10-10. This restores the original six phases.
+All phases below are planned, not implemented or tested by this update.
+The assessment above describes fc09adf; the planning file was refreshed
+from main at c677eca. Future implementers must inspect the latest source
+and current save notes before generating replacements.
+
+### Delivery Rules for Every Phase
+
+Follow the save-mechanic workflow: one numbered PS1 installer per phase,
+then local application, testing and a push before the next phase.
+Internal tasks below are work packages, not extra mandatory phases.
+
+Suggested installer names: InstallContentPass1.ps1 through
+InstallContentPass6.ps1.
+
+Each installer must:
+- Locate and validate the Godot project root.
+- Support preview without writing project files.
+- Check every affected file against the inspected baseline before writes.
+- Reject unexpected changes without partially applying the pass.
+- Back up replaced files and record newly created files for rollback.
+- Preserve unrelated changes, including newer save and layer work.
+- Apply exact UTF-8 payloads with valid PowerShell quoting.
+- Safely recognize a complete previous application.
+- Reject partially installed or conflicting states with an actionable report.
+- Validate its payload and affected references before reporting success.
+- Never commit, push, delete saves or change profiles automatically.
+
+Update this same Markdown with affected files, installer baseline,
+implementation status, checks actually performed, local checks still
+needed, and the next phase. Do not label supplied code as locally verified.
+
+For each handoff, supply the exact current source files and dependencies.
+Request complete replacement files or a PS1 installer, not guessed edits
+against an older commit. Integrate one task at a time and push the result.
+Two chats must not independently replace the same file against different
+baselines.
+
+### Phase Overview and Dependencies
+
+| Phase | Dependency | Installer | Natural handoff |
+|---|---|---|---|
+| 1. External item registration | Latest source inspection | InstallContentPass1.ps1 | Suitable for a whole regular ChatGPT phase |
+| 2. Existing item migration | Phase 1 conventions | InstallContentPass2.ps1 | Resource conversion and artwork extraction |
+| 3. Harvest configuration | Item identity contract settled | InstallContentPass3.ps1 | Species data after shared engine integration |
+| 4. Ores and ground resources | Phase 3 reward contract | InstallContentPass4.ps1 | Data audit; extraction transactions need careful integration |
+| 5. External recipes | Phase 2 item definitions | InstallContentPass5.ps1 | Suitable for a whole regular ChatGPT phase |
+| 6. Discovery and verification | Final item/drop/recipe formats | InstallContentPass6.ps1 | Documentation, fixtures and relationship examples |
+
+The normal application order is 1–6. Phase 5 can be prepared after Phase 2
+if it avoids shared-file conflicts. Phase 6 documentation can be drafted
+earlier, but the final index must reflect the installed formats.
+
+### Phase 1 — Detailed Work Packages
+
+1. Inspect ItemDefinition, ItemCatalog, ItemCatalog.tres and the current
+   inventory/pickup save resolution. Confirm existing registration is
+   sufficient; change C# only where a demonstrated gap requires it.
+2. Agree folder conventions for new inventory items and category catalogs.
+   Prefer explicit catalog references and stable IDs. Document that copying
+   a file into a folder alone does not register it.
+3. Create one external Bark item using a distinct ID such as bark.
+   Set valid stack, weight and volume values. Use an existing fallback icon
+   or a simple placeholder; new artwork is outside scope.
+4. Register Bark through the existing catalog. Keep built-ins enabled.
+   Avoid introducing a second item database or runtime folder scanning.
+5. Document the minimum fields and exact registration workflow.
+
+Expected footprint: Bark resource, master/category catalog resources,
+this note, and only necessary validation changes.
+
+Check: catalog initialization repeated safely; duplicate ID rejection;
+pickup and inventory resolution; Bark quantity survives save/load.
+If Bark is not naturally obtainable yet, use a clearly documented test
+fixture rather than silently changing tree rewards.
+
+Regular ChatGPT prompt:
+> Read Phase 1 of NOTES/FutureWork/DataDrivenItems.md and the latest relevant
+> repository files. Implement only external Bark registration using the
+> existing catalog. Supply one previewable, backed-up, conflict-checked PS1
+> installer. Preserve built-in items and saves. Report checks honestly.
+
+### Phase 2 — Detailed Work Packages
+
+1. Build a migration manifest from all six C# item-content modules and
+   existing equipment resources. Record every ID, property, capability,
+   icon source, current registration route and proposed external path.
+   Empty content modules should not produce invented items.
+2. Convert the ten natural materials and three processed materials to
+   external ItemDefinition resources with identical values.
+3. Extract generated icon SVGs to imported SVG files. Include the full
+   original canvas/wrapper from ItemArtwork, not just inner drawing paths.
+   Preserve icon size, tint and fallback appearance.
+4. Convert alien_berry and its consumable capability. Preserve consumption
+   timing and survival effects.
+5. Convert test_cube and its placeable capability, retaining world/artwork
+   scenes, footprint and placement settings. Keep any drawing code still
+   referenced by those scenes.
+6. Audit shovel, weapons and backpack registration. Preserve subtype fields
+   and existing paths; don't flatten BackpackDefinition into ItemDefinition.
+7. Register the migrated content through catalogs and compare definitions
+   with the manifest. Disable built-in item registration only when catalog
+   coverage is complete. Remove dead registration dependencies safely.
+
+Expected footprint: item resources/icons/catalogs and necessary registration
+cleanup. The built-in recipe may remain until Phase 5; verify it still
+resolves the migrated test_cube.
+
+Check: all 15 reviewed built-in IDs retain their values; existing equipment
+remains accessible; existing saves load; food, attacks, shovel and placement
+work. Confirm explicit icons no longer depend on generating built-in items.
+
+Good smaller handoffs: migration manifest, natural-material conversion,
+processed-material conversion, SVG extraction, berry capability conversion.
+Integrate catalog and fallback removal as one coordinated step.
+
+### Phase 3 — Detailed Work Packages
+
+1. Define the reward contract before migrating species. Suggested concepts
+   are HarvestDropEntry and HarvestProfile; exact names are implementation
+   decisions. Entries hold item ID, minimum/maximum quantity and independent
+   chance. Document whether chance uses 0–1 or 0–100 consistently.
+2. Define null profile versus explicit empty profile semantics. A null
+   profile may temporarily use legacy behavior; an intentionally empty
+   profile must not silently activate the legacy reward.
+3. Validate finite chances, bounded quantities and registered IDs before
+   payout. Specify duplicate-entry policy and whether repeated items merge.
+4. Implement a shared evaluator that returns a complete reward batch.
+   Guaranteed entries and optional entries are independent. Do not alter
+   weighted container loot semantics.
+5. Choose a stable random strategy using persistent source/event identity,
+   or persist prepared outcomes if necessary. Specify behavior on retries,
+   unloading, old saves and configuration edits. Do not use transient node
+   IDs or current time as the persistent seed.
+6. Integrate ResourceHarvest and ResourceWorld. Prepare and validate the
+   entire payout before depletion; preserve layer ownership, deferred
+   pickup registration and immediate-save capture.
+7. Audit all plant, tree and rock definitions, including currently inactive
+   species. Convert current primary/bonus rewards exactly, including the
+   existing one-unit hand-gather result.
+8. Prove configurable Carbon plus Bark on CarbonTree, and the same Bark
+   item on another tree. Remove hardcoded species fallback only after full
+   migration coverage. Keep all species paths and generation identities.
+9. Preserve work and tool requirements and shared artwork behavior.
+
+Check: 0% and 100% entries; quantity boundaries; multiple simultaneous
+rewards; optional-only empty roll completes once; bad IDs yield no partial
+payout; partial work restores; immediate save retains rewards; exhausted
+sources stay exhausted after chunk reload and a fresh process.
+
+Good smaller handoffs: species inventory, profile resource creation and
+species conversion after the schema is finalized. Shared reward evaluation,
+transaction integration and random/save behavior should be reviewed together.
+
+### Phase 4 — Detailed Work Packages
+
+1. Inspect OreDefinition, OreDeposit, mining callers, inventory acceptance
+   and ResourceChanges. Audit GroundResourceDefinition and its extraction
+   callers separately.
+2. Make current ore and ground item references validate against the external
+   catalog and participate in relationship discovery.
+3. Preserve primary ore units and work-per-batch behavior. Document whether
+   reward quantities are per batch or per extracted unit, especially for a
+   final partial batch.
+4. Decide whether this delivery includes multi-reward ore batches. The
+   minimum phase preserves single-item extraction and documents its limit.
+   Do not claim ore supports independent extras unless it actually does.
+5. If multiple rewards are included, extend acceptance to a complete batch:
+   capacity must be checked for all rewards together, and deposit mutation
+   must happen only after the complete inventory transaction succeeds.
+6. Preserve prepared outcomes on blocked attempts and reload. Base event
+   identity on stable deposit/progress information or persist it explicitly;
+   validate the chosen scheme with existing saved units and work.
+7. Keep ground digging's native extraction format where sufficient. Do not
+   force shader-backed deposits into the ordinary plant/tree host lifecycle.
+
+Check: exact batch sizes, final partial batch, weak tools, full inventory,
+combined weight/volume/slot limits, blocked attempt followed by save/reload,
+partial work restoration, depleted deposits and ground quantities.
+
+Good smaller handoffs: ore/ground reference manifests and validation data.
+Multi-item inventory acceptance and persistence are coupled engine work.
+
+### Phase 5 — Detailed Work Packages
+
+1. Inspect CraftingCatalog, CraftingRecipe, CraftingIngredient, PlayerCrafting,
+   inventory exchanges and crafting save restoration.
+2. Create an external test_cube recipe with its existing ID, ingredients,
+   output count, duration and category.
+3. Remove/disable corresponding built-in recipe registration without
+   duplicating recipes on repeated validation. Preserve artwork code.
+4. Ensure ingredients and outputs refer to registered item identities.
+   Avoid separate conflicting copies of an item sharing the same ID.
+5. Add a Bark-consuming example recipe using an existing output. Keep
+   quantities bounded and document it as example content.
+6. Make all recipe inputs/outputs inspectable through their resources.
+   No new furnace, fuel or station system is needed.
+
+Check: repeated validation, missing ingredient/output, duplicate recipe,
+atomic exchange with insufficient capacity, cancellation, queued quantities
+and saved elapsed crafting progress with unchanged recipe IDs.
+
+Regular ChatGPT prompt:
+> Implement Phase 5 only against the latest installed Phase 2 resources.
+> Preserve the crafting engine and save queue behavior. Externalize the
+> test-cube recipe, add the documented Bark example, and provide one safe
+> PS1 installer with exact resource payloads and checks.
+
+### Phase 6 — Detailed Work Packages
+
+1. Define discovery coverage: registered inventory items, recipe resources,
+   harvest-enabled species, ore yields and ground yields. Include inactive
+   species where useful, clearly distinguishing defined, registered and
+   biome-enabled content.
+2. If an index is needed, specify a versioned machine-readable schema:
+   IDs, resource paths, capability types, source kind, reward quantities,
+   chances, extraction context, recipe inputs/outputs and registration
+   locations. Generate it from canonical resources.
+3. Ensure tooling can identify the exact resource to edit, including shared
+   profiles and subresources. Mark shared-profile edits as affecting all
+   referencing species; never duplicate an item to assign it to a source.
+4. Provide an explicit validation/index command or editor operation with no
+   per-frame scans. A lightweight export step may be used; no BEN_TOOLBOX
+   UI or full PowerShell content editor is part of this phase.
+5. Consolidate validation from earlier phases. Add only missing checks and
+   contextual errors identifying the offending path and field.
+6. Complete the README and examples: new item registration, adding a drop,
+   changing probability, adding a recipe and reverse lookup.
+7. Run combined regression checks on a new campaign and an existing save.
+   Include unloaded chunks, pending drops and available supported layers.
+   Record any local tests that remain outstanding.
+8. Clean up this note into an accurate progress record without erasing
+   unresolved limitations or claiming unfinished save work is complete.
+
+Good smaller handoffs: index schema draft, expected Bark relationship
+examples, README sections and manual test checklist. Final index generation
+and validation must be checked against the actual installed formats.
+
+### Progress Record
+
+| Phase | Status | Applied baseline/commit | Evidence / remaining checks |
+|---|---|---|---|
+| 1 | Planned | — | Not implemented |
+| 2 | Planned | — | Not implemented |
+| 3 | Planned | — | Not implemented |
+| 4 | Planned | — | Multi-reward ore scope remains a decision |
+| 5 | Planned | — | Not implemented |
+| 6 | Planned | — | Not implemented |
+
+After each phase, replace its status with the precise state:
+supplied, applied, compiled, locally tested, or complete. Record failures
+and follow-up work before handing the next phase to another chat.
