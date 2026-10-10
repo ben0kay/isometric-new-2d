@@ -174,8 +174,7 @@ public partial class WorldLayerController : Node
     public void RestoreCampaignLayer(string layer, Vector2 position, WorldLayerConnection surfaceEntrance)
     {
         if (layer == WorldLayerId.Surface || surfaceEntrance == null ||
-            surfaceEntrance.UpperLayer != WorldLayerId.Surface ||
-            surfaceEntrance.LowerLayer != Worlds.SurfaceEntranceLayerId)
+            surfaceEntrance.UpperLayer != WorldLayerId.Surface)
             throw new InvalidOperationException("Underground restoration requires a surface return entrance.");
         Worlds.GetUnderground(layer);
         CancelPending(); HidePreview();
