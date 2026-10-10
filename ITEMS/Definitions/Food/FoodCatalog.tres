@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ItemCatalog" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Food/Raw/RawCatalog.tres" id="3"]
+
+[resource]
+script = ExtResource("1_catalog")
+IncludeBuiltInItems = false
+Categories = Array[ExtResource("1_catalog")]([ExtResource("3")])

@@ -636,7 +636,7 @@ and validation must be checked against the actual installed formats.
 | Phase | Status | Applied baseline/commit | Evidence / remaining checks |
 |---|---|---|---|
 | 1 | Implemented in repository; local Godot checks pending | 072e048 (pre-change baseline) | Bark and nested category catalogs committed; in-engine inventory, pickup, save/load and duplicate tests remain local |
-| 2 | Planned | — | Not implemented |
+| 2 | Installer supplied; local application and Godot checks pending | a9a69a9 | 15 items/icons/capabilities migrated; 4 existing equipment resources cataloged; static checks passed, runtime checks remain |
 | 3 | Planned | — | Not implemented |
 | 4 | Planned | — | Multi-reward ore scope remains a decision |
 | 5 | Planned | — | Not implemented |
@@ -768,3 +768,29 @@ tests require local verification. Bark has no natural drop in Phase 1.
 
 **Next:** after local Phase 1 checks, proceed to Phase 2 item migration
 using the category convention in `ITEMS/Definitions/README.md`.
+
+
+### Phase 2 — Installer Delivery (2026-10-10)
+
+InstallContentPass2.ps1 migrates 15 built-in items using the approved
+ITEMS/Definitions/<Category>/<Subcategory>/<Item>/<Item>.tres structure.
+Icons are exact extracted 48x48 SVGs beside each item. Consumable and
+placeable capabilities are external resources beside their items.
+Equipment catalogs reference existing equipment paths without copying them.
+The master is resource-only; IncludeBuiltInItems=true now fails explicitly.
+The old natural/processed/food and empty content modules remain inactive
+historical source, with no catalog dependency. ItemArtwork remains for
+legacy source compilation and missing-icon fallback. Test Cube retains its
+world drawing and built-in recipe until Phase 5.
+Phase2Migration.json records IDs, properties and destinations for comparison.
+
+Static checks: 15 unique migrated IDs; SVG XML/canvas validation; explicit
+20-item catalog coverage (15 migrated + Bark + 4 equipment); resource path
+and reference closure; original cube recipe/world drawing preserved.
+No Godot, .NET or PowerShell runtime was available in the delivery environment.
+Installer application, compilation, Godot resource loading and gameplay are
+not claimed as tested. Run preview, apply with Godot closed, then check:
+old save inventory/equipment; gathering and mining; berry use; crafting and
+placing Test Cube; dropped items; save/reload and queued crafting restoration.
+Git history supplies rollback; installer makes no separate backup copies.
+Next: Phase 3 after local Phase 2 checks.

@@ -1,4 +1,4 @@
-// Defines placeable item content, recipes, inventory icons and world artwork.
+// Retains the legacy test-cube recipe and world artwork; item data lives in .tres.
 // Shared placement code still owns previews, collision, placement and destruction.
 using Godot;
 using System.Collections.Generic;
@@ -16,35 +16,6 @@ public partial class PlaceableItems : Node2D
     #endregion
 
     #region Definitions
-    // =========================================================
-    // Register placeable items with their world scenes and footprint settings.
-    public static void Register(List<ItemDefinition> items)
-    {
-        ItemDefinition cube = ItemArtwork.Create(
-            "test_cube", "Test Cube", "CUBE",
-            20, 0.25f, 0.25f, Colors.White, CubeIcon());
-
-        cube.Placeable = new PlaceableDefinition
-        {
-            WorldScene = GD.Load<PackedScene>(
-                "res://WORLDABLES/Objects/Building/TestCube/TestCube.tscn"),
-            ArtworkScene = GD.Load<PackedScene>(
-                "res://WORLDABLES/Objects/Building/TestCube/TestCubeArtwork.tscn"),
-            ArtworkScale = Vector2.One,
-            Cells = Vector2I.One,
-            MaximumHeightDifference = 8f,
-            CoverHeight = 96f,
-            ObstructionOutline = new[]
-            {
-                new Vector2(-64f, -96f), new Vector2(0f, -128f),
-                new Vector2(64f, -96f), new Vector2(64f, 0f),
-                new Vector2(0f, 32f), new Vector2(-64f, 0f)
-            }
-        };
-
-        items.Add(cube);
-    }
-
     // =========================================================
     // Register recipes using the same item definitions as the master catalog.
     public static void RegisterRecipes(
@@ -64,20 +35,6 @@ public partial class PlaceableItems : Node2D
                 new CraftingIngredient { ItemId = "scrap_metal", Count = 2 }
             }
         });
-    }
-    #endregion
-
-    #region Inventory Artwork
-    // =========================================================
-    // Draw the cube's existing inventory icon inside the shared icon canvas.
-    private static string CubeIcon()
-    {
-        return
-            $"<g stroke='{EdgeColour}' stroke-width='1.5' stroke-linejoin='round'>" +
-            $"<path d='M5 16 L24 6 L43 16 L24 26Z' fill='{TopColour}'/>" +
-            $"<path d='M5 16 L24 26 L24 43 L5 33Z' fill='{LeftColour}'/>" +
-            $"<path d='M24 26 L43 16 L43 33 L24 43Z' fill='{RightColour}'/>" +
-            "</g>";
     }
     #endregion
 

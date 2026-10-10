@@ -1,5 +1,5 @@
-// Registers C# content and optional resource overrides into one item lookup.
-// Generated definitions and icons are retained across repeated initialization.
+// Registers explicit item and category resources into one cached lookup.
+// Item content lives in .tres; runtime stack quantities remain in inventory.
 using Godot;
 using System;
 using System.Collections.Generic;
@@ -19,43 +19,20 @@ public partial class ItemCatalog : Resource
 
     #region State
     private readonly Dictionary<string, ItemDefinition> _items = new();
-    private readonly List<ItemDefinition> _builtIns = new();
-    private bool _built;
     #endregion
 
     #region Registration
-// =========================================================
-// Build grouped C# content once, then resolve resource overrides and defaults.
-public void Initialize()
-{
-    if (IncludeBuiltInItems && !_built)
+    // =========================================================
+    // Rebuild explicit resource registration; reject retired built-in catalogs.
+    public void Initialize()
     {
-        NaturalMaterialItems.Register(_builtIns);
-        RefinedMaterialItems.Register(_builtIns);
-        ProcessedMaterialItems.Register(_builtIns);
-        EquippableItems.Register(_builtIns);
-        RawFoodItems.Register(_builtIns);
-        PlaceableItems.Register(_builtIns);
-        _built = true;
-    }
-
-    _items.Clear();
-    RegisterCatalog(this, new HashSet<ItemCatalog>());
-
-    if (!IncludeBuiltInItems) return;
-
-    HashSet<string> generatedIds = new();
-    foreach (ItemDefinition item in _builtIns)
-    {
-        if (item == null || !generatedIds.Add(item.Id))
+        if (IncludeBuiltInItems)
             throw new InvalidOperationException(
-                "C# item content contains a missing item or duplicate ID.");
+                "Built-in item registration is retired. Register external items and disable IncludeBuiltInItems.");
 
-        // Explicit resource entries override generated content by ID.
-        if (!_items.ContainsKey(item.Id))
-            RegisterItem(item);
+        _items.Clear();
+        RegisterCatalog(this, new HashSet<ItemCatalog>());
     }
-}
 
     // =========================================================
     // Register configured resources while rejecting cycles and duplicate entries.
@@ -101,13 +78,6 @@ public void Initialize()
                 $"Duplicate item ID: {item.Id}");
 
         if (item.Icon != null) return;
-
-        foreach (ItemDefinition builtIn in _builtIns)
-        {
-            if (builtIn.Id != item.Id) continue;
-            item.Icon = builtIn.Icon;
-            break;
-        }
 
         item.Icon ??= ItemArtwork.Fallback();
     }

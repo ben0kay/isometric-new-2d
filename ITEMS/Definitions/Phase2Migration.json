@@ -1,0 +1,273 @@
+{
+  "baseline": "a9a69a916b11177964e71c45613cc83274716433",
+  "migratedItems": [
+    {
+      "id": "rock",
+      "path": "ITEMS/Definitions/RawMaterials/Minerals/Rock/Rock.tres",
+      "displayName": "Rock",
+      "shortName": "ROCK",
+      "maxStack": 20,
+      "weightKg": 0.5,
+      "volumeLitres": 0.25,
+      "tint": [
+        0.75,
+        0.82,
+        0.85,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Minerals/Rock/RockIcon.svg"
+    },
+    {
+      "id": "carbon",
+      "path": "ITEMS/Definitions/RawMaterials/Minerals/Carbon/Carbon.tres",
+      "displayName": "Carbon",
+      "shortName": "CARBON",
+      "maxStack": 20,
+      "weightKg": 0.25,
+      "volumeLitres": 0.3,
+      "tint": [
+        0.65,
+        0.75,
+        0.8,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Minerals/Carbon/CarbonIcon.svg"
+    },
+    {
+      "id": "plant_fiber",
+      "path": "ITEMS/Definitions/RawMaterials/Organics/PlantFiber/PlantFiber.tres",
+      "displayName": "Plant Fiber",
+      "shortName": "FIBER",
+      "maxStack": 40,
+      "weightKg": 0.05,
+      "volumeLitres": 0.15,
+      "tint": [
+        0.7,
+        0.85,
+        0.5,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Organics/PlantFiber/PlantFiberIcon.svg"
+    },
+    {
+      "id": "iron_ore",
+      "path": "ITEMS/Definitions/RawMaterials/Ores/IronOre/IronOre.tres",
+      "displayName": "Iron Ore",
+      "shortName": "IRON",
+      "maxStack": 20,
+      "weightKg": 0.6,
+      "volumeLitres": 0.35,
+      "tint": [
+        0.85,
+        0.68,
+        0.48,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Ores/IronOre/IronOreIcon.svg"
+    },
+    {
+      "id": "alien_resin",
+      "path": "ITEMS/Definitions/RawMaterials/Organics/AlienResin/AlienResin.tres",
+      "displayName": "Alien Resin",
+      "shortName": "RESIN",
+      "maxStack": 30,
+      "weightKg": 0.1,
+      "volumeLitres": 0.1,
+      "tint": [
+        0.95,
+        0.65,
+        0.25,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Organics/AlienResin/AlienResinIcon.svg"
+    },
+    {
+      "id": "biomass",
+      "path": "ITEMS/Definitions/RawMaterials/Organics/Biomass/Biomass.tres",
+      "displayName": "Biomass",
+      "shortName": "BIOMASS",
+      "maxStack": 30,
+      "weightKg": 0.2,
+      "volumeLitres": 0.3,
+      "tint": [
+        0.45,
+        0.85,
+        0.4,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Organics/Biomass/BiomassIcon.svg"
+    },
+    {
+      "id": "ice",
+      "path": "ITEMS/Definitions/RawMaterials/Minerals/Ice/Ice.tres",
+      "displayName": "Ice",
+      "shortName": "ICE",
+      "maxStack": 20,
+      "weightKg": 0.5,
+      "volumeLitres": 0.55,
+      "tint": [
+        0.55,
+        0.9,
+        1.0,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Minerals/Ice/IceIcon.svg"
+    },
+    {
+      "id": "sand",
+      "path": "ITEMS/Definitions/RawMaterials/Minerals/Sand/Sand.tres",
+      "displayName": "Sand",
+      "shortName": "SAND",
+      "maxStack": 30,
+      "weightKg": 0.5,
+      "volumeLitres": 0.3,
+      "tint": [
+        0.85,
+        0.72,
+        0.48,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Minerals/Sand/SandIcon.svg"
+    },
+    {
+      "id": "clay",
+      "path": "ITEMS/Definitions/RawMaterials/Minerals/Clay/Clay.tres",
+      "displayName": "Clay",
+      "shortName": "CLAY",
+      "maxStack": 30,
+      "weightKg": 0.5,
+      "volumeLitres": 0.3,
+      "tint": [
+        0.75,
+        0.46,
+        0.32,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Minerals/Clay/ClayIcon.svg"
+    },
+    {
+      "id": "tallow",
+      "path": "ITEMS/Definitions/RawMaterials/Organics/Tallow/Tallow.tres",
+      "displayName": "Tallow",
+      "shortName": "TALLOW",
+      "maxStack": 30,
+      "weightKg": 0.15,
+      "volumeLitres": 0.18,
+      "tint": [
+        0.84,
+        0.85,
+        0.68,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/RawMaterials/Organics/Tallow/TallowIcon.svg"
+    },
+    {
+      "id": "scrap_metal",
+      "path": "ITEMS/Definitions/Components/Structural/ScrapMetal/ScrapMetal.tres",
+      "displayName": "Scrap Metal",
+      "shortName": "SCRAP",
+      "maxStack": 20,
+      "weightKg": 0.4,
+      "volumeLitres": 0.3,
+      "tint": [
+        0.65,
+        0.74,
+        0.78,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/Components/Structural/ScrapMetal/ScrapMetalIcon.svg"
+    },
+    {
+      "id": "copper_wiring",
+      "path": "ITEMS/Definitions/Components/Electrical/CopperWiring/CopperWiring.tres",
+      "displayName": "Copper Wiring",
+      "shortName": "WIRE",
+      "maxStack": 20,
+      "weightKg": 0.1,
+      "volumeLitres": 0.15,
+      "tint": [
+        0.85,
+        0.55,
+        0.3,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/Components/Electrical/CopperWiring/CopperWiringIcon.svg"
+    },
+    {
+      "id": "circuit_board",
+      "path": "ITEMS/Definitions/Components/Electronics/CircuitBoard/CircuitBoard.tres",
+      "displayName": "Circuit Board",
+      "shortName": "BOARD",
+      "maxStack": 10,
+      "weightKg": 0.15,
+      "volumeLitres": 0.2,
+      "tint": [
+        0.4,
+        0.85,
+        0.65,
+        1
+      ],
+      "capability": null,
+      "icon": "ITEMS/Definitions/Components/Electronics/CircuitBoard/CircuitBoardIcon.svg"
+    },
+    {
+      "id": "alien_berry",
+      "path": "ITEMS/Definitions/Food/Raw/AlienBerry/AlienBerry.tres",
+      "displayName": "Alien Berry",
+      "shortName": "BERRY",
+      "maxStack": 40,
+      "weightKg": 0.02,
+      "volumeLitres": 0.025,
+      "tint": [
+        0.65,
+        0.35,
+        0.85,
+        1
+      ],
+      "capability": "Consumable",
+      "icon": "ITEMS/Definitions/Food/Raw/AlienBerry/AlienBerryIcon.svg"
+    },
+    {
+      "id": "test_cube",
+      "path": "ITEMS/Definitions/Placeables/Structures/TestCube/TestCube.tres",
+      "displayName": "Test Cube",
+      "shortName": "CUBE",
+      "maxStack": 20,
+      "weightKg": 0.25,
+      "volumeLitres": 0.25,
+      "tint": [
+        1.0,
+        1.0,
+        1.0,
+        1
+      ],
+      "capability": "Placeable",
+      "icon": "ITEMS/Definitions/Placeables/Structures/TestCube/TestCubeIcon.svg"
+    }
+  ],
+  "existingEquipment": {
+    "Equipment/Tools": [
+      "PLAYER/Equipment/Tools/Shovel/ShovelItem.tres"
+    ],
+    "Equipment/Weapons": [
+      "PLAYER/Equipment/Weapons/BlasterItem.tres",
+      "PLAYER/Equipment/Weapons/MiningLaserItem.tres"
+    ],
+    "Equipment/Backpacks": [
+      "PLAYER/Equipment/Backpacks/StarterBackpack.tres"
+    ]
+  },
+  "notes": "C# item content modules remain inactive historical source; no runtime registration. Existing equipment paths and test-cube recipe/artwork retained."
+}

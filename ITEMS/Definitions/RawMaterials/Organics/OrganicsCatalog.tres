@@ -1,9 +1,14 @@
-[gd_resource type="Resource" script_class="ItemCatalog" format=3]
+[gd_resource type="Resource" script_class="ItemCatalog" load_steps=8 format=3]
 
-[ext_resource type="Script" uid="uid://sm76vxbux235" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
-[ext_resource type="Script" uid="uid://dk80brlaqernn" path="res://ITEMS/ItemDefinition.cs" id="2_item"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/Bark/Bark.tres" id="3_bark"]
+[ext_resource type="Script" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" path="res://ITEMS/ItemDefinition.cs" id="2_item"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/Bark/Bark.tres" id="3"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/PlantFiber/PlantFiber.tres" id="4"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/AlienResin/AlienResin.tres" id="5"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/Biomass/Biomass.tres" id="6"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/Tallow/Tallow.tres" id="7"]
 
 [resource]
 script = ExtResource("1_catalog")
-Items = Array[ExtResource("2_item")]([ExtResource("3_bark")])
+IncludeBuiltInItems = false
+Items = Array[ExtResource("2_item")]([ExtResource("3"), ExtResource("4"), ExtResource("5"), ExtResource("6"), ExtResource("7")])

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemCatalog" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Components/Structural/StructuralCatalog.tres" id="3"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Components/Electrical/ElectricalCatalog.tres" id="4"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Components/Electronics/ElectronicsCatalog.tres" id="5"]
+
+[resource]
+script = ExtResource("1_catalog")
+IncludeBuiltInItems = false
+Categories = Array[ExtResource("1_catalog")]([ExtResource("3"), ExtResource("4"), ExtResource("5")])

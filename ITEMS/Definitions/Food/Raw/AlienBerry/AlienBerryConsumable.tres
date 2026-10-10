@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ConsumableDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ITEMS/Food/ConsumableDefinition.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+FoodRestored = 5.0
+WaterRestored = 3.0
+FatigueRelief = 0.0
+UseIntervalSeconds = 0.75

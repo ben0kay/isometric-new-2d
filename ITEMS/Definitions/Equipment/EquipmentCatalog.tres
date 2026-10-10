@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="ItemCatalog" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://ITEMS/ItemCatalog.cs" id="1_catalog"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Minerals/MineralsCatalog.tres" id="3"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/OrganicsCatalog.tres" id="4"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Ores/OresCatalog.tres" id="5"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Equipment/Tools/ToolsCatalog.tres" id="3"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Equipment/Weapons/WeaponsCatalog.tres" id="4"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Equipment/Backpacks/BackpacksCatalog.tres" id="5"]
 
 [resource]
 script = ExtResource("1_catalog")

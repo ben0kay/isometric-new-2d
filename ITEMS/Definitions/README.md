@@ -1,8 +1,7 @@
 # Item Definition Library
 
 This directory is the canonical home for **new inventory item definitions**.
-`ITEMS/ItemCatalog.tres` remains the master registry. Existing C# built-in
-items stay active until Phase 2 migrates them.
+`ITEMS/ItemCatalog.tres` remains the master registry. After applying Phase 2, item registration is entirely resource-based.
 
 ## Categories and destination folders
 
@@ -44,8 +43,8 @@ World object scenes stay in `WORLD/` or `WORLDABLES/`, not in this library.
 4. If the subcategory is new, connect its catalog to its parent category
    catalog through `Categories`. Similarly connect a new top-level
    category catalog to `ITEMS/ItemCatalog.tres`.
-5. Keep `IncludeBuiltInItems` enabled **only on the master** during the
-   Phase 1/2 transition. New child catalogs leave it false (default).
+5. Keep `IncludeBuiltInItems` false on all catalogs after Phase 2.
+   Built-in registration is retired; enabling it reports a migration error.
 6. Check for duplicate IDs, missing paths, valid item parameters and
    intended capabilities. Do not introduce another item with the same ID
    or register the same resource twice.
@@ -87,3 +86,19 @@ profiles and tree assignment are scheduled for Phase 3.
 
 Phase 1 changes only resource files and documentation, not C# systems.
 Git history is used for change tracking; no separate backup files.
+
+
+## Phase 2 item assets
+
+Each migrated item has <Item>.tres and <Item>Icon.svg in its named folder.
+AlienBerryConsumable.tres and TestCubePlaceable.tres hold their capabilities.
+Replace an Icon reference with an imported PNG or SVG to change inventory
+artwork. World artwork remains in WORLD/WORLDABLES and is independent.
+RawMaterials includes minerals, ores and organics. Components includes
+structural scrap, electrical wiring and electronics. Ice is a solid mineral
+resource here; tallow remains a raw organic material. These folders do not
+change gameplay capabilities. Equipment catalogs reference existing PLAYER
+resources to preserve scene and save references.
+Phase2Migration.json is an audit manifest, not a runtime catalog or manually
+maintained relationship index. Catalog resources remain authoritative.
+Run the local checks in NOTES/FutureWork/DataDrivenItems.md after applying.
