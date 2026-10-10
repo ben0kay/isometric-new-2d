@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://UI/Loading/WorldLoadingScreen.cs" id="1_screen"]
+[ext_resource type="Script" path="res://UI/Loading/WorldLoadingVisual.cs" id="2_visual"]
+[ext_resource type="Resource" path="res://UI/Loading/DefaultLoadingScreenSettings.tres" id="3_settings"]
+
+[node name="WorldLoadingScreen" type="CanvasLayer"]
+layer = 20
+process_mode = 3
+script = ExtResource("1_screen")
+Settings = ExtResource("3_settings")
+
+[node name="View" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+script = ExtResource("2_visual")

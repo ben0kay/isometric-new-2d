@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="LoadingScreenSettings" format=3]
+
+[ext_resource type="Script" path="res://UI/Loading/LoadingScreenSettings.cs" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+Enabled = true
+Title = "FRACTURED HORIZONS"
+Subtitle = "INITIALIZING PLANETARY ENVIRONMENT"
+ShowTechnicalDetails = true
+ShowPercentage = true
+BackdropPath = "res://UI/Loading/Artwork/LoadingBackdrop.png"
+BackdropDarken = 0.62
+FallbackBackground = Color(0.0392, 0.0863, 0.1333, 1)
+Accent = Color(0.3765, 0.8, 0.8549, 1)
+TextColor = Color(0.9137, 0.9647, 0.9804, 1)
+SecondaryText = Color(0.5608, 0.6667, 0.7333, 1)
+GridColor = Color(0.2784, 0.451, 0.5333, 1)
+StatusRefreshSeconds = 0.12
+ProgressCatchupSpeed = 6.0
+FadeOutSeconds = 0.45
+ScanSpeed = 0.85

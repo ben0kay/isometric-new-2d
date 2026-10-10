@@ -49,6 +49,8 @@ public partial class ChunkController : Node
 	private ChunkRecord _building, _retiring;
 	public event Action<Vector2I> ChunkAvailabilityChanged;
 	public bool WorldReady { get; private set; }
+    public bool StartupArtworkReady { get; private set; }
+    private bool _startupCoverageKnown;
 
 	#endregion
 
@@ -109,6 +111,7 @@ public partial class ChunkController : Node
 			_grass = new() { Name = "GrassSpawner", Generator = _generator };
 			AddChild(_rocks); AddChild(_vegetation); AddChild(_grass);
 
+            StartupArtworkReady = true;
 			_camera.ResetSmoothing(); _camera.ForceUpdateScroll();
 			RefreshCoverage();
 			SetProcess(true);
@@ -212,6 +215,7 @@ public partial class ChunkController : Node
 		_viewMax = new(
 			Mathf.FloorToInt((max.X + 0.5f) / ChunkSize),
 			Mathf.FloorToInt((max.Y + 0.5f) / ChunkSize));
+        _startupCoverageKnown = true;
 
 		double now = Time.GetTicksMsec() / 1000.0;
 
@@ -267,6 +271,34 @@ public partial class ChunkController : Node
 	}
 
 	// =========================================================
+    // =========================================================
+    // Read-only progress snapshot for loading UI. Counts only the activation
+    // buffer that actually gates player release, not distant prepared records.
+    public void GetStartupProgress(
+        out int ready, out int required, out ChunkBuildStage stage)
+    {
+        ready = required = 0;
+        stage = _building?.Stage ?? ChunkBuildStage.Queued;
+        if (!_startupCoverageKnown) return;
+
+        for (int y = _viewMin.Y - ActivationMargin;
+             y <= _viewMax.Y + ActivationMargin; y++)
+        for (int x = _viewMin.X - ActivationMargin;
+             x <= _viewMax.X + ActivationMargin; x++)
+        {
+            required++;
+            if (_chunks.TryGetValue(new Vector2I(x, y),
+                out ChunkRecord chunk) && chunk.Ready && !chunk.Retiring)
+                ready++;
+        }
+
+        if (WorldReady)
+        {
+            ready = required;
+            stage = ChunkBuildStage.Ready;
+        }
+    }
+
 	// Keep the player frozen until every chunk in the initial activation buffer is complete.
 	private bool StartingAreaReady()
 	{

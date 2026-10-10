@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://dlx7kblpf5oro"]
 
+[ext_resource type="PackedScene" path="res://UI/Loading/WorldLoadingScreen.tscn" id="loading_scene"]
+
 [ext_resource type="PackedScene" uid="uid://fqjv7dvfg82e" path="res://PLAYER/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://DEBUG/Map/WorldMapDebug.tscn" id="1_w4vfx"]
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="2_chunks"]
@@ -132,3 +134,5 @@ EclipseDarknessMultiplier = 1.0
 
 [node name="CaveLayerTest" type="Node" parent="." unique_id=342114073]
 script = ExtResource("23_7wrb7")
+
+[node name="WorldLoadingScreen" parent="." instance=ExtResource("loading_scene")]

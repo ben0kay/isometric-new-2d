@@ -1,5 +1,7 @@
 [gd_scene format=3 uid="uid://b2om0uo6j1tp2"]
 
+[ext_resource type="PackedScene" path="res://UI/Loading/WorldLoadingScreen.tscn" id="loading_scene"]
+
 [ext_resource type="PackedScene" uid="uid://fqjv7dvfg82e" path="res://PLAYER/Player.tscn" id="1_player"]
 [ext_resource type="PackedScene" path="res://DEBUG/Map/WorldMapDebug.tscn" id="2_map"]
 [ext_resource type="Script" uid="uid://po4upke1eqcd" path="res://WORLD/Chunks/ChunkController.cs" id="3_chunks"]
@@ -150,3 +152,5 @@ script = ExtResource("notification_tester")
 
 [node name="AudioTester" type="Node" parent="DEBUG" unique_id=645744306]
 script = ExtResource("audio_tester")
+
+[node name="WorldLoadingScreen" parent="." instance=ExtResource("loading_scene")]
