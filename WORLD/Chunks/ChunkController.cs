@@ -7,6 +7,10 @@ using System.Diagnostics;
 
 public partial class ChunkController : Node
 {
+    [ExportGroup("Surface Ore")]
+    [Export] public OreSpawnSettings OreSpawns { get; set; } = GD.Load<OreSpawnSettings>(
+        "res://WORLD/Contents/Ores/DefaultOreSpawnSettings.tres");
+
 	#region Configuration
 	[ExportGroup("World")]
 	[Export] public Vector2 TileSize { get; set; } = new(128, 64);
@@ -61,6 +65,7 @@ public partial class ChunkController : Node
 	private Label _debug;
 	private WorldGenerator _generator;
 	private RockSpawner _rocks;
+    private OreSpawner _ores;
 	private VegetationSpawner _vegetation;
 	private GrassSpawner _grass;
 	private WorldNavigation _navigation;
@@ -109,7 +114,9 @@ public partial class ChunkController : Node
 			_rocks = new() { Name = "RockSpawner", Generator = _generator };
 			_vegetation = new() { Name = "VegetationSpawner", Generator = _generator };
 			_grass = new() { Name = "GrassSpawner", Generator = _generator };
-			AddChild(_rocks); AddChild(_vegetation); AddChild(_grass);
+			_ores = new() { Name = "OreSpawner", Generator = _generator, Settings = OreSpawns };
+            AddChild(_ores);
+            AddChild(_rocks); AddChild(_vegetation); AddChild(_grass);
 
             StartupArtworkReady = true;
 			_camera.ResetSmoothing(); _camera.ForceUpdateScroll();
@@ -443,6 +450,11 @@ private IEnumerable<ChunkBuildStage> ActivateChunk(ChunkRecord chunk)
 	foreach (ChunkBuildStage stage in chunk.Ground.UploadSteps())
 		yield return stage;
 	chunk.Ground.Visible = true;
+
+    foreach (ChunkBuildStage stage in _ores.PopulateSteps(
+        chunk.Coordinate, ChunkSize, TileSize, WorldSeed,
+        _groundRoot, _objects, _spawnPoint, SpawnClearRadius, chunk.Obstacles))
+        yield return stage;
 
 	foreach (ChunkBuildStage stage in _rocks.PopulateSteps(
 		chunk.Coordinate, ChunkSize, TileSize, WorldSeed,

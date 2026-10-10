@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="OreSpawnSettings" format=3]
+
+[ext_resource type="Script" path="res://WORLD/Contents/Ores/OreSpawnSettings.cs" id="1"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Ores/Iron/IronDeposit.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+Definition = ExtResource("2")
+ChancePerChunk = 0.15
+PlacementAttempts = 6
+ClearancePixels = Vector2(24, 16)
+MaximumHeightVariation = 0.06

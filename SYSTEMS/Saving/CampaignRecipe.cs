@@ -161,6 +161,13 @@ public static class CampaignRecipe
             config.LayerConnectionFrequency = GlobalConfig.DefaultLayerConnectionFrequency();
             data.Settings["CONFIG"][frequency] = GD.VarToStr(config.Get(frequency));
         }
+        // Old campaigns retain their original no-generated-ore recipe.
+        const string oreSettings = nameof(ChunkController.OreSpawns);
+        if (!data.Settings["Systems/ChunkController"].ContainsKey(oreSettings))
+        {
+            world.GetNode<ChunkController>("Systems/ChunkController").OreSpawns = null;
+            data.Settings["Systems/ChunkController"][oreSettings] = "null";
+        }
         world.GetNode<ChunkController>("Systems/ChunkController").WorldSeed = data.Seed;
     }
 }

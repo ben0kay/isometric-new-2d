@@ -174,6 +174,13 @@ public partial class ResourceChanges : Node
         return host.GetMeta(Identity).AsString();
     }
 
+    // Read scalar saved state without retaining a generated object's live node.
+    public ResourceChangeData GetByIdentity(string id)
+    {
+        _changes.TryGetValue(id, out ResourceChangeData saved);
+        return saved;
+    }
+
     // =========================================================
     // Resolve a host's change record without retaining the host after unloading.
     public ResourceChangeData Get(Node2D host)
