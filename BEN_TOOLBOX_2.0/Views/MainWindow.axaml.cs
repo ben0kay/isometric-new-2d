@@ -68,12 +68,12 @@ public partial class MainWindow : Window
                 InfoDescription.Text = "Appearance controls, saved preferences and toolbox paths will be implemented after the core tool integration.";
                 break;
             default:
-                PageKicker.Text = "OVERVIEW / HOME";
-                PageTitle.Text = "Your toolbox. Reimagined.";
-                PageSubtitle.Text = "One streamlined space for development, file management and project utilities.";
-                SectionHeading.Text = "Explore toolboxes";
-                InfoTitle.Text = "STAGE 1 / FOUNDATION";
-                InfoDescription.Text = "The interface, resizing and navigation are ready. Launching existing PowerShell tools comes in Stage 2.";
+                PageKicker.Text = "CONTROL DECK  /  OVERVIEW";
+                PageTitle.Text = "Command Center";
+                PageSubtitle.Text = "Modular utilities  /  Developer operations  /  System oversight";
+                SectionHeading.Text = "Available modules";
+                InfoTitle.Text = "BUILD 1.1   /   SYSTEM READOUT";
+                InfoDescription.Text = "Interface online. Navigation active. Desktop tool execution remains offline until Stage 2.";
                 break;
         }
     }
