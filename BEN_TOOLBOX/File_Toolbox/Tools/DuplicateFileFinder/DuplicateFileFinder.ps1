@@ -1,14 +1,15 @@
-# Duplicate File Finder - read-only Windows PowerShell 5.1 GUI
+# Duplicate File Finder - Windows PowerShell 5.1 GUI
 # Compare source A to destination B by filename, optionally verifying SHA-256.
-# No files are moved, renamed, or deleted.
+# Only SHA-256 verified identical Source A files can be moved to the Recycle Bin. Destination B is never modified.
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName Microsoft.VisualBasic
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Duplicate File Finder | File Toolbox'
-$form.ClientSize = New-Object System.Drawing.Size(1100, 730)
-$form.MinimumSize = New-Object System.Drawing.Size(900, 650)
+$form.ClientSize = New-Object System.Drawing.Size(1100, 790)
+$form.MinimumSize = New-Object System.Drawing.Size(900, 720)
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = [Drawing.Color]::FromArgb(24,28,35)
 $form.ForeColor = [Drawing.Color]::WhiteSmoke
@@ -60,29 +61,32 @@ $heading.Font=New-Object Drawing.Font('Segoe UI',21,[Drawing.FontStyle]::Bold)
 $source=New-PathInput 91
 $sourceBrowse=New-Button 'Browse' 907 90 165 31
 $sourceBrowse.Anchor='Top,Right'
-[void](New-Label 'Destination folder (B) — search here for existing matches' 25 140 850 24)
-$dest=New-PathInput 167
-$destBrowse=New-Button 'Browse' 907 166 165 31
+[void](New-Label 'Destination folder (B) — search here for existing matches (never deleted)' 25 178 850 24)
+$dest=New-PathInput 205
+$destBrowse=New-Button 'Browse' 907 204 165 31
 $destBrowse.Anchor='Top,Right'
 
 $sourceSub=New-Object Windows.Forms.CheckBox
-$sourceSub.Text='Include subfolders in A';$sourceSub.Checked=$false;$sourceSub.SetBounds(25,215,245,30)
+$sourceSub.Text='Include subfolders in source A';$sourceSub.Checked=$false;$sourceSub.SetBounds(25,130,330,30)
 $form.Controls.Add($sourceSub)
 $destSub=New-Object Windows.Forms.CheckBox
-$destSub.Text='Include subfolders in B';$destSub.Checked=$true;$destSub.SetBounds(290,215,245,30)
+$destSub.Text='Include subfolders in destination B';$destSub.Checked=$true;$destSub.SetBounds(25,244,350,30)
 $form.Controls.Add($destSub)
 $verify=New-Object Windows.Forms.CheckBox
-$verify.Text='Verify content (SHA-256)';$verify.Checked=$true;$verify.SetBounds(570,215,270,30)
+$verify.Text='Verify content (SHA-256) - required for deletion';$verify.Checked=$true;$verify.SetBounds(25,282,480,30)
 $form.Controls.Add($verify)
 
-$scan=New-Button 'Scan for duplicates' 25 259 200 38
-$export=New-Button 'Export CSV' 235 259 145 38
+$scan=New-Button 'Scan for duplicates' 25 325 200 38
+$export=New-Button 'Export CSV' 235 325 145 38
 $export.Enabled=$false
-$status=New-Label 'Ready. Filename matching is case-insensitive.' 395 263 680 33
+$deleteAll=New-Button 'DELETE ALL identical (A)' 391 325 235 38
+$deleteAll.BackColor=[Drawing.Color]::FromArgb(136,48,53)
+$deleteAll.Enabled=$false
+$status=New-Label 'Only verified identical files from A can be deleted.' 635 329 440 33
 $status.Anchor='Top,Left,Right'
 
 $results=New-Object Windows.Forms.ListView
-$results.SetBounds(25,316,1047,365)
+$results.SetBounds(25,381,1047,350)
 $results.Anchor='Top,Bottom,Left,Right'
 $results.View='Details';$results.FullRowSelect=$true;$results.GridLines=$true
 $results.HideSelection=$false;$results.MultiSelect=$false
@@ -93,11 +97,14 @@ $results.ForeColor=[Drawing.Color]::WhiteSmoke
 [void]$results.Columns.Add('Matching file (B)',355)
 [void]$results.Columns.Add('Bytes (A)',100)
 [void]$results.Columns.Add('Bytes (B)',100)
+[void]$results.Columns.Add('Action',105)
 $form.Controls.Add($results)
-$footer=New-Label 'Read-only tool. No files are deleted, moved or renamed. Double-click a result to open its source folder.' 25 688 1040 26
+$footer=New-Label 'Delete A moves a verified source file to Recycle Bin. Hover a row for preview. Double-click to locate source.' 25 746 1040 26
 $footer.Anchor='Bottom,Left,Right'
 
 $script:report=@()
+$script:rootA='';$script:rootB='';$script:busy=$false
+$script:previewPath='';$script:previewImage=$null
 function Select-Folder($target) {
     $dialog=New-Object Windows.Forms.FolderBrowserDialog
     $dialog.Description='Select a folder'
@@ -109,7 +116,7 @@ $sourceBrowse.Add_Click({Select-Folder $source})
 $destBrowse.Add_Click({Select-Folder $dest})
 $results.Add_DoubleClick({
     if($results.SelectedItems.Count -gt 0) {
-        $p=$results.SelectedItems[0].Tag
+        $p=$results.SelectedItems[0].Tag.SourcePath
         if(Test-Path -LiteralPath $p) {Start-Process explorer.exe -ArgumentList ('/select,"'+$p+'"')}
     }
 })
@@ -136,7 +143,8 @@ $scan.Add_Click({
        $b.StartsWith($a+'\',[StringComparison]::OrdinalIgnoreCase)) {
         [Windows.Forms.MessageBox]::Show('Choose separate, non-overlapping folders.','Overlapping folders') | Out-Null;return
     }
-    $scan.Enabled=$false;$export.Enabled=$false;$results.Items.Clear();$script:report=@()
+    $script:busy=$true;$script:rootA=$a;$script:rootB=$b
+    $scan.Enabled=$false;$export.Enabled=$false;$deleteAll.Enabled=$false;$results.Items.Clear();$script:report=@()
     $form.Cursor=[Windows.Forms.Cursors]::WaitCursor
     try {
         $status.Text='Reading destination files...';$status.Refresh()
@@ -169,7 +177,8 @@ $scan.Add_Click({
                 $item=New-Object Windows.Forms.ListViewItem($state)
                 [void]$item.SubItems.Add($file.Path);[void]$item.SubItems.Add($other.Path)
                 [void]$item.SubItems.Add([string]$file.Size);[void]$item.SubItems.Add([string]$other.Size)
-                $item.Tag=$file.Path
+                [void]$item.SubItems.Add($(if($state -eq 'IDENTICAL'){'Delete A'}else{'-'}))
+                $item.Tag=$row
                 if($state -eq 'IDENTICAL'){$item.ForeColor=[Drawing.Color]::LightGreen}
                 elseif($state -eq 'DIFFERENT CONTENT'){$item.ForeColor=[Drawing.Color]::Khaki}
                 [void]$results.Items.Add($item)
@@ -178,10 +187,112 @@ $scan.Add_Click({
         }
         $status.Text="Scanned A: $sourceCount | B: $destCount | match pairs: $matches" + $(if($verify.Checked){" | identical: $identical | different: $different"}else{''})
         $export.Enabled=$matches -gt 0
+        $deleteAll.Enabled=$identical -gt 0
     } catch {
         $status.Text='Scan failed: '+$_.Exception.Message
         [Windows.Forms.MessageBox]::Show($_.Exception.Message,'Scan error') | Out-Null
-    } finally {$form.Cursor=[Windows.Forms.Cursors]::Default;$scan.Enabled=$true}
+    } finally {$script:busy=$false;$form.Cursor=[Windows.Forms.Cursors]::Default;$scan.Enabled=$true}
 })
+
+# Floating image preview; release the image stream before showing.
+$preview=New-Object Windows.Forms.Form
+$preview.FormBorderStyle='FixedSingle';$preview.ShowInTaskbar=$false
+$preview.StartPosition='Manual';$preview.ClientSize=New-Object Drawing.Size(300,280)
+$preview.BackColor=[Drawing.Color]::FromArgb(30,36,45)
+$picture=New-Object Windows.Forms.PictureBox
+$picture.SetBounds(8,8,284,235);$picture.SizeMode='Zoom';$preview.Controls.Add($picture)
+$previewLabel=New-Object Windows.Forms.Label
+$previewLabel.SetBounds(8,248,284,25);$previewLabel.ForeColor='WhiteSmoke';$preview.Controls.Add($previewLabel)
+function Hide-Preview {
+    $preview.Hide();$picture.Image=$null
+    if($script:previewImage){$script:previewImage.Dispose();$script:previewImage=$null}
+    $script:previewPath=''
+}
+function Show-Preview($path) {
+    if($script:previewPath -eq $path -and $preview.Visible){return}
+    Hide-Preview
+    if([IO.Path]::GetExtension($path) -notin @('.jpg','.jpeg','.png','.bmp','.gif','.tif','.tiff','.webp')){return}
+    if(!(Test-Path -LiteralPath $path -PathType Leaf)){return}
+    try {
+        $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+        try {
+            $loaded=[Drawing.Image]::FromStream($stream)
+            try {$script:previewImage=New-Object Drawing.Bitmap($loaded)}finally{$loaded.Dispose()}
+        }finally{$stream.Dispose()}
+        $picture.Image=$script:previewImage
+        $previewLabel.Text=[IO.Path]::GetFileName($path)
+        $point=[Windows.Forms.Cursor]::Position
+        $bounds=[Windows.Forms.Screen]::FromPoint($point).WorkingArea
+        $preview.Location=New-Object Drawing.Point([Math]::Min($point.X+18,$bounds.Right-310),[Math]::Min($point.Y+18,$bounds.Bottom-310))
+        $preview.Show($form);$script:previewPath=$path
+    }catch{Hide-Preview}
+}
+function Is-InRoot($path,$root) {
+    if(!$root){return $false}
+    $base=[IO.Path]::GetFullPath($root).TrimEnd('\','/')
+    return [IO.Path]::GetFullPath($path).StartsWith(($base+'\'),[StringComparison]::OrdinalIgnoreCase)
+}
+function Verify-Match($r) {
+    if($r.Status -ne 'IDENTICAL'){return $false}
+    if(!(Is-InRoot $r.SourcePath $script:rootA) -or !(Is-InRoot $r.DestinationPath $script:rootB)){return $false}
+    if(!(Test-Path -LiteralPath $r.SourcePath -PathType Leaf) -or !(Test-Path -LiteralPath $r.DestinationPath -PathType Leaf)){return $false}
+    $a=Get-Item -LiteralPath $r.SourcePath -Force
+    $b=Get-Item -LiteralPath $r.DestinationPath -Force
+    if(($a.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or ($b.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){return $false}
+    if($a.Length -ne $b.Length){return $false}
+    return ((Get-FileHash -LiteralPath $r.SourcePath -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $r.DestinationPath -Algorithm SHA256).Hash)
+}
+function Delete-Sources($candidates) {
+    if($script:busy){return}
+    $chosen=@($candidates | Where-Object {$_.Status -eq 'IDENTICAL'} | Group-Object SourcePath | ForEach-Object {$_.Group[0]})
+    if(!$chosen.Count){return}
+    $message="Move $($chosen.Count) verified identical source file(s) from A to the Windows Recycle Bin? Destination B will NOT change. SHA-256 is checked again immediately before deletion."
+    if([Windows.Forms.MessageBox]::Show($form,$message,'Confirm delete from A',[Windows.Forms.MessageBoxButtons]::YesNo,[Windows.Forms.MessageBoxIcon]::Warning,[Windows.Forms.MessageBoxDefaultButton]::Button2) -ne [Windows.Forms.DialogResult]::Yes){return}
+    $deleted=0;$errors=New-Object 'System.Collections.Generic.List[string]'
+    $form.Cursor=[Windows.Forms.Cursors]::WaitCursor
+    try {
+        foreach($r in $chosen){
+            try {
+                if(!(Verify-Match $r)){throw 'The files changed, are missing or no longer match.'}
+                [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($r.SourcePath,[Microsoft.VisualBasic.FileIO.UIOption]::OnlyErrorDialogs,[Microsoft.VisualBasic.FileIO.RecycleOption]::SendToRecycleBin,[Microsoft.VisualBasic.FileIO.UICancelOption]::ThrowException)
+                $deleted++
+            }catch{$errors.Add("$($r.SourcePath): $($_.Exception.Message)")}
+        }
+        $script:report=@($script:report | Where-Object {Test-Path -LiteralPath $_.SourcePath -PathType Leaf})
+        $results.Items.Clear()
+        foreach($r in $script:report){
+            $item=New-Object Windows.Forms.ListViewItem($r.Status)
+            [void]$item.SubItems.Add($r.SourcePath);[void]$item.SubItems.Add($r.DestinationPath)
+            [void]$item.SubItems.Add([string]$r.SourceBytes);[void]$item.SubItems.Add([string]$r.DestinationBytes)
+            [void]$item.SubItems.Add($(if($r.Status -eq 'IDENTICAL'){'Delete A'}else{'-'}))
+            $item.Tag=$r
+            if($r.Status -eq 'IDENTICAL'){$item.ForeColor=[Drawing.Color]::LightGreen}
+            [void]$results.Items.Add($item)
+        }
+        $deleteAll.Enabled=@($script:report | Where-Object Status -eq 'IDENTICAL').Count -gt 0
+        $export.Enabled=$script:report.Count -gt 0
+        $status.Text="Moved $deleted source files to Recycle Bin. Failures: $($errors.Count)"
+        if($errors.Count){[Windows.Forms.MessageBox]::Show($form,($errors -join [Environment]::NewLine),'Deletion errors') | Out-Null}
+    }finally{$form.Cursor=[Windows.Forms.Cursors]::Default}
+}
+$results.Add_MouseMove({
+    if($script:busy){return}
+    $hit=$results.HitTest($_.X,$_.Y)
+    if($hit.Item -and $hit.Item.Tag){Show-Preview $hit.Item.Tag.SourcePath}else{Hide-Preview}
+})
+$results.Add_MouseLeave({Hide-Preview})
+$results.Add_MouseClick({
+    if($_.Button -ne [Windows.Forms.MouseButtons]::Left){return}
+    $hit=$results.HitTest($_.X,$_.Y)
+    if($hit.Item -and $hit.SubItem -and $hit.SubItem -eq $hit.Item.SubItems[5] -and $hit.Item.Tag.Status -eq 'IDENTICAL'){
+        Hide-Preview;Delete-Sources @($hit.Item.Tag)
+    }
+})
+$deleteAll.Add_Click({Hide-Preview;Delete-Sources $script:report})
+foreach($field in @($source,$dest,$sourceSub,$destSub,$verify)){
+    if($field -is [Windows.Forms.CheckBox]){$field.Add_CheckedChanged({$script:report=@();$results.Items.Clear();$deleteAll.Enabled=$false;$export.Enabled=$false})}
+    else{$field.Add_TextChanged({$script:report=@();$results.Items.Clear();$deleteAll.Enabled=$false;$export.Enabled=$false})}
+}
+$form.Add_FormClosing({Hide-Preview;$preview.Close()})
 [void]$form.ShowDialog()
-$form.Dispose()
+$form.Dispose();$preview.Dispose()
