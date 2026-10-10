@@ -112,6 +112,11 @@ public partial class EntityDefinition : Resource
     [Export] public LootTable DeathLoot { get; set; }
     #endregion
 
+    #region Visual Feedback
+    [ExportGroup("Visual Feedback")]
+    [Export] public HealthBarSettings HealthBarOverride { get; set; }
+    #endregion
+
     #region Artwork
     [ExportGroup("Artwork")]
     [Export] public VisualDefinition VisualOverride { get; set; }

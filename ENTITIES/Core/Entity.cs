@@ -52,6 +52,7 @@ public partial class Entity : EntityBody
     private EntitySequence _sequence;
     private EntityCombatController _combat;
     private TerrainVisual _visual;
+    private WorldFeedback _feedback;
     private GlobalConfig _config;
     private readonly RandomNumberGenerator _rng = new();
 
@@ -242,6 +243,11 @@ public partial class Entity : EntityBody
             // The presentation component supports optional combat helpers.
             Component<EntityPresentation>("Presentation").Bind(this, artwork);
 
+            // Draw shared feedback alongside artwork so terrain elevation is inherited.
+            _feedback = Component<WorldFeedback>("WorldFeedback");
+            _feedback.Bind(Health, _visual, Definition.SpawnVisualBounds,
+                Definition.VisualScale, Definition.HealthBarOverride);
+
             Initialized = true;
             if (!SpawnPending) Activate();
         }
@@ -336,8 +342,14 @@ public partial class Entity : EntityBody
         if (Definition.FaceMovement &&
             Velocity.LengthSquared() > 0.1f &&
             GodotObject.IsInstanceValid(_visual))
-            _visual.Scale = new Vector2(
-                Velocity.X < 0f ? -1f : 1f, 1f);
+        {
+            float facing = Velocity.X < 0f ? -1f : 1f;
+            if (!Mathf.IsEqualApprox(_visual.Scale.X, facing))
+            {
+                _visual.Scale = new Vector2(facing, 1f);
+                _feedback?.SetFacing(facing);
+            }
+        }
     }
 
     // =========================================================
