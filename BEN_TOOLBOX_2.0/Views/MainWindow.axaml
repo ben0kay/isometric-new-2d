@@ -1,22 +1,144 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:BEN_TOOLBOX_2_0.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="BEN_TOOLBOX_2_0.Views.MainWindow"
-        x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="BEN_TOOLBOX_2_0">
-
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainViewModel />
-    </Design.DataContext>
-
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
-
+        Title="BEN TOOLBOX 2.0"
+        Width="1260" Height="790" MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0D111A" Foreground="#E8EDF7"
+        FontFamily="Inter">
+  <Window.Styles>
+    <Style Selector="Button.nav">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Foreground" Value="#9DAEC5"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Padding" Value="16,12"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Margin" Value="0,3"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+    <Style Selector="Button.nav:pointerover">
+      <Setter Property="Background" Value="#24314A"/>
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+    <Style Selector="Button.nav.active">
+      <Setter Property="Background" Value="#203754"/>
+      <Setter Property="Foreground" Value="#82D9F3"/>
+    </Style>
+    <Style Selector="Button.tile">
+      <Setter Property="Background" Value="#161E2B"/>
+      <Setter Property="BorderBrush" Value="#27384D"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="Padding" Value="22"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+    </Style>
+    <Style Selector="Button.tile:pointerover">
+      <Setter Property="Background" Value="#22334A"/>
+      <Setter Property="BorderBrush" Value="#4B9BCA"/>
+    </Style>
+  </Window.Styles>
+  <Grid ColumnDefinitions="242,*" RowDefinitions="*">
+    <Border Grid.Column="0" Background="#121A27" BorderBrush="#263247" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16,20">
+        <StackPanel Grid.Row="0" Margin="6,0,0,32" Spacing="5">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Border Background="#1F4157" CornerRadius="10" Width="40" Height="40">
+              <TextBlock Text="B" FontSize="23" FontWeight="Bold" Foreground="#83E2F2" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+              <TextBlock Text="BEN TOOLBOX" FontWeight="Bold" FontSize="15" LetterSpacing="1.1"/>
+              <TextBlock Text="VERSION 2.0" Foreground="#6D8FAA" FontSize="10" LetterSpacing="2"/>
+            </StackPanel>
+          </StackPanel>
+        </StackPanel>
+        <StackPanel Grid.Row="1" Spacing="3">
+          <TextBlock Text="WORKSPACE" Foreground="#6B809B" FontSize="11" LetterSpacing="2" Margin="14,0,0,10"/>
+          <Button x:Name="DashboardNav" Classes="nav active" Click="NavigateDashboard"><TextBlock Text="⌂   Dashboard"/></Button>
+          <Button x:Name="GameNav" Classes="nav" Click="NavigateGame"><TextBlock Text="◈   Game Development"/></Button>
+          <Button x:Name="FilesNav" Classes="nav" Click="NavigateFiles"><TextBlock Text="▤   File Toolbox"/></Button>
+          <Button x:Name="InspectNav" Classes="nav" Click="NavigateInspect"><TextBlock Text="◎   Inspectors"/></Button>
+          <Button x:Name="SettingsNav" Classes="nav" Click="NavigateSettings"><TextBlock Text="⚙   Settings"/></Button>
+        </StackPanel>
+        <Border Grid.Row="3" CornerRadius="12" Padding="14" Background="#1A293B" BorderBrush="#294359" BorderThickness="1">
+          <StackPanel Spacing="5">
+            <TextBlock Text="●  APPLICATION READY" Foreground="#7CDEBF" FontWeight="SemiBold" FontSize="11"/>
+            <TextBlock Text="Stage 1 • Interface foundation" Foreground="#99AAC0" FontSize="12"/>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="70,*">
+      <Border Grid.Row="0" BorderBrush="#253247" BorderThickness="0,0,0,1" Background="#111824">
+        <Grid ColumnDefinitions="*,Auto" Margin="32,0" VerticalAlignment="Center">
+          <TextBlock Text="DEVELOPMENT WORKSPACE" FontSize="11" FontWeight="SemiBold" Foreground="#7D93AF" LetterSpacing="2" VerticalAlignment="Center"/>
+          <Border Grid.Column="1" Background="#1C2A3B" CornerRadius="20" Padding="13,7">
+            <TextBlock Text="◆   Avalonia Desktop" Foreground="#A2D9ED" FontSize="12"/>
+          </Border>
+        </Grid>
+      </Border>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="36,30,36,40" Spacing="24">
+          <StackPanel Spacing="8">
+            <TextBlock x:Name="PageKicker" Text="OVERVIEW / HOME" Foreground="#61C8EB" FontSize="11" LetterSpacing="2"/>
+            <TextBlock x:Name="PageTitle" Text="Your toolbox. Reimagined." FontSize="32" FontWeight="Bold" TextWrapping="Wrap"/>
+            <TextBlock x:Name="PageSubtitle" Text="One streamlined space for development, file management and project utilities." Foreground="#9BAFC8" FontSize="14" TextWrapping="Wrap"/>
+          </StackPanel>
+          <Border x:Name="HeroPanel" Background="#15283D" BorderBrush="#2F5871" BorderThickness="1" CornerRadius="18" Padding="24">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Spacing="12">
+                <TextBlock Text="WELCOME TO YOUR NEW WORKSPACE" Foreground="#7BD9EE" FontSize="11" FontWeight="SemiBold" LetterSpacing="1.7"/>
+                <TextBlock Text="Build smarter. Stay organized." FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock Text="Select a toolbox below to explore your workspace. Existing utilities will be connected in the next stage." FontSize="13" Foreground="#B3C4D7" TextWrapping="Wrap" MaxWidth="570"/>
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="◇" FontSize="92" Foreground="#365A7B" VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </Grid>
+          </Border>
+          <StackPanel Spacing="14">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock x:Name="SectionHeading" Text="Explore toolboxes" FontSize="20" FontWeight="SemiBold"/>
+              <TextBlock Grid.Column="1" Text="BEN TOOLBOX 2.0" Foreground="#586E88" FontSize="11" VerticalAlignment="Center"/>
+            </Grid>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="16">
+              <Button x:Name="GameTile" Grid.Row="0" Grid.Column="0" Classes="tile" Click="NavigateGame" MinHeight="162">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="◈" FontSize="25" Foreground="#77D7EE"/>
+                  <TextBlock Text="Game Development  ↗" FontSize="17" FontWeight="SemiBold"/>
+                  <TextBlock Text="Sprites, artwork and game resources." Foreground="#95A8BD" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Button>
+              <Button x:Name="FilesTile" Grid.Row="0" Grid.Column="1" Classes="tile" Click="NavigateFiles" MinHeight="162">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="▤" FontSize="25" Foreground="#A3A8FF"/>
+                  <TextBlock Text="File Toolbox  ↗" FontSize="17" FontWeight="SemiBold"/>
+                  <TextBlock Text="Backups, duplicates and file organization." Foreground="#95A8BD" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Button>
+              <Button x:Name="InspectTile" Grid.Row="1" Grid.Column="0" Classes="tile" Click="NavigateInspect" MinHeight="162">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="◎" FontSize="25" Foreground="#84DDB4"/>
+                  <TextBlock Text="Inspectors  ↗" FontSize="17" FontWeight="SemiBold"/>
+                  <TextBlock Text="Lighting, resource usage and project diagnostics." Foreground="#95A8BD" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Button>
+              <Button x:Name="SettingsTile" Grid.Row="1" Grid.Column="1" Classes="tile" Click="NavigateSettings" MinHeight="162">
+                <StackPanel Spacing="12">
+                  <TextBlock Text="⚙" FontSize="25" Foreground="#EBC58A"/>
+                  <TextBlock Text="Application Settings  ↗" FontSize="17" FontWeight="SemiBold"/>
+                  <TextBlock Text="Appearance, preferences and future integrations." Foreground="#95A8BD" FontSize="13" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Button>
+            </Grid>
+          </StackPanel>
+          <Border Background="#121D2A" CornerRadius="12" BorderBrush="#27374A" BorderThickness="1" Padding="18">
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="InfoTitle" Text="STAGE 1 / FOUNDATION" Foreground="#76D0EA" FontWeight="SemiBold" FontSize="11" LetterSpacing="1.5"/>
+              <TextBlock x:Name="InfoDescription" Text="The interface, resizing and navigation are ready. Launching existing PowerShell tools comes in Stage 2." Foreground="#A6B8CC" FontSize="13" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
 </Window>
