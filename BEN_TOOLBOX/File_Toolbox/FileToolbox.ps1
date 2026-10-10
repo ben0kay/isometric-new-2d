@@ -7,7 +7,7 @@ $tools = @(
     },
     @{
         Name = "Duplicate File Finder"
-        Description = "Compare files between two folders, with optional subfolder search and SHA-256 verification. Read-only."
+        Description = "Compare folders, preview image matches, and recycle verified duplicate files from Source A."
         Path = "Tools\DuplicateFileFinder\DuplicateFileFinder.ps1"
     }
 )
