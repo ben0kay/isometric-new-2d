@@ -1,0 +1,14 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioManager.cs" id="1_manager"]
+[ext_resource type="Resource" path="res://AUDIO/AudioSettings.tres" id="2_settings"]
+[ext_resource type="Resource" path="res://AUDIO/AudioCatalog.tres" id="3_catalog"]
+[ext_resource type="Script" path="res://AUDIO/Companion/CompanionVoice.cs" id="4_voice"]
+
+[node name="AudioManager" type="Node2D"]
+script = ExtResource("1_manager")
+Settings = ExtResource("2_settings")
+Catalog = ExtResource("3_catalog")
+
+[node name="CompanionVoice" type="Node" parent="."]
+script = ExtResource("4_voice")

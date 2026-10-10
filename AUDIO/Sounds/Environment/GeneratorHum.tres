@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AudioDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioDefinition.cs" id="1_sound"]
+
+[resource]
+script = ExtResource("1_sound")
+Id = "generator_hum"
+Mode = 1
+Category = 0
+Priority = 45
+Positional = true
+AllowOffscreen = true
+MaxDistance = 850.0
+CooldownSeconds = 0
+MaximumInstances = 1
+FadeInSeconds = 0.4
+FadeOutSeconds = 0.8
+IntervalMinSeconds = 8.0
+IntervalMaxSeconds = 18.0

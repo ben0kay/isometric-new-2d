@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AudioDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioDefinition.cs" id="1_sound"]
+
+[resource]
+script = ExtResource("1_sound")
+Id = "alien_bird_call"
+Mode = 2
+Category = 3
+Priority = 15
+Positional = true
+AllowOffscreen = true
+MaxDistance = 1100.0
+CooldownSeconds = 0
+MaximumInstances = 2
+FadeInSeconds = 0
+FadeOutSeconds = 0
+IntervalMinSeconds = 6.0
+IntervalMaxSeconds = 16.0

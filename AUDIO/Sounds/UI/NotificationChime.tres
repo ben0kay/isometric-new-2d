@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AudioDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioDefinition.cs" id="1_sound"]
+
+[resource]
+script = ExtResource("1_sound")
+Id = "ui_notification"
+Mode = 0
+Category = 1
+Priority = 70
+Positional = false
+AllowOffscreen = true
+MaxDistance = 0.0
+CooldownSeconds = 0.1
+MaximumInstances = 3
+FadeInSeconds = 0
+FadeOutSeconds = 0
+IntervalMinSeconds = 8.0
+IntervalMaxSeconds = 18.0

@@ -77,3 +77,7 @@ wl_brush_strength={
 "type": "float",
 "value": 0.0
 }
+
+[audio]
+
+buses/default_bus_layout="res://AUDIO/AudioBuses.tres"

@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AudioSettings" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioSettings.cs" id="1_settings"]
+
+[resource]
+script = ExtResource("1_settings")
+MasterDb = 0.0
+MusicDb = 0.0
+AmbienceDb = 0.0
+WorldSfxDb = 0.0
+UiDb = 0.0
+VoiceDb = 0.0
+MaximumWorldOneShots = 24
+MaximumUiOneShots = 4
+MaximumVoiceOneShots = 1
+MaximumWorldLoops = 12
+MaximumAmbientLoops = 6
+MaximumRegisteredEmitters = 256
+EmitterCheckSeconds = 0.25
+DistanceCulling = true
+ScreenCulling = true
+ScreenMarginPixels = 120.0
+LoopResumeMargin = 80.0
+PauseWorldAudioWithGame = true
+VoiceQueueLimit = 4
+DuckMusicDuringVoice = true
+VoiceMusicDuckDb = -8.0

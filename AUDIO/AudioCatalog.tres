@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="AudioCatalog" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioCatalog.cs" id="0_catalog"]
+[ext_resource type="Script" path="res://AUDIO/AudioDefinition.cs" id="0_sound"]
+[ext_resource type="Resource" path="res://AUDIO/Sounds/Player/Footstep.tres" id="1_footstep"]
+[ext_resource type="Resource" path="res://AUDIO/Sounds/Combat/Impact.tres" id="2_impact"]
+[ext_resource type="Resource" path="res://AUDIO/Sounds/Environment/GeneratorHum.tres" id="3_generator"]
+[ext_resource type="Resource" path="res://AUDIO/Sounds/Environment/AlienBirdCall.tres" id="4_bird"]
+[ext_resource type="Resource" path="res://AUDIO/Sounds/UI/NotificationChime.tres" id="5_ui"]
+[ext_resource type="Resource" path="res://AUDIO/Music/MenuTheme.tres" id="6_music"]
+[ext_resource type="Resource" path="res://AUDIO/Ambience/MarshAmbience.tres" id="7_marsh"]
+[ext_resource type="Resource" path="res://AUDIO/Companion/EclipseWarning.tres" id="8_voice"]
+
+[resource]
+script = ExtResource("0_catalog")
+Sounds = Array[ExtResource("0_sound")]([ExtResource("1_footstep"), ExtResource("2_impact"), ExtResource("3_generator"), ExtResource("4_bird"), ExtResource("5_ui"), ExtResource("6_music"), ExtResource("7_marsh"), ExtResource("8_voice")])

@@ -27,6 +27,8 @@
 [ext_resource type="Script" uid="uid://d3v5aarbwxiuf" path="res://VISUALS/Lighting/WorldLighting.cs" id="lighting_shared"]
 
 [ext_resource type="Script" path="res://DEBUG/Notifications/NotificationTester.cs" id="notification_tester"]
+[ext_resource type="PackedScene" path="res://AUDIO/AudioManager.tscn" id="audio_manager"]
+[ext_resource type="Script" path="res://DEBUG/Audio/AudioTester.cs" id="audio_tester"]
 
 [node name="WorldInfinite" type="Node2D" unique_id=953680768]
 
@@ -45,6 +47,8 @@ position = Vector2(0, 180)
 position = Vector2(0, 180)
 
 [node name="Systems" type="Node" parent="." unique_id=701126458]
+
+[node name="AudioManager" parent="Systems" instance=ExtResource("audio_manager")]
 
 [node name="Resources" type="Node" parent="Systems" unique_id=63139354]
 script = ExtResource("18_resources")
@@ -137,3 +141,6 @@ script = ExtResource("deep_caverns_test")
 
 [node name="NotificationTester" type="Node" parent="DEBUG"]
 script = ExtResource("notification_tester")
+
+[node name="AudioTester" type="Node" parent="DEBUG"]
+script = ExtResource("audio_tester")

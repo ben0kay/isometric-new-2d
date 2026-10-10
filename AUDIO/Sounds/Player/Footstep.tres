@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="AudioDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://AUDIO/AudioDefinition.cs" id="1_sound"]
+
+[resource]
+script = ExtResource("1_sound")
+Id = "player_footstep"
+Mode = 0
+Category = 0
+Priority = 25
+Positional = true
+AllowOffscreen = true
+MaxDistance = 550.0
+CooldownSeconds = 0.08
+MaximumInstances = 3
+FadeInSeconds = 0
+FadeOutSeconds = 0
+IntervalMinSeconds = 8.0
+IntervalMaxSeconds = 18.0
