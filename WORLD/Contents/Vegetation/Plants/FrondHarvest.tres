@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="HarvestProfile" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1_profile"]
+[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2_entry"]
+
+[sub_resource type="Resource" id="Drop_0"]
+script = ExtResource("2_entry")
+ItemId = "plant_fiber"
+MinimumCount = 1
+MaximumCount = 1
+Chance = 1.0
+
+[sub_resource type="Resource" id="Drop_1"]
+script = ExtResource("2_entry")
+ItemId = "alien_resin"
+MinimumCount = 1
+MaximumCount = 1
+Chance = 1.0
+
+[sub_resource type="Resource" id="Drop_2"]
+script = ExtResource("2_entry")
+ItemId = "biomass"
+MinimumCount = 1
+MaximumCount = 1
+Chance = 1.0
+
+[resource]
+script = ExtResource("1_profile")
+Drops = Array[ExtResource("2_entry")]([SubResource("Drop_0"), SubResource("Drop_1"), SubResource("Drop_2")])

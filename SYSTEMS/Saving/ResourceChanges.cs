@@ -166,6 +166,15 @@ public partial class ResourceChanges : Node
     }
 
     // =========================================================
+    // Expose the already-bound source identity without retaining any live host reference.
+    public string IdentityFor(Node2D host)
+    {
+        if (!host.HasMeta(Identity))
+            throw new InvalidDataException("Harvest source has no persistent identity.");
+        return host.GetMeta(Identity).AsString();
+    }
+
+    // =========================================================
     // Resolve a host's change record without retaining the host after unloading.
     public ResourceChangeData Get(Node2D host)
     {

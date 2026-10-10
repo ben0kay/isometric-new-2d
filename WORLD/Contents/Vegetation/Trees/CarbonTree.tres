@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://cdhmu0j632olf" path="res://WORLD/Contents/Vegetation/Trees/TreeDefinition.cs" id="1"]
 
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTreeHarvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1")
 Id = "carbon_tree"
@@ -12,3 +14,4 @@ TrunkFootprint = Vector2(44, 24)
 VisualHeight = 280.0
 Spacing = Vector2(220, 120)
 GroundClearance = 85.0
+HarvestDrops = ExtResource("phase3_harvest")

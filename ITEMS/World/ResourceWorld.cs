@@ -16,6 +16,7 @@ public partial class ResourceWorld : Node
 	#region State
 	private Node2D _objects;
     private readonly List<WorldPickup> _pending = new();
+    private readonly Dictionary<HarvestProfile, HarvestDropPlan> _harvestPlans = new();
 	#endregion
 
 	#region Lifecycle
@@ -27,6 +28,7 @@ public partial class ResourceWorld : Node
 			throw new InvalidOperationException("ResourceWorld requires an ItemCatalog.");
 
 		Catalog.Initialize();
+        _harvestPlans.Clear();
 		_objects = GetNode<Node2D>("../../WorldObjects");
 		AddToGroup("resource_world");
 		SetProcess(false);
@@ -89,6 +91,71 @@ public bool SpawnItem(ItemDefinition item, int count, Vector2 globalPosition)
 	QueuePickup(objects, pickup);
 	return true;
 }
+
+    // =========================================================
+    // Compile each shared profile once per world; cache no live resource hosts.
+    public HarvestDropPlan PrepareHarvest(HarvestProfile profile)
+    {
+        if (profile == null)
+            throw new InvalidOperationException("Missing HarvestDrops profile. Assign an external HarvestProfile to this species.");
+        if (!_harvestPlans.TryGetValue(profile, out HarvestDropPlan plan))
+        {
+            plan = profile.Compile(Catalog);
+            _harvestPlans.Add(profile, plan);
+        }
+        return plan;
+    }
+
+    // =========================================================
+    // Accept a whole evaluated batch, including intentional zero-reward harvests.
+    public bool SpawnHarvest(IReadOnlyList<HarvestDropPlan.Reward> rewards,
+        Vector2 globalPosition, Node owner = null)
+    {
+        Node2D objects = RootFor(owner);
+        if (rewards == null || rewards.Count > 64 ||
+            !GodotObject.IsInstanceValid(objects) || !objects.IsInsideTree() ||
+            objects.IsQueuedForDeletion() || IsQueuedForDeletion() || !IsInsideTree()) return false;
+
+        HashSet<string> ids = new(StringComparer.Ordinal);
+        foreach (HarvestDropPlan.Reward reward in rewards)
+        {
+            if (reward.Item == null || reward.Count < 1 || reward.Count > 100000 ||
+                Catalog.Get(reward.Item.Id) != reward.Item || !ids.Add(reward.Item.Id))
+            {
+                GD.PushError("[Resources] Invalid harvest batch; no rewards accepted.");
+                return false;
+            }
+        }
+
+        List<WorldPickup> pickups = new();
+        try
+        {
+            for (int i = 0; i < rewards.Count; i++)
+            {
+                Vector2 offset = rewards.Count == 1 ? Vector2.Zero :
+                    Vector2.FromAngle(Mathf.Tau * i / rewards.Count) * 10f;
+                pickups.Add(new WorldPickup
+                {
+                    Name = "ItemDrop", Item = rewards[i].Item, Count = rewards[i].Count,
+                    PickupRadius = Mathf.Max(8f, PickupRadius),
+                    PickupDelay = Math.Max(0, PickupDelay),
+                    Position = objects.ToLocal(globalPosition + offset)
+                });
+            }
+            foreach (WorldPickup pickup in pickups) QueuePickup(objects, pickup);
+            return true;
+        }
+        catch (Exception error)
+        {
+            foreach (WorldPickup pickup in pickups)
+            {
+                _pending.Remove(pickup);
+                if (GodotObject.IsInstanceValid(pickup) && !pickup.IsInsideTree()) pickup.Free();
+            }
+            GD.PushError($"[Resources] Harvest batch rejected: {error.Message}");
+            return false;
+        }
+    }
 
 // =========================================================
 // Validate every reward before spawning any part of a harvested object's yield.
@@ -193,6 +260,7 @@ public bool SpawnItemFor(
         foreach (WorldPickup pickup in _pending)
             if (GodotObject.IsInstanceValid(pickup) && !pickup.IsInsideTree()) pickup.Free();
         _pending.Clear();
+        _harvestPlans.Clear();
     }
 
     // =========================================================

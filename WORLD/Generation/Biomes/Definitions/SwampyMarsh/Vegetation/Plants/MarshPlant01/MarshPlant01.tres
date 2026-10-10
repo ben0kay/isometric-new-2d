@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1_plant"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01Visual.tres" id="2_visual"]
 
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/SwampyMarsh/Vegetation/Plants/MarshPlant01/MarshPlant01Harvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1_plant")
 Id = "marsh_plant_01"
@@ -11,4 +13,4 @@ ContactShadowScale = Vector2(1, 0.75)
 Spacing = Vector2(112, 64)
 SizeRange = Vector2(0.85, 1.15)
 MirrorChance = 0.5
-HarvestItemId = "plant_fiber"
+HarvestDrops = ExtResource("phase3_harvest")

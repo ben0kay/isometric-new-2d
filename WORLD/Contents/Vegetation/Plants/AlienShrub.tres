@@ -2,10 +2,12 @@
 
 [ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1"]
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Plants/AlienShrubHarvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1")
 BakedKind = 1
 ContactShadowScale = Vector2(1.05, 0.85)
 Id = "alien_shrub"
 SizeRange = Vector2(0.65, 0.95)
-BonusHarvestItems = PackedStringArray("alien_resin", "biomass", "alien_berry")
+HarvestDrops = ExtResource("phase3_harvest")

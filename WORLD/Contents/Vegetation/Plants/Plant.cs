@@ -27,7 +27,7 @@ public override async void _Ready()
             this, Definition.PlacementFootprint *
                 Mathf.Max(0.1f, SizeMultiplier), false);
 
-        ResourceHarvest.Attach(this, Definition, "plant_fiber", true);
+        ResourceHarvest.Attach(this, Definition, true);
         if (IsQueuedForDeletion()) return;
 
         await VegetationAtlas.EnsureReady(this);

@@ -2,8 +2,10 @@
 
 [ext_resource type="Script" uid="uid://775b2s1ikw5r" path="res://WORLD/Contents/Vegetation/Plants/PlantDefinition.cs" id="1"]
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Plants/FrondHarvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1")
 Id = "frond"
 SizeRange = Vector2(0.6, 1.05)
-BonusHarvestItems = PackedStringArray("alien_resin", "biomass")
+HarvestDrops = ExtResource("phase3_harvest")

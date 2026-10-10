@@ -23,9 +23,13 @@ public partial class WorldObjectDefinition : Resource
 	#endregion
 
 		#region Harvesting
-	[ExportGroup("Harvesting")]
+	[ExportGroup("Harvesting / Drops")]
+	[Export] public HarvestProfile HarvestDrops { get; set; }
+
+	[ExportGroup("Harvesting / Legacy Fields (ignored by plants, trees and rocks)")]
 	[Export] public string HarvestItemId { get; set; } = "";
 	[Export] public int HarvestUnits { get; set; } = 1;
+	[ExportGroup("Harvesting / Requirements")]
 	[Export] public float HarvestWork { get; set; } = 18f;
 	[Export] public int RequiredMiningStrength { get; set; } = 1;
 	[Export] public string[] BonusHarvestItems { get; set; } =

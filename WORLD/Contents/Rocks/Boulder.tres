@@ -3,6 +3,8 @@
 [ext_resource type="Script" uid="uid://c8r6uxctpkg6f" path="res://WORLD/Contents/Rocks/RockDefinition.cs" id="1"]
 
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/BoulderHarvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1")
 Id = "boulder"
@@ -10,3 +12,4 @@ SizeRange = Vector2(0.9, 1.1)
 WidthRange = Vector2(80, 132)
 HeightRange = Vector2(64, 116)
 FootprintDepthRatio = 0.5
+HarvestDrops = ExtResource("phase3_harvest")

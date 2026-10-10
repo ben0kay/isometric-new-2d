@@ -636,8 +636,8 @@ and validation must be checked against the actual installed formats.
 | Phase | Status | Applied baseline/commit | Evidence / remaining checks |
 |---|---|---|---|
 | 1 | Implemented in repository; local Godot checks pending | 072e048 (pre-change baseline) | Bark and nested category catalogs committed; in-engine inventory, pickup, save/load and duplicate tests remain local |
-| 2 | Installer supplied; local application and Godot checks pending | a9a69a9 | 15 items/icons/capabilities migrated; 4 existing equipment resources cataloged; static checks passed, runtime checks remain |
-| 3 | Planned | — | Not implemented |
+| 2 | Installed in reviewed source; local gameplay verification not independently confirmed | 5552ff1 | Phase 2 migration present; user reported installer application |
+| 3 | Installer supplied; local application/compilation/gameplay pending | 5552ff1 | 12 species/profiles, deterministic independent rewards, cached compilation and narrow recipe migration bridge |
 | 4 | Planned | — | Multi-reward ore scope remains a decision |
 | 5 | Planned | — | Not implemented |
 | 6 | Planned | — | Not implemented |
@@ -794,3 +794,46 @@ old save inventory/equipment; gathering and mining; berry use; crafting and
 placing Test Cube; dropped items; save/reload and queued crafting restoration.
 Git history supplies rollback; installer makes no separate backup copies.
 Next: Phase 3 after local Phase 2 checks.
+
+
+### Phase 3 — Installer Delivery (2026-10-10)
+
+Installer refreshed against 24eaeaf30031ceb824ac283cd5be4806c6eaf3b9.
+Phase 2 is present. The reviewed loading-screen additions to ChunkController
+are accepted by the prerequisite check; this installer does not modify that file.
+InstallContentPass3.ps1 supplies the shared reward resources, evaluator,
+resource-only species migration, source-layer batch pipeline, README,
+audit manifest and optional Godot check scene. It does not update GitHub.
+
+- All 12 plant/tree/rock species have local external HarvestProfiles;
+  quantity ranges and independent chances use stable existing catalog IDs.
+- Old primary quantities and plant bonuses remain. CarbonTree and Wilds
+  Tree01 additionally demonstrate Bark 1–3 at 75%; their Carbon stays one.
+- No ordinary actor item-ID fallback remains. Explicit empty profiles yield
+  no rewards and complete; missing profiles fail visibly without depletion.
+- Profiles compile once per world. Randomness runs only at completion and
+  uses stable world seed/source identity/species path. Retries keep the batch;
+  reloads reproduce it with unchanged settings. No live hosts retained by cache.
+- The existing pending-pickup save path and depletion/work records remain.
+  Campaign save version and resource-change section format are unchanged.
+- Save species fingerprints require a narrowly scoped migration allowance
+  for exact reviewed old definitions and exact new species/profile payloads.
+  Other generation edits stay rejected. Resaving uses normal profile stamps.
+  Subsequent profile changes may require a new campaign; no broad save bypass.
+- Ore/ground extraction, weighted loot, artwork, biome weights, generation
+  identities and equipment/crafting mechanics remain unchanged.
+- Old sprite-batch exports that only write HarvestItemId need an explicit
+  profile before harvesting; toolbox updates are outside this phase.
+
+Validation performed: reference/call-site audit across current C#/scenes,
+complete species coverage, unique registered item IDs, preservation of all
+non-reward species fields, typed-resource reference closure, deterministic
+seed/quantity vectors and exact recipe migration fingerprint checks.
+No PowerShell, .NET or Godot runtime was available. The included test scene
+has not been executed here; compilation, installer application and full
+world/save testing must be performed locally. Do not mark Phase 3 complete
+until the README's checks pass. The installer defaults to preview and keeps
+Git as rollback history; a failed write restores original bytes in memory.
+
+Next: Phase 4 after local verification. Phase 4 handles ore/ground-specific
+batch extraction and decides whether ore supports multiple independent rewards.

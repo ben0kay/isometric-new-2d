@@ -3,6 +3,8 @@
 [ext_resource type="Script" path="res://WORLD/Contents/Vegetation/Trees/TreeDefinition.cs" id="1_tree"]
 [ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree03/Tree03Visual.tres" id="2_visual"]
 
+[ext_resource type="Resource" path="res://WORLD/Generation/Biomes/Definitions/VerdigrisWilds/Vegetation/Trees/Tree03/Tree03Harvest.tres" id="phase3_harvest"]
+
 [resource]
 script = ExtResource("1_tree")
 Id = "tree03"
@@ -13,3 +15,4 @@ TrunkFootprint = Vector2(44, 24)
 VisualHeight = 280.0
 Spacing = Vector2(220, 120)
 GroundClearance = 85.0
+HarvestDrops = ExtResource("phase3_harvest")
