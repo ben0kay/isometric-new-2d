@@ -30,13 +30,47 @@ public partial class WorldFeedback : Node
             return;
         }
 
-        float centreX = (visualBounds.Position.X +
-            visualBounds.Size.X * 0.5f) * visualScale;
-        float topY = visualBounds.Position.Y * visualScale;
+        // Feedback must follow the actual artwork, not the generous
+        // SpawnVisualBounds used for gameplay placement and clearance.
+        Vector2 anchor = GetArtworkTop(visual, visualBounds, visualScale);
+        float centreX = anchor.X;
+        float topY = anchor.Y;
 
         BindHealthBar(health, visual, centreX, topY, healthOverride);
         BindDamageNumbers(health, visual, centreX, topY, damageOverride);
         SetFacing(visual.Scale.X);
+    }
+
+    // =========================================================
+    // Position feedback at the rendered sprite's top in TerrainVisual space.
+    // Fallback bounds remain available for custom drawn Node2D artwork.
+    private static Vector2 GetArtworkTop(
+        Node2D visual, Rect2 visualBounds, float visualScale)
+    {
+        float centreX = (visualBounds.Position.X +
+            visualBounds.Size.X * 0.5f) * visualScale;
+        float topY = visualBounds.Position.Y * visualScale;
+
+        if (visual.GetNodeOrNull<Sprite2D>("Artwork") is not Sprite2D sprite ||
+            sprite.Texture == null)
+            return new Vector2(centreX, topY);
+
+        Rect2 region = sprite.GetRect();
+        if (region.Size.X <= 0f || region.Size.Y <= 0f)
+            return new Vector2(centreX, topY);
+
+        // Sprite rect includes its anchor/Offset; Transform includes artwork
+        // scale, position and rotation. Sample all four transformed corners.
+        Transform2D transform = sprite.Transform;
+        Vector2 a = transform * region.Position;
+        Vector2 b = transform * new Vector2(region.End.X, region.Position.Y);
+        Vector2 c = transform * region.End;
+        Vector2 d = transform * new Vector2(region.Position.X, region.End.Y);
+
+        float left = Mathf.Min(Mathf.Min(a.X, b.X), Mathf.Min(c.X, d.X));
+        float right = Mathf.Max(Mathf.Max(a.X, b.X), Mathf.Max(c.X, d.X));
+        topY = Mathf.Min(Mathf.Min(a.Y, b.Y), Mathf.Min(c.Y, d.Y));
+        return new Vector2((left + right) * 0.5f, topY);
     }
 
     // =========================================================
@@ -64,7 +98,8 @@ public partial class WorldFeedback : Node
         {
             Name = "HealthBar",
             Position = new Vector2(centreX,
-                topY - settings.VerticalGap - settings.BarHeight * 0.5f),
+                topY - settings.VerticalGap - settings.BarHeight * 0.5f +
+                settings.VerticalOffset),
             ZIndex = 4
         };
         visual.AddChild(_bar);

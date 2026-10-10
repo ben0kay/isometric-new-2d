@@ -24,8 +24,19 @@ are wired in this initial implementation (not the player HUD).
 
 The health bar is attached to the elevated `TerrainVisual` beside its
 `Artwork` child, so terrain/layer motion is inherited without another
-per-frame position tracker. `SpawnVisualBounds` determines its top anchor.
-`WorldFeedback.SetFacing` counteracts sprite facing flips.
+per-frame position tracker. When the `Artwork` child is a `Sprite2D`,
+feedback uses its real rendered rectangle (including artwork offsets and
+scaling) to locate the top centre. This avoids the excessive empty space
+from the much larger `SpawnVisualBounds`, which is retained as a fallback
+for custom drawn `Node2D` art. `WorldFeedback.SetFacing` counteracts
+sprite facing flips.
+
+In `DefaultHealthBarSettings.tres`, `VerticalGap` controls the small
+clearance above the sprite; `VerticalOffset` allows a larger signed
+adjustment without changing species' gameplay bounds. A **positive
+VerticalOffset moves the bar DOWN**, and a negative offset moves it UP.
+Damage numbers share the corrected sprite-top anchor but keep their own
+`VerticalGap`. Restart/recreate entities after changing the `.tres`.
 
 The Health component's `Changed` and `Died` signals control display.
 Full health is hidden by default; a partly damaged actor restored from a

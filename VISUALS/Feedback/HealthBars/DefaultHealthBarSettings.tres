@@ -12,6 +12,7 @@ HealthAtMinimumWidth = 50
 HealthAtMaximumWidth = 2000
 BarHeight = 5.0
 VerticalGap = 10.0
+VerticalOffset = 0.0
 Background = Color(0.0627, 0.1098, 0.1608, 1)
 Border = Color(0.4078, 0.5529, 0.6353, 1)
 Healthy = Color(0.302, 0.8784, 0.7333, 1)

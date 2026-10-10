@@ -19,6 +19,9 @@ public partial class HealthBarSettings : Resource
     [Export(PropertyHint.Range, "2,100000,1,or_greater")] public int HealthAtMaximumWidth { get; set; } = 2000;
     [Export(PropertyHint.Range, "2,16,1")] public float BarHeight { get; set; } = 5f;
     [Export(PropertyHint.Range, "0,80,1,or_greater")] public float VerticalGap { get; set; } = 10f;
+    // Positive values move the bar down; negative values move it up.
+    [Export(PropertyHint.Range, "-120,120,1")]
+    public float VerticalOffset { get; set; } = 0f;
     #endregion
 
     #region Color
@@ -48,6 +51,7 @@ public partial class HealthBarSettings : Resource
             HealthAtMinimumWidth < 1 || HealthAtMaximumWidth <= HealthAtMinimumWidth ||
             !float.IsFinite(BarHeight) || BarHeight < 1f ||
             !float.IsFinite(VerticalGap) || VerticalGap < 0f ||
+            !float.IsFinite(VerticalOffset) ||
             !float.IsFinite(WarningThreshold) || WarningThreshold < 0f || WarningThreshold > 1f ||
             !float.IsFinite(CriticalThreshold) || CriticalThreshold < 0f ||
             CriticalThreshold > WarningThreshold ||
