@@ -641,7 +641,7 @@ After each phase, replace its status with the precise state:
 supplied, applied, compiled, locally tested, or complete. Record failures
 and follow-up work before handing the next phase to another chat.
 
-
+folders organize items, but item IDs and capabilities determine how they work.
 ITEMS/
 └── Definitions/
     │
