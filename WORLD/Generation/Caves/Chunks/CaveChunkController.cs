@@ -176,6 +176,14 @@ public event Action<Vector2I> ChunkAvailabilityChanged;
 
     // =========================================================
     // Test the player's footprint against ready floor, including chunk edges.
+    public bool IsDropChunkActive(Vector2 point)
+    {
+        Vector2 tile = _world.WorldToTile(point);
+        Vector2I cell = new(Mathf.FloorToInt(tile.X + 0.5f), Mathf.FloorToInt(tile.Y + 0.5f));
+        return _active && !_failed &&
+            _chunks.TryGetValue(CoordinateForCell(cell), out CaveChunk chunk) && chunk.Ready;
+    }
+
     public bool IsAvailable(Vector2 point, float clearance = 14f)
     {
         if (_failed || !PointAvailable(point)) return false;
@@ -333,3 +341,4 @@ private void RetireDistant()
     }
     #endregion
 }
+

@@ -118,6 +118,13 @@ public partial class WorldLayerRuntime : Node
 
     // =========================================================
     // Check completed terrain in the requested layer.
+    public bool IsDropChunkActive(string id, Vector2 point)
+    {
+        return ActiveLayer == id && (id == WorldLayerId.Surface
+            ? _surfaceChunks.IsDropChunkActive(point)
+            : GetUnderground(id).Streaming.IsDropChunkActive(point));
+    }
+
     public bool IsAvailable(string id, Vector2 point, float clearance = 0f)
     {
         return id == WorldLayerId.Surface
@@ -159,3 +166,4 @@ public partial class WorldLayerRuntime : Node
     }
     #endregion
 }
+

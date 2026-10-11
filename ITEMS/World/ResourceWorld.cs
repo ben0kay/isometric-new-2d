@@ -236,6 +236,7 @@ public bool SpawnItemFor(
     // Include accepted rewards immediately, even before deferred scene attachment.
     private void QueuePickup(Node2D root, WorldPickup pickup)
     {
+        pickup.InitializeLifetime(this);
         pickup.PendingLayer = WorldLayerMember.For(root);
         pickup.PendingGlobalPosition = root.ToGlobal(pickup.Position);
         _pending.Add(pickup);
@@ -301,3 +302,4 @@ public bool SpawnItemFor(
 				.ObjectsFor(layer);
 	}
 }
+

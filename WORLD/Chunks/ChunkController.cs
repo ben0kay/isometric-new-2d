@@ -512,6 +512,13 @@ private IEnumerable<ChunkBuildStage> ActivateChunk(ChunkRecord chunk)
 	#region Navigation And Boundary
 	// =========================================================
 	// Require loaded terrain and local clearance rather than world boundaries.
+    public bool IsDropChunkActive(Vector2 point)
+    {
+        return WorldReady && _groundRoot != null &&
+            _chunks.TryGetValue(IsoGrid.WorldToChunk(_groundRoot.ToLocal(point), TileSize, ChunkSize),
+                out ChunkRecord chunk) && chunk.Ready && !chunk.Retiring;
+    }
+
 	public bool IsNavigationPointAvailable(
 		Vector2 globalPoint, float clearance = 0f)
 	{
@@ -682,3 +689,4 @@ private void UpdateDebug()
 		return false;
 	}
 }
+

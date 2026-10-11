@@ -26,6 +26,8 @@ public static class CampaignRecipe
                 if ((usage & PropertyUsageFlags.ScriptVariable) == 0 ||
                     (usage & PropertyUsageFlags.Storage) == 0) continue;
                 string name = property["name"].AsString();
+                // Gameplay tuning stays global; existing drops save their own remainder.
+                if (owner == "CONFIG" && name == nameof(GlobalConfig.DroppedItemLifetimeSeconds)) continue;
                 Variant value = node.Get(name);
                 if (value.VariantType == Variant.Type.Object)
                 {
@@ -171,3 +173,4 @@ public static class CampaignRecipe
         world.GetNode<ChunkController>("Systems/ChunkController").WorldSeed = data.Seed;
     }
 }
+

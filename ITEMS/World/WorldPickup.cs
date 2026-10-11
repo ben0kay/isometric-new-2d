@@ -8,7 +8,7 @@ public partial class WorldPickup : Area2D
 {
     #region Configuration
     public string PersistentId { get; set; } = Guid.NewGuid().ToString("N");
-    // Null means no expiry. A later expiry mechanic will update remaining gameplay seconds.
+    // Null initializes from universal tuning, including older saved drops.
     public double? RemainingLifetimeSeconds { get; set; }
     public ItemDefinition Item { get; set; }
     public string PendingLayer { get; set; } = WorldLayerId.Surface;
@@ -52,6 +52,8 @@ public partial class WorldPickup : Area2D
 // Build a player trigger and display an icon or readable fallback label.
 public override void _Ready()
 {
+    InitializeLifetime();
+    ProcessMode = ProcessModeEnum.Pausable;
     CollisionLayer = 0;
     CollisionMask = 2;
     Monitoring = true;
@@ -109,6 +111,30 @@ public override void _Ready()
     }
     #endregion
 
+    // Initialize before deferred attachment so immediate saves also contain the timer.
+    public void InitializeLifetime(Node context = null)
+    {
+        if (RemainingLifetimeSeconds.HasValue) return;
+        double seconds = WorldConfig.Find(context ?? this).DroppedItemLifetimeSeconds;
+        if (!double.IsFinite(seconds) || seconds <= 0)
+            throw new InvalidOperationException("Dropped item lifetime must be finite and positive.");
+        RemainingLifetimeSeconds = seconds;
+    }
+
+    // Drops live under layer object roots; terrain retirement does not delete them.
+    public override void _Process(double delta)
+    {
+        WorldLayerRuntime runtime = WorldLayerRuntime.Find(this);
+        if (IsQueuedForDeletion() || GetTree().Paused || runtime == null ||
+            !runtime.IsDropChunkActive(WorldLayerMember.For(this), GlobalPosition)) return;
+        RemainingLifetimeSeconds = Math.Max(0, RemainingLifetimeSeconds.Value - delta);
+        if (RemainingLifetimeSeconds > 0) return;
+        Count = 0;
+        SetProcess(false);
+        SetPhysicsProcess(false);
+        QueueFree();
+    }
+
     #region Collection
 // =========================================================
 // Collect nearby items only when player and pickup occupy the same layer.
@@ -146,3 +172,4 @@ public override void _PhysicsProcess(double delta)
 }
     #endregion
 }
+

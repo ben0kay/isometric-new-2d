@@ -4,6 +4,11 @@ using Godot;
 
 public partial class GlobalConfig : Node
 {
+    [ExportGroup("DROPPED ITEMS")]
+    // Active chunk seconds; captured once per drop. Existing timers retain their remainder.
+    [Export(PropertyHint.Range, "1,3600,1,or_greater")]
+    public double DroppedItemLifetimeSeconds { get; set; } = 60.0;
+
 	#region Biomes
 	[ExportGroup("BIOMES")]
 	[Export(PropertyHint.Range, "0.25,8,0.25")]
@@ -199,3 +204,4 @@ public double EclipseDurationMinutes { get; set; } = 15.0;
 public float EclipseDarknessMultiplier { get; set; } = 1f;
 #endregion
 }
+
