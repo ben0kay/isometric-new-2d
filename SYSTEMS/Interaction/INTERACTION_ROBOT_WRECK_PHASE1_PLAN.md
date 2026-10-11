@@ -31,6 +31,7 @@ No scene/resource bytes, saved identities, inventory transactions, loot rolling 
 
 ## Verification
 
+- Startup correction: controller attachment is deferred because StorageHud.Ready runs while Player is setting up children. The focused fixture now reproduces child-Ready/parent-busy ordering.
 - C# build against the available updated runtime source: passed.
 - Focused headless Godot checks: runtime storage target attachment and sprite/elevation alignment, storage reach and hidden-target rejection, point targeting/off-art rejection, provider eligibility, exact action dispatch, immediate execution recheck, modal priority, held/released world-use suppression, queued target deletion, viewport clamp and real centre button: passed.
 - These are focused component checks, not a claim that natural robot combat, every item or a full campaign was manually played remotely.

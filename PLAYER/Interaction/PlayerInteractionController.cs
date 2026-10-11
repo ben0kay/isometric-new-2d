@@ -13,8 +13,16 @@ public partial class PlayerInteractionController : Node
     public static void Attach(Player player, StorageHud storage)
     {
         if (player.GetNodeOrNull<PlayerInteractionController>("Interaction") != null) return;
-        player.AddChild(new PlayerInteractionController
-        { Name = "Interaction", _player = player, _storage = storage });
+        // StorageHud.Ready runs while Player is still attaching its original children.
+        Callable.From(() =>
+        {
+            if (!GodotObject.IsInstanceValid(player) || !player.IsInsideTree() ||
+                player.IsQueuedForDeletion() || !GodotObject.IsInstanceValid(storage) ||
+                storage.IsQueuedForDeletion() ||
+                player.GetNodeOrNull<PlayerInteractionController>("Interaction") != null) return;
+            player.AddChild(new PlayerInteractionController
+            { Name = "Interaction", _player = player, _storage = storage });
+        }).CallDeferred();
     }
     // =========================================================
     // Build one shared wheel above world artwork and below modal menus.

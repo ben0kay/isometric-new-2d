@@ -15,7 +15,7 @@ public partial class InteractionChecks : Node
  public partial class TestPlayer : Player
  { public override void _Ready(){} public override void _PhysicsProcess(double d){} }
  public partial class TestStorage : StorageHud
- { public override void _Ready(){} public override void _Process(double d){} public override void _ExitTree(){} }
+ { public override void _Ready(){ PlayerInteractionController.Attach(GetParent<Player>(),this); } public override void _Process(double d){} public override void _ExitTree(){} }
  public partial class TestWorldStorage : WorldStorage { public override void _Ready(){} }
  static void Set(object o,string f,object v)=>o.GetType().GetField(f,BindingFlags.NonPublic|BindingFlags.Instance).SetValue(o,v);
  static void Check(bool c,string m){if(!c)throw new Exception(m);}
@@ -23,9 +23,10 @@ public partial class InteractionChecks : Node
  {
   try {
    var modes=new InputModes();AddChild(modes);
-   var player=new TestPlayer();AddChild(player);var systems=new Node{Name="Systems"};player.AddChild(systems);var health=new Health{Name="Health"};systems.AddChild(health);
+   var player=new TestPlayer();var systems=new Node{Name="Systems"};player.AddChild(systems);var health=new Health{Name="Health"};systems.AddChild(health);
    var storage=new TestStorage{Name="StorageHud"};player.AddChild(storage);
-   PlayerInteractionController.Attach(player,storage);
+   AddChild(player); // Child Ready attaches the controller while its parent is busy.
+   await ToSignal(GetTree(),SceneTree.SignalName.ProcessFrame);
    var controller=player.GetNode<PlayerInteractionController>("Interaction");
    var provider=new Provider();var target=new InteractionTarget{CollisionLayer=InteractionTarget.Mask,CollisionMask=0,Monitoring=false};
    typeof(InteractionTarget).GetProperty("Provider").SetValue(target,provider);AddChild(target);
