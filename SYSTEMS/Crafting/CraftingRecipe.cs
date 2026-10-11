@@ -34,15 +34,15 @@ public partial class CraftingRecipe : Resource
     // Reject malformed recipes before they enter the player's queue.
     public void Validate(ItemCatalog items)
     {
-        if (string.IsNullOrWhiteSpace(Id) ||
+        if (items == null || string.IsNullOrWhiteSpace(Id) ||
             Output == null ||
             string.IsNullOrWhiteSpace(Output.Id) ||
-            OutputCount < 1 ||
+            OutputCount < 1 || OutputCount > 999 ||
             Output.MaxStack < 1 ||
             !double.IsFinite(DurationSeconds) ||
             DurationSeconds <= 0.0 ||
             Ingredients == null ||
-            Ingredients.Count == 0)
+            Ingredients.Count == 0 || Ingredients.Count > 64)
             throw new InvalidOperationException(
                 $"Invalid crafting recipe: '{Id}'.");
 
@@ -55,13 +55,18 @@ public partial class CraftingRecipe : Resource
             throw new InvalidOperationException(
                 $"Unknown crafting output: '{Output.Id}'.");
 
+        // An ID alone must not introduce conflicting weight, stack or capability data.
+        if (items.Get(Output.Id) != Output)
+            throw new InvalidOperationException(
+                $"Recipe '{Id}' must reference the registered output resource '{Output.Id}'.");
+
         HashSet<string> seen = new();
 
         foreach (CraftingIngredient ingredient in Ingredients)
         {
             if (ingredient == null ||
                 string.IsNullOrWhiteSpace(ingredient.ItemId) ||
-                ingredient.Count < 1 ||
+                ingredient.Count < 1 || ingredient.Count > 999 ||
                 items.Get(ingredient.ItemId) == null ||
                 !seen.Add(ingredient.ItemId))
                 throw new InvalidOperationException(

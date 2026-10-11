@@ -1,4 +1,4 @@
-// Registers C# recipes and optional Inspector-assigned recipe resources.
+// Registers explicit external recipes and rejects duplicate recipe identities.
 // Crafting execution and player queue state remain in the existing shared systems.
 using Godot;
 using System;
@@ -14,23 +14,20 @@ public partial class CraftingCatalog : Resource
         { get; set; } = new();
     #endregion
 
-    #region State
-    private bool _built;
-    #endregion
-
     // =========================================================
-    // Add C# recipes once, validate their items and reject duplicate recipe IDs.
+    // Validate resource content without appending or duplicating recipes.
     public void Validate(ItemCatalog items)
     {
         if (items == null)
             throw new InvalidOperationException(
                 "Crafting requires an initialized item catalog.");
 
-        if (IncludeBuiltInRecipes && !_built)
-        {
-            PlaceableItems.RegisterRecipes(items, Recipes);
-            _built = true;
-        }
+        if (IncludeBuiltInRecipes)
+            throw new InvalidOperationException(
+                "Built-in recipe registration is retired. Register external recipes and disable IncludeBuiltInRecipes.");
+
+        if (Recipes == null)
+            throw new InvalidOperationException("Crafting catalog has no recipe array.");
 
         HashSet<string> seen = new();
 

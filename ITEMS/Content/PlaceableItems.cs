@@ -1,7 +1,6 @@
-// Retains the legacy test-cube recipe and world artwork; item data lives in .tres.
+// Draws test-cube world artwork; item and recipe data live in separate .tres files.
 // Shared placement code still owns previews, collision, placement and destruction.
 using Godot;
-using System.Collections.Generic;
 
 public partial class PlaceableItems : Node2D
 {
@@ -13,29 +12,6 @@ public partial class PlaceableItems : Node2D
     private const string RightColour = "#344d58";
     private const string TopColour = "#9bb7b8";
     private const string EdgeColour = "#20333d";
-    #endregion
-
-    #region Definitions
-    // =========================================================
-    // Register recipes using the same item definitions as the master catalog.
-    public static void RegisterRecipes(
-        ItemCatalog items, Godot.Collections.Array<CraftingRecipe> recipes)
-    {
-        recipes.Add(new CraftingRecipe
-        {
-            Id = "test_cube",
-            Category = "Building",
-            Description =
-                "A temporary building block for testing crafting and placement.",
-            Output = items.Get("test_cube"),
-            OutputCount = 1,
-            DurationSeconds = 2.0,
-            Ingredients = new Godot.Collections.Array<CraftingIngredient>
-            {
-                new CraftingIngredient { ItemId = "scrap_metal", Count = 2 }
-            }
-        });
-    }
     #endregion
 
     #region World Artwork

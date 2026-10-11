@@ -638,8 +638,8 @@ and validation must be checked against the actual installed formats.
 | 1 | Implemented in repository; local Godot checks pending | 072e048 (pre-change baseline) | Bark and nested category catalogs committed; in-engine inventory, pickup, save/load and duplicate tests remain local |
 | 2 | Installed in reviewed source; local gameplay verification not independently confirmed | 5552ff1 | Phase 2 migration present; user reported installer application |
 | 3 | Installed; user reports local checks passed | 5cf3f0c | Harvest profiles present in reviewed push |
-| 4 | Installer supplied; local application/compilation/gameplay pending | 5cf3f0c | Complete ore batches with independent bonuses; ground validation |
-| 5 | Planned | — | Not implemented |
+| 4 | Installed; user reports local checks passed | 30a8ded | Ore bonus resources present in latest push |
+| 5 | Installer supplied; local application/compilation/gameplay pending | 30a8ded | External Test Cube and Bark-to-Fiber recipes |
 | 6 | Planned | — | Not implemented |
 
 After each phase, replace its status with the precise state:
@@ -861,3 +861,23 @@ leave pickups on the ground. Batch acceptance happens before ore depletion.
 Static audit/resource/payload checks passed. PowerShell, C# compilation and
 Godot gameplay are not available remotely; do not mark Phase 4 complete until
 local checks pass. Next: Phase 5, external crafting recipes.
+
+
+## Content Pass 5 — External Crafting Recipes
+
+Prepared against 30a8ded. Test Cube recipe lives beside TestCube.tres; its
+ID, Building category, description, two Scrap Metal cost, one cube output
+and two-second duration are preserved. Built-in recipe registration is
+retired; world cube artwork is preserved. The master crafting catalog
+explicitly lists two external resources and validation does not append entries.
+
+PlantFiberFromBarkRecipe.tres is example content: one Bark produces one
+Plant Fiber in two seconds (plant_fiber_from_bark, Materials). Output
+resources must be the same registered ItemDefinition, with bounded counts,
+valid durations and unique registered ingredients. No new item or station.
+
+PlayerCrafting, PlayerInventory, queue save format and restore implementation
+are unchanged. Existing test_cube jobs retain identity and duration. Future
+recipe edits can affect queued jobs because saves store ID/progress, not a
+recipe snapshot. See SYSTEMS/Crafting/Phase5README.md for checks and authoring.
+Static checks only here; Godot/.NET/PowerShell execution unavailable.
