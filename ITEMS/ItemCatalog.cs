@@ -43,6 +43,10 @@ public partial class ItemCatalog : Resource
             throw new InvalidOperationException(
                 "Item catalogs contain a missing category or circular reference.");
 
+        if (catalog.IncludeBuiltInItems || catalog.Items == null || catalog.Categories == null)
+            throw new InvalidOperationException(
+                $"Invalid external item catalog '{catalog.ResourcePath}': built-ins must be disabled and arrays must exist.");
+
         foreach (ItemDefinition item in catalog.Items)
             RegisterItem(item);
 

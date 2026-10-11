@@ -3,7 +3,10 @@
 Reviewed repository: ben0kay/isometric-new-2d
 Reviewed commit: fc09adffd29daea18295b28105804fd292e2559c
 
-Status: original assessment was planning-only. See the Progress Record below
+Historical assessment: the sections through Suggested Next Instruction describe
+the original pre-refactor code. They are not the current implementation.
+Use the Progress Record, completion record and ITEMS/Discovery/README.md for
+current behavior. See the Progress Record below
 for subsequent implementation. No local gameplay verification has been
 performed by the planning assessment.
 
@@ -639,8 +642,8 @@ and validation must be checked against the actual installed formats.
 | 2 | Installed in reviewed source; local gameplay verification not independently confirmed | 5552ff1 | Phase 2 migration present; user reported installer application |
 | 3 | Installed; user reports local checks passed | 5cf3f0c | Harvest profiles present in reviewed push |
 | 4 | Installed; user reports local checks passed | 30a8ded | Ore bonus resources present in latest push |
-| 5 | Installer supplied; local application/compilation/gameplay pending | 30a8ded | External Test Cube and Bark-to-Fiber recipes |
-| 6 | Planned | — | Not implemented |
+| 5 | Installed; user reports local checks passed | 659b936 | External recipes present in reviewed latest push |
+| 6 | Installer supplied; local compile/export and combined gameplay checks pending | 659b936 | Explicit resource discovery, versioned reports, authoring guide and fixtures |
 
 After each phase, replace its status with the precise state:
 supplied, applied, compiled, locally tested, or complete. Record failures
@@ -881,3 +884,40 @@ are unchanged. Existing test_cube jobs retain identity and duration. Future
 recipe edits can affect queued jobs because saves store ID/progress, not a
 recipe snapshot. See SYSTEMS/Crafting/Phase5README.md for checks and authoring.
 Static checks only here; Godot/.NET/PowerShell execution unavailable.
+
+
+## Content Pass 6 — Completion Record
+
+Prepared against 659b936. Phases 1–5 are installed in the inspected code; the
+user reports Pass 5 checks look good. Pass 6 supplies explicit resource
+discovery and validation, a schema-v1 JSON/Markdown export scene, a lightweight
+PowerShell Godot launcher, local relationship/invalid-content fixtures, an
+authoring/schema/save guide and corrected Bark documentation. Nested item
+catalog validation now rejects retired built-in flags and null arrays.
+
+Changed files: ITEMS/ItemCatalog.cs, ITEMS/Definitions/README.md and this note.
+New files are under ITEMS/Discovery: ContentDiscovery.cs, ContentReportExport.cs
+and scene, ExportContentReport.ps1, README.md, Tests/ContentDiscoveryChecks.cs
+and scene. No species, profile, recipe, generation settings, inventory, pickup
+or save resources are rewritten. No BEN_TOOLBOX editor is implemented.
+
+The export discovers defined items separately from registered items/recipes;
+plant/tree/rock/ore/ground sources include reward quantities, conditional
+chances, extraction context, exact edit locators, profile sharing and biome
+selection bindings. It reads resolved biome Content accessors, including legacy
+fallback. Ore settings are definition options, not claims about an active
+campaign. Grass has no item harvesting route; entity/chest loot is not covered.
+Generated reports are derived snapshots, not a second content database.
+
+Static checks performed: pinned resource reference closure, current catalog
+coverage, harvest/ore/ground/recipe relationships and profile fields, exact
+installer payload/guards, code delimiter checks and absence of new gameplay
+scan hooks. Godot, .NET and PowerShell could not run here. Local compilation,
+F6 export/fixture scenes and combined new/existing campaign regressions remain
+required; see ITEMS/Discovery/README.md. Implementation delivery completes the
+six phases; verification completion is still pending. Unrelated save/player
+architecture work is not declared complete.
+
+Next: apply InstallContentPass6.ps1, verify the exporter and gameplay checks,
+then mark Phase 6 locally verified. A future PowerShell/Avalonia content editor
+can consume this schema and invoke Godot validation before/after proposed edits.

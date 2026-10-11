@@ -65,8 +65,10 @@ ITEMS/ItemCatalog.tres
 
 Bark is an ordinary, stackable item with a placeholder icon. It is
 registered and can be resolved by `ItemCatalog.Get("bark")` after
-initialization. **No tree currently drops Bark**; customizable harvest
-profiles and tree assignment are scheduled for Phase 3.
+initialization. CarbonTree and Verdigris Wilds Tree01 now drop Carbon and independent Bark
+1–3 at 75% through their external harvest profiles. Bark also feeds the
+PlantFiberFromBark example recipe. See `ITEMS/Discovery/README.md` for
+current relationships, reporting and authoring instructions.
 
 ## Testing Phase 1 locally
 
@@ -102,3 +104,12 @@ resources to preserve scene and save references.
 Phase2Migration.json is an audit manifest, not a runtime catalog or manually
 maintained relationship index. Catalog resources remain authoritative.
 Run the local checks in NOTES/FutureWork/DataDrivenItems.md after applying.
+
+
+## Current content discovery
+
+The Phase 1 testing section above is a historical setup checklist. The current
+item catalog uses external resources throughout; crafting and harvest profiles
+are implemented. Run `ITEMS/Discovery/ContentReportExport.tscn` for a fresh
+JSON/Markdown index rather than maintaining manual relationship lists.
+See `ITEMS/Discovery/README.md` for schema, editing examples and final checks.
