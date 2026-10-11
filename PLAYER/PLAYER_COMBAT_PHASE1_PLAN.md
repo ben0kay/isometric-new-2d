@@ -232,6 +232,97 @@ must not be partially implemented in this pass.
    ammo/charge, heat and condition as explicitly approved.
 5. **Optional Player folder cleanup:** break out movement/aim controllers
    only if they actually reduce complexity after the above passes.
+6. **Player defensive equipment:** armour, shield generators and optional
+   modifiers feeding the same shared COMBAT layered-defence system. See below.
+
+### Future player armour, shield generators and defensive equipment (NOT Phase 1)
+
+**Design status: FUTURE / NOT IMPLEMENTED.** This section records the long-term
+player equipment contract. It must **not** broaden the save-neutral
+`PlayerCombatController` extraction in Phase 1. Coordinate implementation with
+`COMBAT/COMBAT_ARCHITECTURE_PLAN.md` after the common defence and damage
+resolution layers are approved.
+
+**Default player:** only **Health** (core vitality) is present. No automatic
+Shield or Armour pool, no permanent shield capacity, and no default armour
+capacity. The core vitality uses the existing `Health.cs` behaviour;
+`VitalityKind.Health` vs `VitalityKind.Hull` is a presentation/label distinction,
+**not two separate underlying health systems**. Creatures may use Health;
+mechanical entities may show Hull. The player's core remains labelled Health.
+
+**Equipped player gear may add optional defence layers** in this hit order:
+
+`incoming hit → Shield (if equipped) → Armour (if equipped) → Health`
+
+- **Armour equipment:** future helmet, chest armour, legs and/or a suit
+  can supply Armour capacity, damage-type resistances and possibly trade-offs
+  such as carrying weight and mobility. Equipping gear activates or adjusts
+  the optional Armour layer; removing all providers returns the player to
+  Health-only (or Shield → Health when a shield is still equipped).
+- **Shield equipment:** a generator, suit or optional shield module can
+  supply Shield capacity, recharge rate, recharge delay and type-specific
+  resistance. Without any active shield provider, **no Shield layer exists**.
+- **Health never disappears** when gear is equipped. Health reaches zero
+  under the shared death system; empty/broken Shield or Armour does not
+  independently kill the player.
+- **Do not create player-only damage math.** Equipment contributes immutable
+  resource data to the shared `COMBAT/Defenses/DefenseController`,
+  `DefenseLayerDefinition` and runtime per-actor defence state. The common
+  resolver handles absorption, damage type, penetration and overflow.
+- Armour and shield item definitions remain ordinary catalogued
+  `ITEMS/Definitions/Equipment/Armor/**` and
+  `ITEMS/Definitions/Equipment/Gadgets/**` or another agreed item category.
+  `PLAYER/Equipment/` owns the *player's slot management and equip actions*,
+  not duplicate armour/shield resolution. A future dedicated
+  `PLAYER/Equipment/Armor/` or `Shields/` folder is optional **only if there
+  is actual player-specific code to put there**; don't create empty folders.
+- Equipment benefits may combine with character stats and later
+  modules/refinements, but should be recomputed **when loadout changes**,
+  not for every damage tick or each rendered frame. Shared Godot `.tres`
+  definitions must never carry an individual's mutable shield/armour damage.
+- HUD can later show Shield, Armour and Health separately, with correct
+  damage-number and shield-break feedback, while a starting player still
+  shows their existing Health display unchanged.
+- Defence pieces may have **their own item condition/durability** in the
+  future. If implemented, distinguish the condition of a specific piece
+  from the current combined Armour pool. Do not silently conflate these
+  two forms of state or duplicate them in saves.
+
+**Unresolved choices (ask before implementing):**
+
+1. Do multiple armour pieces contribute to a **single combined Armour pool**,
+   separate pools per body slot, or resistances without a pool? Proposed
+   first version: one combined optional Armour pool, with per-item condition
+   deferred.
+2. If the maximum Shield/Armour capacity changes while damaged, how should
+   current points change (keep absolute amount, keep percentage, or clamp)?
+   Also define what happens on unequip/re-equip to prevent free repairs.
+3. How do shield/armour resistances combine across pieces, and how do
+   penetrating attacks bypass individual layers?
+4. Which equipment slots exist, and can a suit generate both Armour and
+   Shield? Prefer data-driven provision over hardcoded player-specific types.
+5. Decide the policy for recharge, out-of-combat repair, death, respawn,
+   and removing equipment while layers are damaged.
+
+**Save compatibility is non-negotiable for this future pass.** Current
+campaigns have player Health and existing equipment/quickslots only.
+Adding armour/shield equipment slots and defence values needs a coordinated,
+backwards-compatible extension to equipment, inventory and save/restore.
+Older saves must load as Health-only with valid existing tool selections;
+new saves must preserve worn gear, shield charge, armour damage and relevant
+modifications. No save change is authorized by this planning update.
+
+**Future implementation acceptance checks:**
+
+- [ ] Brand-new player has Health only; old campaigns continue to load.
+- [ ] Wearing armour adds only Armour; a shield generator adds Shield.
+- [ ] Different loadouts correctly resolve Shield → Armour → Health.
+- [ ] Removing equipment recalculates capacity without duplicating repairs.
+- [ ] A shield-only hit does not report false Health loss or trigger death.
+- [ ] Unequip, inventory transfer, save/reload and respawn retain expected
+      gear identity and layer values.
+- [ ] Existing player input, tools, crafting and survival behaviour remain
+      unaffected by defensive equipment work.
 
 ## 7. Copy-ready Codex hand-off
 
