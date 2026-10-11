@@ -53,7 +53,7 @@ public partial class InputModes : Node
         {
             if (_waitForMouseRelease)
             {
-                if (!Input.IsMouseButtonPressed(MouseButton.Left))
+                if (!Input.IsMouseButtonPressed(MouseButton.Left) && !Input.IsActionPressed(PlayerInput.Use))
                     _waitForMouseRelease = false;
 
                 return false;
@@ -116,6 +116,10 @@ public partial class InputModes : Node
             "Add InputModes.tscn to this world scene.");
     }
     #endregion
+
+    // =========================================================
+    // Consume world-use holds without taking movement or jump ownership.
+    public void SuppressWorldUseUntilRelease() { _waitForMouseRelease = true; }
 
     #region Ownership
     // =========================================================

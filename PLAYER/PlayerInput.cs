@@ -115,6 +115,9 @@ public sealed class PlayerInput
         bool usePressed = useHeld && !_useHeld;
         _useHeld = useHeld;
 
+        PlayerInteractionController interaction = _player.GetNodeOrNull<PlayerInteractionController>("Interaction");
+        bool interactionBlocksUse = interaction?.PrepareWorldUse() ?? false;
+
         bool gameplayAllowed = _health.IsAlive &&
             InputModes.For(_player).GameplayAllowed;
 
@@ -129,9 +132,9 @@ public sealed class PlayerInput
             : Vector2.Zero;
 
         SprintHeld = movementAllowed && Input.IsActionPressed(Sprint);
-        JumpPressed = movementAllowed && useAllowed && jumpPressed;
-        UseHeld = useAllowed && useHeld;
-        UsePressed = useAllowed && usePressed;
+        JumpPressed = movementAllowed && jumpPressed;
+        UseHeld = useAllowed && !interactionBlocksUse && useHeld;
+        UsePressed = useAllowed && !interactionBlocksUse && usePressed;
     }
     #endregion
 }

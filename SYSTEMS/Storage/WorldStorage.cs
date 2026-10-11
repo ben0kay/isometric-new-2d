@@ -47,6 +47,7 @@ public partial class WorldStorage : Node
         Host = GetNode<Node2D>(HostPath);
         _contents = new InventoryStorage(Definition.SlotCount);
         Initialized = true;
+        InteractionTarget.AttachWhenReady(this);
         try
         {
             if (this is not LootContainer) WorldObjectSaves.Ensure(this).RestoreStorage(this);
@@ -185,3 +186,4 @@ public bool CanInteract(Player player)
     }
     #endregion
 }
+

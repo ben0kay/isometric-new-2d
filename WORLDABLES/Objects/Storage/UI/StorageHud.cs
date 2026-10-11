@@ -10,10 +10,11 @@ public partial class StorageHud : CanvasLayer
 	private PlayerInventory _inventory;
 	private PlayerHotbar _hotbar;
 	private InventoryHud _backpack;
-	private WorldStorage _nearby, _opened;
+	private WorldStorage _opened;
+    public bool IsOpen => _opened != null;
 	private Control _root;
 	private PanelContainer _window;
-	private Label _prompt, _title, _totals, _notice;
+	private Label _title, _totals, _notice;
 	private GridContainer _bagGrid, _containerGrid;
 	private readonly List<InventorySlot> _bagSlots = new();
 	private readonly List<InventorySlot> _containerSlots = new();
@@ -38,6 +39,7 @@ public partial class StorageHud : CanvasLayer
 		if (_hotbar != null) _hotbar.Changed += Refresh;
 		GetViewport().SizeChanged += FitWindow;
 		FitWindow();
+        PlayerInteractionController.Attach(_player, this);
 	}
 
 	// =========================================================
@@ -55,24 +57,6 @@ public partial class StorageHud : CanvasLayer
 			return;
 		}
 
-		_nearby = null;
-		float best = float.PositiveInfinity;
-
-		foreach (Node node in GetTree().GetNodesInGroup("world_storage"))
-		{
-			if (node is not WorldStorage storage ||
-				!storage.CanInteract(_player)) continue;
-
-			float distance = storage.Host.GlobalPosition.DistanceSquaredTo(
-				_player.GlobalPosition);
-			if (distance >= best) continue;
-
-			best = distance;
-			_nearby = storage;
-		}
-
-		_prompt.Text = _nearby != null && !_backpack.IsOpen
-			? $"[E] {_nearby.Definition.DisplayName}" : "";
 	}
 
 	// =========================================================
@@ -96,16 +80,6 @@ public partial class StorageHud : CanvasLayer
 		_root = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
 		AddChild(_root);
 		_root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
-
-		_prompt = new Label
-		{
-			HorizontalAlignment = HorizontalAlignment.Center,
-			MouseFilter = Control.MouseFilterEnum.Ignore
-		};
-		_root.AddChild(_prompt);
-		_prompt.SetAnchorsPreset(Control.LayoutPreset.TopWide);
-		_prompt.OffsetTop = 180;
-		_prompt.OffsetBottom = 210;
 
 		_window = new PanelContainer { Visible = false };
 		_root.AddChild(_window);
@@ -137,7 +111,7 @@ public partial class StorageHud : CanvasLayer
 
 		Button close = new()
 		{
-			Text = "Close [E / Esc]",
+			Text = "Close [Esc]",
 			FocusMode = Control.FocusModeEnum.None
 		};
 		heading.AddChild(close);
@@ -255,8 +229,7 @@ public override void _Input(InputEvent input)
 		!key.Pressed || key.Echo)
 		return;
 
-	if (key.PhysicalKeycode != Key.E &&
-		key.PhysicalKeycode != Key.Escape &&
+	if (key.PhysicalKeycode != Key.Escape &&
 		key.PhysicalKeycode != Key.Delete)
 		return;
 
@@ -266,29 +239,19 @@ public override void _Input(InputEvent input)
 
 // =========================================================
 // Open eligible storage and claim container input.
-public override void _UnhandledInput(InputEvent input)
+public bool TryOpen(WorldStorage target)
 {
-	InputModes modes = InputModes.For(this);
-
-	if (!modes.GameplayAllowed ||
-		input is not InputEventKey key || !key.Pressed || key.Echo ||
-		key.PhysicalKeycode != Key.E || _backpack.IsOpen ||
-		_opened != null || !GodotObject.IsInstanceValid(_nearby) ||
-		!_nearby.CanInteract(_player))
-		return;
-
-	_opened = _nearby;
-	_opened.Changed += Refresh;
-
-	modes.Push(this, PlayerInputMode.Container);
-	_backpack.SetExternalWindowOpen(true);
-
-	_window.Show();
-	_prompt.Text = "";
-	_notice.Text = "Click an occupied slot to transfer its complete stack.";
-	Refresh();
-
-	GetViewport().SetInputAsHandled();
+    InputModes modes = InputModes.For(this);
+    if (!modes.GameplayAllowed || _backpack.IsOpen || _opened != null ||
+        !GodotObject.IsInstanceValid(target) || !target.CanInteract(_player)) return false;
+    _opened = target;
+    _opened.Changed += Refresh;
+    modes.Push(this, PlayerInputMode.Container);
+    _backpack.SetExternalWindowOpen(true);
+    _window.Show();
+    _notice.Text = "Click an occupied slot to transfer its complete stack.";
+    Refresh();
+    return true;
 }
 
 // =========================================================
@@ -363,3 +326,4 @@ private void Close()
 	}
 	#endregion
 }
+
