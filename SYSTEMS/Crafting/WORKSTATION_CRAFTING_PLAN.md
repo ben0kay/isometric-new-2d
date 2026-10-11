@@ -1,6 +1,6 @@
 # Fractured Horizons — Crafting Stations & Material Processing Plan
 
-> **Status: PLANNED, NOT IMPLEMENTED.** This is a Codex implementation guide, not evidence of existing station functionality.
+> **Status: Pass A installer supplied; local build/gameplay verification pending.** Pass B station operation/UI and Pass C processors remain planned. A placed bench is not yet a working manufacturing station.
 >
 > **Repository reviewed:** `ben0kay/isometric-new-2d` at `e6ff3ec75a155756a2872b8580d45eeba164e8c9`. Reinspect HEAD and current feature documentation before changing code.
 >
@@ -218,3 +218,38 @@ Examples beyond this first workbench:
 ---
 
 **Document maintenance:** Mark a pass complete only after inspecting committed files and recording the build and gameplay evidence. Future workbench/furnace discussions should extend this plan rather than creating a second independent crafting foundation.
+
+
+## Pass A delivery record (2026-10-11)
+
+Prepared against cd73e82. InstallWorkbenchPassA.ps1 supplies the hand-craftable
+field_workbench item/recipe, a Workstations category catalog, independent world
+and artwork scenes, provisional SVG artwork/icon and local contract checks.
+Recipe: 6 Scrap Metal + 4 Rock + 5 Plant Fiber + 2 Alien Resin → one bench,
+20 seconds. One-cell footprint, 150 health, 5 kg / 6 L / stack 1 are provisional.
+It uses existing placement, collision, shadows, obstruction, health and saves.
+Existing TestCube, loot tables, harvest profiles and save code are unchanged.
+
+Acquisition audit contradicts the planned enemy-only resin gate: current
+FrondHarvest and AlienShrubHarvest each guarantee one Alien Resin; BasicRobotLoot
+contains only Scrap Metal, Copper Wiring and Circuit Board. Robots supply
+scrap through persistent wreck salvage; the initial bench can be earned with
+that scrap plus plant resin/fibre and rock gathering. No enemy resin source
+exists in this reviewed content. That design checkbox remains unresolved.
+Do not claim the bench requires killing enemies for resin in this pass.
+
+Smallest separate design option: add resin to a specifically approved enemy
+loot table (e.g. recovered alien adhesive carried by robots), with quantities
+and selection rules agreed first. Existing plant resin would still bypass an
+exclusive combat gate; changing it also requires explicit content approval
+and saved-resource compatibility treatment. No drop edits or hash bypasses
+are bundled here. GAME_DIRECTION.md referenced above is absent at this HEAD;
+root README.md provides the current vision.
+
+Static resource, registration, recipe, scene/health, preserved-engine and
+installer checks passed. No Godot/.NET/PowerShell runtime is available here.
+Apply, build, play-test collection → hand craft → hotbar → placement → save/
+Continue → destruction before marking Pass A verified. See Stations/PassA.md.
+Next is Pass B: capability gating, shared station interaction/UI and one agreed
+station-only output. The requested full craft → place → interact → produce
+loop is NOT complete until Pass B is implemented and tested.

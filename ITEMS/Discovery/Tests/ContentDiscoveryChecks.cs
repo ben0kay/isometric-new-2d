@@ -12,7 +12,7 @@ public partial class ContentDiscoveryChecks : Node
         foreach (var error in report.Diagnostics.Where(x => x.Severity == "error"))
             GD.PushError(error.Path + " / " + error.Field + ": " + error.Message);
         Check(report.Valid, "Current resource validation");
-        Check(report.Items.Count(x => x.Registered) == 20, "Twenty baseline registered items");
+        Check(report.Items.Count(x => x.Registered) == 21, "Twenty-one registered items including the workbench");
         var bark = report.Items.Single(x => x.Id == "bark" && x.Registered);
         Check(bark.SourcePaths.Count == 2, "Bark's two source species");
         Check(bark.ConsumedBy.Any(x => x.EndsWith("PlantFiberFromBarkRecipe.tres")), "Bark recipe reverse lookup");
@@ -24,7 +24,7 @@ public partial class ContentDiscoveryChecks : Node
             iron.Rewards.Any(x => x.ItemId == "rock" && x.MinimumCount == 1 && x.MaximumCount == 2 && x.Chance == 0.35), "Ore primary and bonus contexts");
         Check(report.Sources.Count(x => x.Kind == "ground") == 2 &&
             report.Sources.Where(x => x.Kind == "ground").All(x => x.Rewards.Single().MaximumCount == 1), "Ground one-unit yield");
-        Check(report.Recipes.Count(x => x.Registered) == 2, "Two external recipes");
+        Check(report.Recipes.Count(x => x.Registered) == 3, "Three external recipes including the workbench");
         Check(report.Sources.Any(x => x.Biomes.Any(b => b.BiomeId == "verdigris_wilds" && b.ConfiguredForSelection)), "Wilds biome bindings");
         var second = ContentDiscovery.Build();
         Check(JsonSerializer.Serialize(report) == JsonSerializer.Serialize(second), "Repeatable report without registration growth");
