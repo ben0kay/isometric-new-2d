@@ -2,6 +2,8 @@
 
 > **Development status:** Early development / active prototyping
 
+> **Game vision:** See [GAME_DIRECTION.md](GAME_DIRECTION.md) for the crash-landing premise, progression goals and crafting/realism principles.
+
 A 2D isometric science-fiction survival game set on an alien world, developed using **Godot 4 and C#**.
 
 The project focuses on building a large, explorable world with distinct biomes, environmental systems, entities, vegetation, and persistent world state.
