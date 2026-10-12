@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://bd15brqmdl03o" path="res://PLAYER/Artwork/Player01.png" id="2_vpqx1"]
 [ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="3_bkgtn"]
 [ext_resource type="Script" uid="uid://loo8no2lshnc" path="res://COMBAT/CombatLife.cs" id="3_life"]
+[ext_resource type="PackedScene" path="res://PLAYER/Artwork/Player01Rig.tscn" id="3_tuudt"]
 [ext_resource type="Script" uid="uid://bvg36ii1nwvi6" path="res://COMBAT/Weapons/Weapon.cs" id="4_weapon"]
 [ext_resource type="Script" uid="uid://bck37tpsjut2f" path="res://PLAYER/Equipment/PlayerEquipment.cs" id="5_equipment"]
 [ext_resource type="Script" uid="uid://ca1678m4ohoi1" path="res://PLAYER/Inventory/PlayerInventory.cs" id="6_inventory"]
@@ -36,6 +37,7 @@
 
 [sub_resource type="Resource" id="Resource_bog8x"]
 script = ExtResource("3_bkgtn")
+VisualScene = ExtResource("3_tuudt")
 Image = ExtResource("2_vpqx1")
 ArtworkScale = Vector2(0.42, 0.42)
 ImageAnchor = Vector2(0.5, 0.875)
