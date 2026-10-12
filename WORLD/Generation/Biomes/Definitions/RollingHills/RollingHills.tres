@@ -1,10 +1,9 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c1hdjy6mcjswq"]
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock.tres" id="large_rock"]
+
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="1_dy8ah"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="2_elski"]
-[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="3_ujsqg"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="4_7n3k3"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="5_ld1tc"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="7_8vles"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/MediumGrass.tres" id="8_gvix7"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/TallGrass.tres" id="9_e0dk1"]
@@ -13,20 +12,6 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="12_xroig"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="13_22mgi"]
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="14_o3ske"]
-
-[sub_resource type="Resource" id="SmallRockEntry"]
-script = ExtResource("2_elski")
-Definition = ExtResource("3_ujsqg")
-Weight = 5.0
-
-[sub_resource type="Resource" id="BoulderEntry"]
-script = ExtResource("2_elski")
-Definition = ExtResource("4_7n3k3")
-Weight = 3.0
-
-[sub_resource type="Resource" id="CliffRockEntry"]
-script = ExtResource("2_elski")
-Definition = ExtResource("5_ld1tc")
 
 [sub_resource type="Resource" id="ShortGrassEntry"]
 script = ExtResource("2_elski")
@@ -67,6 +52,10 @@ GrassPatches = 14
 GrassTuftsPerPatch = 12
 Grass = Array[ExtResource("2_elski")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
 
+[sub_resource type="Resource" id="LargeRockEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("large_rock")
+
 [resource]
 script = ExtResource("14_o3ske")
 Id = "rolling_hills"
@@ -79,5 +68,5 @@ RollingFeatureSize = 10.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 3
-Rocks = Array[ExtResource("2_elski")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+Rocks = Array[ExtResource("2_elski")]([SubResource("LargeRockEntry")])
 Enemies = ExtResource("1_dy8ah")

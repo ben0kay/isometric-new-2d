@@ -37,16 +37,18 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             candidate.Biome.Rocks, rng);
         if (definition == null) continue;
 
+        RockVariantDefinition variant = definition.RollVariant(rng);
+
         float minWidth = Mathf.Max(16f, definition.WidthRange.X);
         float minHeight = Mathf.Max(8f, definition.HeightRange.X);
 
-        float width = rng.RandfRange(
+        float width = variant?.GroundFootprint.X ?? rng.RandfRange(
             minWidth, Mathf.Max(minWidth, definition.WidthRange.Y));
-        float height = rng.RandfRange(
+        float height = variant?.VisualHeight ?? rng.RandfRange(
             minHeight, Mathf.Max(minHeight, definition.HeightRange.Y));
         float size = definition.RollSize(rng);
 
-        Vector2 footprint = new Vector2(
+        Vector2 footprint = variant?.FootprintFor(size) ?? new Vector2(
             width, width * Mathf.Max(0.1f, definition.FootprintDepthRatio)) * size;
 
         Vector2 localPoint = IsoGrid.TileToWorld(candidate.Tile, tileSize);
@@ -65,11 +67,14 @@ public IEnumerable<ChunkBuildStage> PopulateSteps(
             Name = $"{definition.Id}_{coordinate.X}_{coordinate.Y}_{candidate.Index}",
             Position = objects.ToLocal(globalPoint),
             Definition = definition,
+            Variant = variant,
+            Footprint = footprint,
+            Height = height * size,
             BaseWidth = width,
             BaseHeight = height,
             SizeMultiplier = size,
             Mirror = definition.RollMirror(rng),
-            RockVariant = rng.RandiRange(0, RockDrawing.VariantCount - 1)
+            RockVariant = variant == null ? rng.RandiRange(0, RockDrawing.VariantCount - 1) : -1
         };
 
         if (!changes.BindGenerated(rock, definition, "rock", coordinate, candidate.Index))

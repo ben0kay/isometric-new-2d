@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="RockDefinition" load_steps=8 format=3]
+[ext_resource type="Script" path="res://WORLD/Contents/Rocks/RockDefinition.cs" id="1_rock"]
+[ext_resource type="Script" path="res://WORLD/Contents/Rocks/RockVariantDefinition.cs" id="2_variant"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRockHarvest.tres" id="3_harvest"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock01/LargeRock01.tres" id="variant_1"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock02/LargeRock02.tres" id="variant_2"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock03/LargeRock03.tres" id="variant_3"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock04/LargeRock04.tres" id="variant_4"]
+
+[resource]
+script = ExtResource("1_rock")
+Id = "large_rock"
+RequireImportedVariants = true
+SizeRange = Vector2(0.9, 1.1)
+MirrorChance = 0.5
+HarvestWork = 18.0
+RequiredMiningStrength = 1
+HarvestDrops = ExtResource("3_harvest")
+Variants = Array[ExtResource("2_variant")]([ExtResource("variant_1"), ExtResource("variant_2"), ExtResource("variant_3"), ExtResource("variant_4")])

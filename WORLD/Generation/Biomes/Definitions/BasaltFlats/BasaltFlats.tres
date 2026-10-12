@@ -1,29 +1,14 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://b8j6qjk82fwbv"]
 
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock.tres" id="large_rock"]
+
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="1_biome"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="2_vegetation"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="3_entry"]
-[ext_resource type="Resource" uid="uid://cc1qahlla4c3g" path="res://WORLD/Contents/Rocks/SmallRock.tres" id="4_small"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/Boulder.tres" id="5_boulder"]
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/CliffRock.tres" id="6_cliff"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="7_grass"]
 [ext_resource type="Resource" uid="uid://c6m3tn2oiql7c" path="res://WORLD/Contents/Vegetation/Plants/Frond.tres" id="8_frond"]
 [ext_resource type="Resource" uid="uid://cpeiyy1s4tq7s" path="res://WORLD/Contents/Vegetation/Plants/AlienShrub.tres" id="9_shrub"]
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="20_enemies"]
-
-[sub_resource type="Resource" id="SmallRockEntry"]
-script = ExtResource("3_entry")
-Definition = ExtResource("4_small")
-Weight = 5.0
-
-[sub_resource type="Resource" id="BoulderEntry"]
-script = ExtResource("3_entry")
-Definition = ExtResource("5_boulder")
-Weight = 3.0
-
-[sub_resource type="Resource" id="CliffRockEntry"]
-script = ExtResource("3_entry")
-Definition = ExtResource("6_cliff")
 
 [sub_resource type="Resource" id="ShortGrassEntry"]
 script = ExtResource("3_entry")
@@ -49,6 +34,10 @@ GrassPatches = 1
 GrassTuftsPerPatch = 5
 Grass = Array[ExtResource("3_entry")]([SubResource("ShortGrassEntry")])
 
+[sub_resource type="Resource" id="LargeRockEntry"]
+script = ExtResource("3_entry")
+Definition = ExtResource("large_rock")
+
 [resource]
 script = ExtResource("1_biome")
 Tags = PackedStringArray("Alien", "Barren", "Rocky")
@@ -58,5 +47,5 @@ RollingFeatureSize = 16.0
 PlateausEnabled = false
 Vegetation = SubResource("Vegetation")
 RocksPerChunk = 8
-Rocks = Array[ExtResource("3_entry")]([SubResource("SmallRockEntry"), SubResource("BoulderEntry"), SubResource("CliffRockEntry")])
+Rocks = Array[ExtResource("3_entry")]([SubResource("LargeRockEntry")])
 Enemies = ExtResource("20_enemies")

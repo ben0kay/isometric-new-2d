@@ -8,6 +8,7 @@ public partial class Rock : Obstacle
     #region Configuration
     [ExportGroup("Rock")]
     [Export] public RockDefinition Definition { get; set; }
+    [Export] public RockVariantDefinition Variant { get; set; }
     [Export] public float BaseWidth { get; set; }
     [Export] public float BaseHeight { get; set; }
     [Export] public float SizeMultiplier { get; set; } = 1f;
@@ -22,6 +23,31 @@ public partial class Rock : Obstacle
         if (Definition == null)
             throw new System.InvalidOperationException("Rock requires a RockDefinition.");
 
+        Definition.ValidateVariants();
+        if (Definition.Variants.Count > 0)
+        {
+            if (Variant == null)
+            {
+                using RandomNumberGenerator rng = new();
+                rng.Seed = IsoGrid.Hash(Mathf.RoundToInt(GlobalPosition.X),
+                    Mathf.RoundToInt(GlobalPosition.Y), 64127u);
+                Variant = Definition.RollVariant(rng);
+            }
+            if (!Definition.Variants.Contains(Variant))
+                throw new System.InvalidOperationException("Selected rock variant does not belong to its species.");
+        }
+        if (!float.IsFinite(SizeMultiplier) || SizeMultiplier < 0.1f)
+            throw new System.InvalidOperationException("Invalid rock instance scale.");
+        if (Variant != null)
+        {
+            Variant.Validate();
+            Footprint = Variant.FootprintFor(SizeMultiplier);
+            Height = Variant.HeightFor(SizeMultiplier);
+            Kind = ObstacleKind.Rock;
+            VisualOverride = Variant.Visual;
+            ResourceHarvest.Attach(this, Definition);
+            return;
+        }
         SizeMultiplier = Mathf.Max(0.1f, SizeMultiplier);
         BaseWidth = Mathf.Max(16f,
             BaseWidth > 0f ? BaseWidth : Definition.WidthRange.X);
@@ -44,6 +70,14 @@ public partial class Rock : Obstacle
     // Apply base dimensions to fallback art and uniform instance variation to either visual.
     protected override async Task AttachArtworkAsync()
     {
+        if (Variant != null)
+        {
+            TerrainVisual imported = TerrainVisual.AttachCustom(this, false, Variant.Visual)
+                ?? throw new System.InvalidOperationException("Imported rock artwork is missing; primitive fallback is disabled.");
+            imported.Scale = new Vector2(Mirror ? -SizeMultiplier : SizeMultiplier, SizeMultiplier);
+            return;
+        }
+        // Retained legacy actors may still use the old shared atlas.
         await PlaceholderAtlas.EnsureReady(this);
         if (!GodotObject.IsInstanceValid(this) || !IsInsideTree() || IsQueuedForDeletion()) return;
 

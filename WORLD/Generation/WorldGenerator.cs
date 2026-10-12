@@ -99,6 +99,8 @@ public override void _Ready()
         biome.Vegetation.Validate(biome.Id);
         BiomeSpecies.Validate<RockDefinition>(
             biome.Rocks, $"{biome.Id}/Rocks", biome.RocksPerChunk > 0);
+        foreach (BiomeSpecies species in biome.Rocks)
+            ((RockDefinition)species.Definition).ValidateVariants();
 
         _terrain[i] = biome.CreateTerrain(
             _chunks.WorldSeed, SandboxPlateau, SandboxPlateauCentre);
