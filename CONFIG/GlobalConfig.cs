@@ -4,6 +4,11 @@ using Godot;
 
 public partial class GlobalConfig : Node
 {
+    [ExportGroup("ROCK BURIAL (restart after editing)")]
+    // Source texture pixels; artwork and instance scales also scale this amount.
+    [Export(PropertyHint.Range, "0,64,1")]
+    public float RockBurialDepthPixels { get; set; } = 22f;
+
     [ExportGroup("ROCK GROUND PATCHES (restart after editing)")]
     [Export] public bool RockPatchesEnabled { get; set; } = true;
     [Export(PropertyHint.Range, "1,3,0.1")]

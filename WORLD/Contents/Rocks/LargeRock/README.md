@@ -125,3 +125,10 @@ they do not deform over cliff edges or independently follow sloped terrain.
 Run `Tests/RockPatchChecks.tscn` with F6 to verify actual texture pixels, shared
 bakes, cache invalidation, disabled behavior, draw order and collision independence.
 The existing LargeRock checks disable patches so they remain renderer-independent.
+
+Global burial depth: set `RockBurialDepthPixels` on CONFIG (ROCK BURIAL).
+Default is 22 source-texture pixels; 0 removes the downward shift, and higher
+values bury more artwork. Restart after changing it. The global value applies
+to every burial-enabled rock; variant depth is only a fallback in scenes without
+CONFIG. Collision stays at its original position. `BurialEnabled` remains the
+per-variant switch for removing the clipping effect entirely.
