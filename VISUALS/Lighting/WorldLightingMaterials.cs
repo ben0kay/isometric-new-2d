@@ -66,6 +66,21 @@ private void AttachBranch(Node node, VisualDefinition definition)
 
         sprite.Material = GetMaterial(source, bounds, definition);
     }
+    else if (node is Polygon2D polygon && polygon.Texture != null)
+    {
+        // Cutout rig body parts use polygons with UVs into one shared PNG.
+        // Shade the actual surface rather than leaving them outside world light.
+        Vector2[] vertices = polygon.Polygon;
+        if (vertices.Length > 0)
+        {
+            Rect2 bounds = new(vertices[0], Vector2.Zero);
+            for (int i = 1; i < vertices.Length; i++)
+                bounds = bounds.Expand(vertices[i]);
+
+            polygon.Material = GetMaterial(
+                polygon.Material, bounds, definition);
+        }
+    }
 
     foreach (Node child in node.GetChildren())
         AttachBranch(child, definition);
