@@ -47,7 +47,6 @@ metadata/_custom_type_script = "uid://gxsxyopsbv6a"
 
 [sub_resource type="Resource" id="PlayerBaseStats"]
 script = ExtResource("17_profile_script")
-MovementSpeed = 480.0
 
 [sub_resource type="Resource" id="TestMiningModifier"]
 script = ExtResource("18_modifier")

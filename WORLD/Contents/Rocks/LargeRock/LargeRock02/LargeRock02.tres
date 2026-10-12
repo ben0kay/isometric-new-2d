@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="RockVariantDefinition" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="RockVariantDefinition" format=3 uid="uid://b5pq3w56t32v4"]
 
-[ext_resource type="Script" path="res://WORLD/Contents/Rocks/RockVariantDefinition.cs" id="1_variant"]
-[ext_resource type="Script" path="res://VISUALS/Definitions/VisualDefinition.cs" id="2_visual"]
-[ext_resource type="Texture2D" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock02/LargeRock02.png" id="3_image"]
+[ext_resource type="Script" uid="uid://c6ddy8fyd0cuk" path="res://WORLD/Contents/Rocks/RockVariantDefinition.cs" id="1_variant"]
+[ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="2_visual"]
+[ext_resource type="Texture2D" uid="uid://d2jnmx2rgcufx" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock02/LargeRock02.png" id="3_image"]
 
 [sub_resource type="Resource" id="Visual"]
 script = ExtResource("2_visual")
@@ -15,8 +15,5 @@ script = ExtResource("1_variant")
 Visual = SubResource("Visual")
 GroundFootprint = Vector2(166, 52)
 VisualHeight = 96.0
-SpawnWeight = 1.0
 BurialEnabled = true
 BurialDepthPixels = 22.0
-BurialEdgePixels = 2.0
-BurialSoftnessPixels = 1.0
