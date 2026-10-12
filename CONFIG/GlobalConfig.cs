@@ -4,6 +4,17 @@ using Godot;
 
 public partial class GlobalConfig : Node
 {
+    [ExportGroup("ROCK GROUND PATCHES (restart after editing)")]
+    [Export] public bool RockPatchesEnabled { get; set; } = true;
+    [Export(PropertyHint.Range, "1,3,0.1")]
+    public float RockPatchSize { get; set; } = 1.65f;
+    [Export(PropertyHint.Range, "0,1,0.05")]
+    public float RockPatchOpacity { get; set; } = 0.8f;
+    [Export(PropertyHint.Range, "0,1,0.05")]
+    public float RockPatchPebbleDensity { get; set; } = 0.55f;
+    [Export] public Color RockPatchSoilColour { get; set; } = new(0.24f, 0.20f, 0.15f);
+    [Export] public Color RockPatchStoneColour { get; set; } = new(0.40f, 0.39f, 0.35f);
+
     [ExportGroup("DROPPED ITEMS")]
     // Active chunk seconds; captured once per drop. Existing timers retain their remainder.
     [Export(PropertyHint.Range, "1,3600,1,or_greater")]
