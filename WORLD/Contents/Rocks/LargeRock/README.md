@@ -101,3 +101,27 @@ from LargeRock integration and can be reverted as a whole.
 Compilation and focused headless enable/disable, ground-line alignment,
 material sharing, preserved lighting, collision and harvesting checks passed.
 The final visual appearance and GPU cost still need local gameplay observation.
+
+## Baked ground patches
+
+`CONFIG/GlobalConfig.cs` exposes `RockPatchesEnabled`, `RockPatchSize`,
+`RockPatchOpacity`, `RockPatchPebbleDensity`, and soil/stone colours. Restart
+after edits. Disabling patches removes only soil/gravel; set each variant's
+`BurialEnabled` false to restore its original unburied artwork. Burial defaults
+to 22 texture pixels and never changes the collision node or authored footprint.
+
+`RockPatchSurface.gdshaderinc` runs only in four shared 256px texture bakes.
+`ArtworkBaker` persists premultiplied PNGs in `user://artwork_cache`; matching
+settings reuse them next launch. Density/colour changes invalidate the cache.
+Size and opacity affect only display and do not require a bake. Each rock adds
+one static ground sprite; no pebble has a node, collision, shadow, or processing.
+Runtime shader samples the finished texture and applies current flat-ground
+world sunlight; the procedural soil/pebble loops never run each frame. Patches
+follow terrain elevation, scale and mirroring, and disappear with their rock.
+
+Ground patches are local flat overlays, best suited to relatively level terrain;
+they do not deform over cliff edges or independently follow sloped terrain.
+
+Run `Tests/RockPatchChecks.tscn` with F6 to verify actual texture pixels, shared
+bakes, cache invalidation, disabled behavior, draw order and collision independence.
+The existing LargeRock checks disable patches so they remain renderer-independent.

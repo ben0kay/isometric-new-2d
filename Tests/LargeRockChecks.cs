@@ -77,7 +77,7 @@ public partial class LargeRockChecks : Node2D
                     $"{names[i]}: biome count or species changed incorrectly.");
             }
 
-            AddChild(new WorldConfig { Name = "CONFIG" });
+            AddChild(new WorldConfig { Name = "CONFIG", RockPatchesEnabled = false });
             Node2D objects = new() { Name = "WorldObjects" }; AddChild(objects);
             Node systems = new() { Name = "Systems" }; AddChild(systems);
             systems.AddChild(new FixtureChunks { Name = "ChunkController", WorldSeed = 123456 });

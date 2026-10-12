@@ -17,6 +17,6 @@ GroundFootprint = Vector2(104, 60)
 VisualHeight = 155.0
 SpawnWeight = 1.0
 BurialEnabled = true
-BurialDepthPixels = 14.0
+BurialDepthPixels = 22.0
 BurialEdgePixels = 2.0
 BurialSoftnessPixels = 1.0
