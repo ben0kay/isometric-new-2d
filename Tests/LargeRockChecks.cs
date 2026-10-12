@@ -55,6 +55,19 @@ public partial class LargeRockChecks : Node2D
             try { emptyFamily.ValidateVariants(); throw new Exception("Imported family silently fell back with no variants."); }
             catch (InvalidOperationException) { }
 
+            using ShaderMaterial lit = new() { Shader = GD.Load<Shader>("res://VISUALS/Lighting/WorldSurface.gdshader") };
+            lit.SetShaderParameter("surface_brightness", 0.7f);
+            lit.SetShaderParameter("surface_shape_strength", 0.4f);
+            lit.SetShaderParameter("surface_normal_enabled", true);
+            lit.SetShaderParameter("surface_normal", family.Variants[0].Visual.Image);
+            var copied = family.Variants[0].BurialMaterial(lit, new Rect2(0, 0, 256, 256), -14, true);
+            Check(Mathf.IsEqualApprox(copied.GetShaderParameter("surface_brightness").AsSingle(), 0.7f) &&
+                Mathf.IsEqualApprox(copied.GetShaderParameter("surface_shape_strength").AsSingle(), 0.4f) &&
+                copied.GetShaderParameter("surface_normal_enabled").AsBool() &&
+                copied.GetShaderParameter("surface_normal").AsGodotObject() == family.Variants[0].Visual.Image,
+                "Burial must preserve brightness, shape lighting and normal maps.");
+            Check(lit.Shader.ResourcePath.EndsWith("WorldSurface.gdshader"), "Shared source shader was modified.");
+
             string[] names = { "BasaltFlats", "RockyMountains", "RollingHills", "CarbonForest", "SwampyMarsh", "VerdigrisWilds" };
             int[] counts = { 8, 5, 3, 2, 1, 2 };
             for (int i = 0; i < names.Length; i++)
@@ -87,6 +100,27 @@ public partial class LargeRockChecks : Node2D
                 Check(sprite.Texture == variant.Visual.Image &&
                     visual.Scale.Abs().IsEqualApprox(Vector2.One * 1.1f) &&
                     sprite.Scale.X == sprite.Scale.Y, "PNG selection/proportions/random scale mismatch.");
+                if (variant.BurialEnabled)
+                {
+                    Check(sprite.Material is ShaderMaterial buried &&
+                        buried.Shader.ResourcePath.EndsWith("RockBurial.gdshader"), "Burial shader not installed.");
+                    Check(Mathf.IsEqualApprox(sprite.Position.Y,
+                        variant.Visual.Offset.Y + variant.BurialDepthPixels * sprite.Scale.Y), "Burial shift is not scaled with artwork.");
+                    ShaderMaterial material = (ShaderMaterial)sprite.Material;
+                    float cutoff = material.GetShaderParameter("burial_cutoff_y").AsSingle();
+                    Check(Mathf.IsEqualApprox(sprite.Position.Y + cutoff * sprite.Scale.Y, 0), "Cutoff misses ground anchor.");
+                    Check(material.Shader.GetShaderUniformList().Count > 0, "Burial shader uniforms unavailable.");
+                    Check(variant.BurialMaterial(null, sprite.GetRect(), cutoff, false) == material,
+                        "Burial material should be shared for matching variants.");
+                    variant.BurialEnabled = false;
+                    Rock unburied = new() { Definition = family, Variant = variant,
+                        SizeMultiplier = 1.1f, Position = new Vector2(2500, 2500) };
+                    objects.AddChild(unburied);
+                    Sprite2D original = unburied.GetNode<Sprite2D>("Visual/Artwork");
+                    Check(original.Position == variant.Visual.Offset && original.Material == null &&
+                        unburied.Footprint.IsEqualApprox(rock.Footprint), "Disabled burial must restore ordinary artwork and preserve collision.");
+                    unburied.Free(); variant.BurialEnabled = true;
+                }
                 Check(!rock.HasMeta("shared_shadow_override"), "Automatic obstacle shadows must remain single-path.");
                 var blockers = new System.Collections.Generic.List<Obstacle> { rock };
                 Check(WorldPlacement.IsBlocked(this, rock.GlobalPosition, rock.Footprint, blockers, Vector2.Zero), "Solid overlap accepted.");
@@ -149,7 +183,7 @@ public partial class LargeRockChecks : Node2D
             recipe.Resources[path] = "7A682C8198C2BD6D832345CA271324E8C89147977C7BF3EE05C5824CCA998B95";
             try { CampaignRecipe.Validate(recipe); throw new Exception("Changed campaign recipe accepted."); }
             catch (InvalidDataException) { }
-            GD.Print("PASS: four PNG variants, seeded selection/scale, biome counts, actor collision/artwork, overlap rejection, harvest rewards, depletion/save records and recipe rejection.");
+            GD.Print("PASS: burial enable/disable, ground alignment, cached material, preserved lighting; four PNG variants, seeded selection/scale, biome counts, actor collision/artwork, overlap rejection, harvest rewards, depletion/save records and recipe rejection.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }

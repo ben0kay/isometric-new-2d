@@ -76,3 +76,28 @@ Local gameplay checks: new campaign; explore all four silhouettes; walk around
 wide/tall collision edges; mine a rock; leave/revisit and save/restart after mining;
 check elevation, daytime/night lighting and single sun shadows. Visual fit and
 actual walking remain local sign-off.
+
+## Optional burial experiment
+
+Enabled on the four variants for this test. In each LargeRockNN.tres, expand
+**Burial** and untick **Burial Enabled** to restore its original artwork.
+Depth Pixels defaults to 14 texture pixels; Edge Pixels (2) controls the small
+unevenness and Softness Pixels (1) controls the narrow alpha blend at the join.
+Set Edge Pixels to 0 for a straight cutoff. Restart the test world after editing;
+these settings are applied when an instance is created, not updated every frame.
+
+The effect moves only the sprite down and clips it at the terrain visual's ground
+anchor. PNG bytes, actor position, collision, mining, depth sorting, seed choices
+and existing shadows are unchanged. The optional shader reuses WorldSurface
+lighting and normal-map settings. Matching rocks share a cached material per
+variant/source; there is no image-alpha scan, extra texture or per-rock updater.
+No contact-shadow or sprite-shadow change is included in this experiment.
+
+As with the other variant-resource edits, changed .tres fingerprints are detected
+by campaign validation. Use a fresh test campaign to compare edited settings;
+existing saves are not silently migrated or altered. This is a separate commit
+from LargeRock integration and can be reverted as a whole.
+
+Compilation and focused headless enable/disable, ground-line alignment,
+material sharing, preserved lighting, collision and harvesting checks passed.
+The final visual appearance and GPU cost still need local gameplay observation.

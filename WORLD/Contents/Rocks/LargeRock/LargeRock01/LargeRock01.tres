@@ -16,3 +16,7 @@ Visual = SubResource("Visual")
 GroundFootprint = Vector2(144, 60)
 VisualHeight = 132.0
 SpawnWeight = 1.0
+BurialEnabled = true
+BurialDepthPixels = 14.0
+BurialEdgePixels = 2.0
+BurialSoftnessPixels = 1.0

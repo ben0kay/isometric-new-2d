@@ -75,6 +75,7 @@ public partial class Rock : Obstacle
             TerrainVisual imported = TerrainVisual.AttachCustom(this, false, Variant.Visual)
                 ?? throw new System.InvalidOperationException("Imported rock artwork is missing; primitive fallback is disabled.");
             imported.Scale = new Vector2(Mirror ? -SizeMultiplier : SizeMultiplier, SizeMultiplier);
+            RockBurialVisual.Attach(this, imported, Variant);
             return;
         }
         // Retained legacy actors may still use the old shared atlas.
