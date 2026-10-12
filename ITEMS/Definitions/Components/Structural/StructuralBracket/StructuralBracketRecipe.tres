@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CraftingRecipe" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="CraftingRecipe" format=3 uid="uid://c6u6pd0aybgdm"]
 
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="1_recipe"]
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingIngredient.cs" id="2_ingredient"]
+[ext_resource type="Script" uid="uid://dp3vga7w0qjhs" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="1_recipe"]
+[ext_resource type="Script" uid="uid://wlcvts6hogil" path="res://SYSTEMS/Crafting/CraftingIngredient.cs" id="2_ingredient"]
 [ext_resource type="Resource" path="res://ITEMS/Definitions/Components/Structural/StructuralBracket/StructuralBracket.tres" id="3_output"]
 
 [sub_resource type="Resource" id="Scrap"]
@@ -15,7 +15,6 @@ Id = "structural_bracket"
 Category = "Components"
 Description = "Cut, bend and fasten a structural bracket from salvaged metal at a basic assembly workbench."
 Output = ExtResource("3_output")
-OutputCount = 1
 Ingredients = Array[ExtResource("2_ingredient")]([SubResource("Scrap")])
 DurationSeconds = 6.0
 RequiredCapabilities = PackedStringArray("assembly_basic")

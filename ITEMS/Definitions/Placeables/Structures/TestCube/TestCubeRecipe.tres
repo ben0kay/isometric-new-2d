@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="CraftingRecipe" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="CraftingRecipe" format=3 uid="uid://ca0kgjikfa5ia"]
 
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="1_recipe"]
-[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingIngredient.cs" id="2_ingredient"]
+[ext_resource type="Script" uid="uid://dp3vga7w0qjhs" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="1_recipe"]
+[ext_resource type="Script" uid="uid://wlcvts6hogil" path="res://SYSTEMS/Crafting/CraftingIngredient.cs" id="2_ingredient"]
 [ext_resource type="Resource" path="res://ITEMS/Definitions/Placeables/Structures/TestCube/TestCube.tres" id="3_output"]
 
 [sub_resource type="Resource" id="Ingredient"]
@@ -15,6 +15,4 @@ Id = "test_cube"
 Category = "Building"
 Description = "A temporary building block for testing crafting and placement."
 Output = ExtResource("3_output")
-OutputCount = 1
 Ingredients = Array[ExtResource("2_ingredient")]([SubResource("Ingredient")])
-DurationSeconds = 2.0

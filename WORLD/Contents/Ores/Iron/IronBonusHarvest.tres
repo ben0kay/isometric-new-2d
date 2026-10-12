@@ -1,12 +1,11 @@
-[gd_resource type="Resource" script_class="HarvestProfile" format=3]
+[gd_resource type="Resource" script_class="HarvestProfile" format=3 uid="uid://dpdbtignou76l"]
 
-[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1"]
-[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2"]
+[ext_resource type="Script" uid="uid://b348xyc6jvsvn" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1"]
+[ext_resource type="Script" uid="uid://d3htqdm3lmjc5" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2"]
 
 [sub_resource type="Resource" id="Rock"]
 script = ExtResource("2")
 ItemId = "rock"
-MinimumCount = 1
 MaximumCount = 2
 Chance = 0.35
 

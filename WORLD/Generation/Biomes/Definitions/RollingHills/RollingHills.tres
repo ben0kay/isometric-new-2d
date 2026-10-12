@@ -1,7 +1,5 @@
 [gd_resource type="Resource" script_class="BiomeDefinition" format=3 uid="uid://c1hdjy6mcjswq"]
 
-[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock.tres" id="large_rock"]
-
 [ext_resource type="Resource" uid="uid://c2eicdvbevsa4" path="res://WORLD/Generation/Biomes/RobotPopulation.tres" id="1_dy8ah"]
 [ext_resource type="Script" uid="uid://crr5mrukhld6j" path="res://WORLD/Generation/Biomes/Content/BiomeSpecies.cs" id="2_elski"]
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Grass/ShortGrass.tres" id="7_8vles"]
@@ -12,6 +10,11 @@
 [ext_resource type="Resource" path="res://WORLD/Contents/Vegetation/Trees/CarbonTree.tres" id="12_xroig"]
 [ext_resource type="Script" uid="uid://b03iqqtg4rh18" path="res://WORLD/Generation/Biomes/Content/BiomeVegetation.cs" id="13_22mgi"]
 [ext_resource type="Script" uid="uid://bh8y5rxvoppbo" path="res://WORLD/Generation/Biomes/BiomeDefinition.cs" id="14_o3ske"]
+[ext_resource type="Resource" path="res://WORLD/Contents/Rocks/LargeRock/LargeRock.tres" id="large_rock"]
+
+[sub_resource type="Resource" id="LargeRockEntry"]
+script = ExtResource("2_elski")
+Definition = ExtResource("large_rock")
 
 [sub_resource type="Resource" id="ShortGrassEntry"]
 script = ExtResource("2_elski")
@@ -51,10 +54,6 @@ Trees = Array[ExtResource("2_elski")]([SubResource("TreeEntry")])
 GrassPatches = 14
 GrassTuftsPerPatch = 12
 Grass = Array[ExtResource("2_elski")]([SubResource("ShortGrassEntry"), SubResource("MediumGrassEntry"), SubResource("TallGrassEntry")])
-
-[sub_resource type="Resource" id="LargeRockEntry"]
-script = ExtResource("2_elski")
-Definition = ExtResource("large_rock")
 
 [resource]
 script = ExtResource("14_o3ske")

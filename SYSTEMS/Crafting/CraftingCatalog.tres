@@ -1,15 +1,12 @@
-[gd_resource type="Resource" script_class="CraftingCatalog" load_steps=7 format=3 uid="uid://dip4okvxysju3"]
+[gd_resource type="Resource" script_class="CraftingCatalog" format=3 uid="uid://dip4okvxysju3"]
 
 [ext_resource type="Script" uid="uid://8w3kijfuriyu" path="res://SYSTEMS/Crafting/CraftingCatalog.cs" id="1_catalog"]
 [ext_resource type="Script" uid="uid://dp3vga7w0qjhs" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="2_recipe_script"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/Placeables/Structures/TestCube/TestCubeRecipe.tres" id="3_cube"]
-[ext_resource type="Resource" path="res://ITEMS/Definitions/RawMaterials/Organics/PlantFiber/PlantFiberFromBarkRecipe.tres" id="4_fiber"]
-
-[ext_resource type="Resource" path="res://ITEMS/Definitions/Placeables/Workstations/FieldWorkbench/FieldWorkbenchRecipe.tres" id="5_bench"]
-
+[ext_resource type="Resource" uid="uid://ca0kgjikfa5ia" path="res://ITEMS/Definitions/Placeables/Structures/TestCube/TestCubeRecipe.tres" id="3_cube"]
+[ext_resource type="Resource" uid="uid://33kthl7yth2e" path="res://ITEMS/Definitions/RawMaterials/Organics/PlantFiber/PlantFiberFromBarkRecipe.tres" id="4_fiber"]
+[ext_resource type="Resource" uid="uid://dtjulx1antkco" path="res://ITEMS/Definitions/Placeables/Workstations/FieldWorkbench/FieldWorkbenchRecipe.tres" id="5_bench"]
 [ext_resource type="Resource" path="res://ITEMS/Definitions/Components/Structural/StructuralBracket/StructuralBracketRecipe.tres" id="6_bracket"]
 
 [resource]
 script = ExtResource("1_catalog")
-IncludeBuiltInRecipes = false
 Recipes = Array[ExtResource("2_recipe_script")]([ExtResource("3_cube"), ExtResource("4_fiber"), ExtResource("5_bench"), ExtResource("6_bracket")])

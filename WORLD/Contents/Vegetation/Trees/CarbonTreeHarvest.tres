@@ -1,19 +1,15 @@
-[gd_resource type="Resource" script_class="HarvestProfile" load_steps=5 format=3]
+[gd_resource type="Resource" script_class="HarvestProfile" format=3 uid="uid://diag0jiod3udg"]
 
-[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1_profile"]
-[ext_resource type="Script" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2_entry"]
+[ext_resource type="Script" uid="uid://b348xyc6jvsvn" path="res://SYSTEMS/Harvesting/HarvestProfile.cs" id="1_profile"]
+[ext_resource type="Script" uid="uid://d3htqdm3lmjc5" path="res://SYSTEMS/Harvesting/HarvestDropEntry.cs" id="2_entry"]
 
 [sub_resource type="Resource" id="Drop_0"]
 script = ExtResource("2_entry")
 ItemId = "carbon"
-MinimumCount = 1
-MaximumCount = 1
-Chance = 1.0
 
 [sub_resource type="Resource" id="Drop_1"]
 script = ExtResource("2_entry")
 ItemId = "bark"
-MinimumCount = 1
 MaximumCount = 3
 Chance = 0.75
 

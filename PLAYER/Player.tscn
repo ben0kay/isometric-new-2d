@@ -2,6 +2,8 @@
 
 [ext_resource type="Script" uid="uid://c5w6vuqfry2h4" path="res://PLAYER/Player.cs" id="1_player"]
 [ext_resource type="Script" uid="uid://c5tqjqqd4afrm" path="res://COMBAT/Health.cs" id="2_health"]
+[ext_resource type="Texture2D" uid="uid://bd15brqmdl03o" path="res://PLAYER/Artwork/Player01.png" id="2_vpqx1"]
+[ext_resource type="Script" uid="uid://gxsxyopsbv6a" path="res://VISUALS/Definitions/VisualDefinition.cs" id="3_bkgtn"]
 [ext_resource type="Script" uid="uid://loo8no2lshnc" path="res://COMBAT/CombatLife.cs" id="3_life"]
 [ext_resource type="Script" uid="uid://bvg36ii1nwvi6" path="res://COMBAT/Weapons/Weapon.cs" id="4_weapon"]
 [ext_resource type="Script" uid="uid://bck37tpsjut2f" path="res://PLAYER/Equipment/PlayerEquipment.cs" id="5_equipment"]
@@ -28,9 +30,16 @@
 [ext_resource type="Resource" uid="uid://bg3j284fqrl2p" path="res://PLAYER/Survival/DefaultSurvivalProfile.tres" id="27_survival_profile"]
 [ext_resource type="Script" uid="uid://c3ovfa2f5bt24" path="res://PLAYER/Survival/PlayerConsumption.cs" id="28_consumption"]
 [ext_resource type="Script" uid="uid://bn3ufkbmya6qp" path="res://SYSTEMS/Crafting/PlayerCrafting.cs" id="28_itn3c"]
-[ext_resource type="PackedScene" path="res://VISUALS/Feedback/CameraShake/CameraShake.tscn" id="30_camera_shake"]
 [ext_resource type="Script" uid="uid://dgd652jtb6848" path="res://SYSTEMS/Placement/PlayerPlacement.cs" id="29_placement"]
-[ext_resource type="Resource" path="res://SYSTEMS/Crafting/CraftingCatalog.tres" id="29_whd4c"]
+[ext_resource type="Resource" uid="uid://dip4okvxysju3" path="res://SYSTEMS/Crafting/CraftingCatalog.tres" id="29_whd4c"]
+[ext_resource type="PackedScene" path="res://VISUALS/Feedback/CameraShake/CameraShake.tscn" id="30_camera_shake"]
+
+[sub_resource type="Resource" id="Resource_bog8x"]
+script = ExtResource("3_bkgtn")
+Image = ExtResource("2_vpqx1")
+ArtworkScale = Vector2(0.32, 0.32)
+ImageAnchor = Vector2(0.5, 0.875)
+metadata/_custom_type_script = "uid://gxsxyopsbv6a"
 
 [sub_resource type="CircleShape2D" id="CircleShape_player"]
 
@@ -46,6 +55,7 @@ collision_layer = 2
 collision_mask = 9
 motion_mode = 1
 script = ExtResource("1_player")
+VisualOverride = SubResource("Resource_bog8x")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1229090290]
 shape = SubResource("CircleShape_player")
@@ -55,7 +65,7 @@ position = Vector2(0, -24)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
 
-[node name="CameraShake" parent="Camera2D" instance=ExtResource("30_camera_shake")]
+[node name="CameraShake" parent="Camera2D" unique_id=1501069865 instance=ExtResource("30_camera_shake")]
 
 [node name="Systems" type="Node" parent="." unique_id=1846477850]
 
