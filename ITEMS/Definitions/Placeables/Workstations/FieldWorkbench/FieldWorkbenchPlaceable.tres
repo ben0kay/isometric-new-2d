@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="PlaceableDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Placement/PlaceableDefinition.cs" id="1_placeable"]
+[ext_resource type="PackedScene" path="res://WORLDABLES/Objects/Workstations/FieldWorkbench/FieldWorkbench.tscn" id="2_world"]
+[ext_resource type="PackedScene" path="res://WORLDABLES/Objects/Workstations/FieldWorkbench/FieldWorkbenchArtwork.tscn" id="3_art"]
+
+[resource]
+script = ExtResource("1_placeable")
+WorldScene = ExtResource("2_world")
+ArtworkScene = ExtResource("3_art")
+ArtworkScale = Vector2(1, 1)
+Cells = Vector2i(1, 1)
+MaximumHeightDifference = 8.0
+CoverHeight = 106.0
+ObstructionOutline = PackedVector2Array(-64, -72, -28, -106, 12, -110, 64, -88, 64, 16, 38, 26, -54, 20)

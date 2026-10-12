@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Texture2D" path="res://WORLDABLES/Objects/Workstations/FieldWorkbench/FieldWorkbenchArtwork.svg" id="1_art"]
+
+[node name="FieldWorkbenchArtwork" type="Node2D"]
+
+[node name="Sprite" type="Sprite2D" parent="."]
+position = Vector2(-72, -116)
+texture = ExtResource("1_art")
+centered = false

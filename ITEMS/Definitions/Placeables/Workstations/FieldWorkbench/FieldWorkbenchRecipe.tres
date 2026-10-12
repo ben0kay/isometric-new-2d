@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="CraftingRecipe" load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingRecipe.cs" id="1_recipe"]
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/CraftingIngredient.cs" id="2_ingredient"]
+[ext_resource type="Resource" path="res://ITEMS/Definitions/Placeables/Workstations/FieldWorkbench/FieldWorkbench.tres" id="3_output"]
+
+[sub_resource type="Resource" id="scrap_metal"]
+script = ExtResource("2_ingredient")
+ItemId = "scrap_metal"
+Count = 6
+
+[sub_resource type="Resource" id="rock"]
+script = ExtResource("2_ingredient")
+ItemId = "rock"
+Count = 4
+
+[sub_resource type="Resource" id="plant_fiber"]
+script = ExtResource("2_ingredient")
+ItemId = "plant_fiber"
+Count = 5
+
+[sub_resource type="Resource" id="alien_resin"]
+script = ExtResource("2_ingredient")
+ItemId = "alien_resin"
+Count = 2
+
+[resource]
+script = ExtResource("1_recipe")
+Id = "field_workbench"
+Category = "Workstations"
+Description = "Assemble an improvised field workbench from salvaged metal, rock supports, fibre lashings and resin. Station production is added in the next pass."
+Output = ExtResource("3_output")
+OutputCount = 1
+Ingredients = Array[ExtResource("2_ingredient")]([SubResource("scrap_metal"), SubResource("rock"), SubResource("plant_fiber"), SubResource("alien_resin")])
+DurationSeconds = 20.0

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="156" viewBox="-72 -116 144 156">
+  <g stroke="#24333b" stroke-width="2" stroke-linejoin="round">
+    <!-- Local rock supports and salvaged metal legs; no baked ground shadow. -->
+    <path fill="#667275" d="M-48 2L-35 -5L-24 4L-26 15L-40 19L-53 11Z"/>
+    <path fill="#85908b" d="M-48 2L-35 -5L-24 4L-39 9Z"/>
+    <path fill="#5b686f" d="M26 1L40 -5L51 4L54 16L38 23L24 13Z"/>
+    <path fill="#82958f" d="M26 1L40 -5L51 4L38 10Z"/>
+    <path fill="#3e535e" d="M-46 -64L-34 -58L-34 9L-44 14Z M34 -57L46 -64L44 14L34 9Z"/>
+    <path fill="#8b9b92" d="M-34 -24L34 10L34 18L-34 -16Z"/>
+    <path fill="#9ba5a4" d="M-64 -70L0 -102L64 -70L0 -38Z"/>
+    <path fill="#566a76" d="M-64 -70L0 -38L0 -28L-64 -60Z"/>
+    <path fill="#394f5e" d="M0 -38L64 -70L64 -60L0 -28Z"/>
+    <path fill="#7d8987" d="M-53 -70L0 -96L53 -70L0 -44Z"/>
+    <path fill="#aebeb6" d="M-32 -72L8 -92L39 -76L-1 -56Z"/>
+    <path stroke="#566d76" fill="none" d="M-26 -74L8 -57 M-6 -84L28 -67"/>
+    <!-- Resin reinforced fibre wraps. -->
+    <path stroke="#cfb777" stroke-width="4" fill="none" d="M-44 -38L-34 -33 M-44 -32L-34 -27 M34 -33L44 -38 M34 -27L44 -32"/>
+    <path stroke="#dd9854" stroke-width="2" fill="none" d="M-43 -26L-35 -22 M35 -22L43 -26"/>
+    <!-- Small salvaged vice and inactive diagnostic plate. -->
+    <path fill="#455b66" d="M27 -84L42 -91L53 -85L39 -77Z M27 -84L39 -77L39 -65L27 -72Z M39 -77L53 -85L53 -73L39 -65Z"/>
+    <path fill="#314b5a" d="M-28 -96L-8 -106L7 -98L-12 -88Z"/>
+    <path stroke="#79c6c9" stroke-width="2" d="M-21 -97L-9 -102M-16 -93L-4 -99"/>
+    <path fill="#b7b9a7" d="M-45 -62L-37 -66L-20 -58L-25 -54Z"/>
+    <circle cx="0" cy="-34" r="2" fill="#d5d6c5"/>
+    <circle cx="-57" cy="-62" r="2" fill="#d5d6c5"/>
+    <circle cx="57" cy="-62" r="2" fill="#d5d6c5"/>
+  </g>
+</svg>
