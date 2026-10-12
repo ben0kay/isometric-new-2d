@@ -13,7 +13,7 @@ public partial class CraftingRecipeChecks : Node
         var catalog = GD.Load<CraftingCatalog>("res://SYSTEMS/Crafting/CraftingCatalog.tres");
         catalog.Validate(items);
         catalog.Validate(items);
-        Check(!catalog.IncludeBuiltInRecipes && catalog.Recipes.Count == 3, "External catalog is repeatable");
+        Check(!catalog.IncludeBuiltInRecipes && catalog.Recipes.Count == 4, "External catalog is repeatable");
         var cube = catalog.Recipes.Single(r => r.Id == "test_cube");
         Check(cube.Category == "Building" && cube.Output == items.Get("test_cube") &&
             cube.OutputCount == 1 && cube.DurationSeconds == 2.0 && cube.Ingredients.Count == 1 &&
@@ -81,3 +81,4 @@ public partial class CraftingRecipeChecks : Node
         throw new Exception("Invalid recipe/catalog accepted");
     }
 }
+

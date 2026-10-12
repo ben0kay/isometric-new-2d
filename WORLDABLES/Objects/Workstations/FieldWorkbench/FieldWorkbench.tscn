@@ -1,7 +1,10 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://SYSTEMS/Placement/PlacedObject.cs" id="1_placed"]
 [ext_resource type="Script" path="res://COMBAT/Health.cs" id="2_health"]
+
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/Stations/StationCrafting.cs" id="3_station"]
+[ext_resource type="Resource" path="res://SYSTEMS/Crafting/Stations/Definitions/FieldWorkbenchStation.tres" id="4_definition"]
 
 [node name="FieldWorkbench" type="StaticBody2D"]
 collision_layer = 1
@@ -13,3 +16,8 @@ script = ExtResource("1_placed")
 [node name="Health" type="Node" parent="Systems"]
 script = ExtResource("2_health")
 MaxHealth = 150
+
+
+[node name="Station" type="Node" parent="Systems"]
+script = ExtResource("3_station")
+Definition = ExtResource("4_definition")

@@ -1,6 +1,7 @@
 // Builds the crafting tab inside the existing inventory window.
 // Displays backpack requirements, batch quantity, progress, and cancellable jobs.
 using Godot;
+using System.Collections.Generic;
 
 public partial class CraftingTab : HBoxContainer
 {
@@ -10,6 +11,7 @@ public partial class CraftingTab : HBoxContainer
     #endregion
 
     #region State
+    private readonly List<CraftingRecipe> _handRecipes = new();
     private ItemList _recipes, _queue;
     private TextureRect _icon;
     private Label _title, _details, _requirements, _status;
@@ -65,6 +67,8 @@ public partial class CraftingTab : HBoxContainer
 
         foreach (CraftingRecipe recipe in Crafting.Catalog.Recipes)
         {
+            if (!recipe.IsHandCraftable) continue;
+            _handRecipes.Add(recipe);
             ItemDefinition output = Crafting.Items.Get(recipe.Output.Id);
 
             _recipes.AddItem(
@@ -74,7 +78,7 @@ public partial class CraftingTab : HBoxContainer
 
         _recipes.ItemSelected += SelectRecipe;
 
-        if (Crafting.Catalog.Recipes.Count > 0)
+        if (_handRecipes.Count > 0)
         {
             _recipes.Select(0);
             SelectRecipe(0);
@@ -195,7 +199,7 @@ public partial class CraftingTab : HBoxContainer
     // Change the inspected recipe without affecting the active crafting job.
     private void SelectRecipe(long index)
     {
-        _selected = Crafting.Catalog.Recipes[(int)index];
+        _selected = _handRecipes[(int)index];
 
         if (_title != null)
             Refresh();
@@ -229,16 +233,7 @@ public partial class CraftingTab : HBoxContainer
                 $"Output: {(long)_selected.OutputCount * quantity}\n" +
                 $"Time: {_selected.DurationSeconds * quantity:0.#} seconds";
 
-            string text = "INGREDIENTS — OWNED / REQUIRED\n";
-
-            foreach (CraftingIngredient ingredient in _selected.Ingredients)
-            {
-                ItemDefinition item = Crafting.Items.Get(ingredient.ItemId);
-                int owned = Hud.Inventory.GetBagItemCount(ingredient.ItemId);
-                long required = (long)ingredient.Count * quantity;
-
-                text += $"\n{item.DisplayName}: {owned} / {required}";
-            }
+            string text = CraftingRecipeText.Requirements(_selected, quantity, Hud.Inventory, Crafting.Items);
 
             _requirements.Text = text;
 

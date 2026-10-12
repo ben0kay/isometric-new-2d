@@ -332,6 +332,31 @@ public bool TryTakeOne(InventoryAddress address, ItemDefinition expected)
     // =========================================================
 	// Exchange one recipe's ingredients and output in a single safe transaction.
 	public bool TryCraft(CraftingRecipe recipe, out string reason)
+    {
+        if (recipe == null || !recipe.IsHandCraftable)
+        { reason = "This recipe requires an attended workstation."; return false; }
+        return TryCraftExchange(recipe, out reason);
+    }
+
+    // =========================================================
+    // Enforce station eligibility even for callers bypassing the queue or UI.
+    public bool TryCraftAtStation(CraftingRecipe recipe, StationCrafting station, out string reason)
+    {
+        if (recipe == null || !GodotObject.IsInstanceValid(station))
+        { reason = "A valid workstation is required."; return false; }
+        Player player = GetParent().GetParent<Player>();
+        StationCraftingHud hud = player.GetNodeOrNull<StationCraftingHud>("StationCraftingHud");
+        PlayerCrafting crafting = player.GetNode<PlayerCrafting>("Systems/Crafting");
+        if (!GodotObject.IsInstanceValid(station) || !GodotObject.IsInstanceValid(hud) ||
+            !hud.CanWorkAt(station) || !station.CanCraft(player, recipe) ||
+            !crafting.Catalog.Recipes.Contains(recipe))
+        { reason = "Station access or capabilities are no longer valid."; return false; }
+        return TryCraftExchange(recipe, out reason);
+    }
+
+    // =========================================================
+    // Shared staged transaction for hand and station completion; no duplicate exchange engine.
+    private bool TryCraftExchange(CraftingRecipe recipe, out string reason)
 	{
 		reason = "";
 

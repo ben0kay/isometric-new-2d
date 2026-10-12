@@ -90,6 +90,7 @@ public static class ContentDiscovery
         public string Path { get; set; }
         public string Category { get; set; }
         public string Description { get; set; }
+        public string[] RequiredCapabilities { get; set; } = Array.Empty<string>();
         public string OutputItemId { get; set; }
         public string OutputPath { get; set; }
         public int OutputCount { get; set; }
@@ -363,7 +364,7 @@ public static class ContentDiscovery
         {
             if (_recipes.TryGetValue(recipe, out var row)) return row;
             row = new RecipeRow { Id = recipe.Id, Path = PathOf(recipe, fallback), Category = recipe.Category,
-                Description = recipe.Description, OutputItemId = recipe.Output?.Id, OutputPath = recipe.Output?.ResourcePath,
+                Description = recipe.Description, RequiredCapabilities = recipe.RequiredCapabilities ?? Array.Empty<string>(), OutputItemId = recipe.Output?.Id, OutputPath = recipe.Output?.ResourcePath,
                 OutputCount = recipe.OutputCount, DurationSeconds = Finite(recipe.DurationSeconds) };
             _recipes[recipe] = row; _report.Recipes.Add(row);
             if (_catalogValid) Check(row.Path, "Validate", () => recipe.Validate(_catalog));

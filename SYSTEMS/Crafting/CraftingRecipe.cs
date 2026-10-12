@@ -29,11 +29,16 @@ public partial class CraftingRecipe : Resource
     public double DurationSeconds { get; set; } = 2.0;
     #endregion
 
+    [ExportGroup("Station Requirements")]
+    [Export] public string[] RequiredCapabilities { get; set; } = Array.Empty<string>();
+    public bool IsHandCraftable => RequiredCapabilities != null && RequiredCapabilities.Length == 0;
+
     #region Validation
     // =========================================================
     // Reject malformed recipes before they enter the player's queue.
     public void Validate(ItemCatalog items)
     {
+        CraftingCapabilities.Validate(RequiredCapabilities, ResourcePath + "/RequiredCapabilities");
         if (items == null || string.IsNullOrWhiteSpace(Id) ||
             Output == null ||
             string.IsNullOrWhiteSpace(Output.Id) ||

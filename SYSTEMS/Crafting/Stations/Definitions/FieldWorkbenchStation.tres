@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="StationDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://SYSTEMS/Crafting/Stations/StationDefinition.cs" id="1_station"]
+
+[resource]
+script = ExtResource("1_station")
+DisplayName = "Improvised Field Workbench"
+Capabilities = PackedStringArray("assembly_basic")
+InteractionRange = 160.0
+CursorBounds = Rect2(-72, -116, 144, 156)

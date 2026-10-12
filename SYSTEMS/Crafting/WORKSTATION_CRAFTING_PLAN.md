@@ -1,6 +1,6 @@
 # Fractured Horizons — Crafting Stations & Material Processing Plan
 
-> **Status: Pass A installer supplied; local build/gameplay verification pending.** Pass B station operation/UI and Pass C processors remain planned. A placed bench is not yet a working manufacturing station.
+> **Status: Pass A installed; user reports it works. Pass B implemented; local build/gameplay checks pending.** Pass C independent processing remains planned and separately scoped.
 >
 > **Repository reviewed:** `ben0kay/isometric-new-2d` at `e6ff3ec75a155756a2872b8580d45eeba164e8c9`. Reinspect HEAD and current feature documentation before changing code.
 >
@@ -253,3 +253,31 @@ Continue → destruction before marking Pass A verified. See Stations/PassA.md.
 Next is Pass B: capability gating, shared station interaction/UI and one agreed
 station-only output. The requested full craft → place → interact → produce
 loop is NOT complete until Pass B is implemented and tested.
+
+
+## Pass B implementation record (2026-10-12)
+
+Prepared against 1c4998c. Reuses PlayerCrafting/CraftJob and the existing atomic
+PlayerInventory transaction. Adds validated RequiredCapabilities and StationDefinition;
+first supported capability assembly_basic. Hand list, queue, payout and save restore
+reject station-only recipes. FieldWorkbench gains a shared StationCrafting component
+and the exact-instance interaction provider; StationCraftingHud is reused per player.
+Structural Bracket costs 2 Scrap Metal, takes 6 seconds and outputs one bracket.
+
+Manual batch policy: one transient attended batch, materials remain in backpack
+until each successful operation, full capacity waits, close/access loss cancels
+unpaid operations. Hand queue pauses during active station work. Completed outputs
+save normally; unfinished manual station work does not persist. No station buffers,
+fuel, power or unattended simulation. Old hand queue schema/identities preserved.
+
+A narrow old-bench scene fingerprint migration covers adding Systems/Station,
+requiring the exact new scene and station definition. Other saved hash checks remain.
+Existing workbench item/placement/artwork and Test Cube/fiber recipe resources are
+unchanged. Discovery gains additive required-capability metadata. Local fixtures
+updated to 22 registered items/4 recipes. No changes to contemporary rock work,
+enemy loot or resin gathering are included.
+
+See Stations/PassB.md for paths, save/cancellation rules and local tests. Static
+checks passed; .NET/Godot compilation and play tests cannot run in this environment.
+Do not mark Pass B gameplay verified until craft → place → interact → assemble,
+capacity/cancellation/life/layer/removal, and old/new campaign checks pass.

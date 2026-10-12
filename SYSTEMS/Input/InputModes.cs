@@ -10,7 +10,8 @@ public enum PlayerInputMode
     Container,
     DebugMap,
     DebugMenu,
-    Pause
+    Pause,
+    Station
 }
 
 public partial class InputModes : Node

@@ -1,4 +1,4 @@
-// Owns the player's timed hand-crafting queue.
+// Owns persisted hand jobs and one transient attended station batch.
 // Unfinished ingredients stay in the backpack until a complete exchange succeeds.
 using Godot;
 using System;
@@ -40,7 +40,11 @@ public partial class PlayerCrafting : Node
     private readonly List<CraftJob> _jobs = new();
     private PlayerInventory _inventory;
     private Health _health;
-    private double _tick;
+    private double _tick, _stationTick;
+    private CraftJob _stationJob;
+    private StationCrafting _station;
+    public CraftJob StationJob => _stationJob;
+    public StationCrafting ActiveStation => _station;
     #endregion
 
     #region Lifecycle
@@ -66,6 +70,11 @@ public partial class PlayerCrafting : Node
     // Advance the current recipe while the player is alive.
     public override void _Process(double delta)
     {
+        if (_stationJob != null)
+        {
+            AdvanceStation(delta);
+            return;
+        }
         if (_jobs.Count == 0 || _health.Current <= 0)
         {
             _tick = 0.0;
@@ -79,6 +88,12 @@ public partial class PlayerCrafting : Node
         _tick = 0.0;
 
         CraftJob job = _jobs[0];
+        if (!job.Recipe.IsHandCraftable)
+        {
+            _jobs.RemoveAt(0);
+            Status = "Station recipes cannot execute from a hand-crafting job.";
+            return;
+        }
 
         job.Elapsed = Math.Min(
             job.Recipe.DurationSeconds, job.Elapsed + elapsed);
@@ -106,12 +121,64 @@ public partial class PlayerCrafting : Node
     }
     #endregion
 
+    #region Attended Station Work
+    // =========================================================
+    // Queue one manual batch only through the exact attended station and canonical recipe.
+    public bool TryQueueAtStation(StationCrafting station, CraftingRecipe recipe, int quantity)
+    {
+        if (recipe == null || !GodotObject.IsInstanceValid(station))
+        { Status = "A valid workstation is required."; return false; }
+        Player player = GetParent().GetParent<Player>();
+        StationCraftingHud hud = player.GetNodeOrNull<StationCraftingHud>("StationCraftingHud");
+        if (!GodotObject.IsInstanceValid(station) || !GodotObject.IsInstanceValid(hud) ||
+            !hud.CanWorkAt(station) || !station.CanCraft(player, recipe) || !Catalog.Recipes.Contains(recipe) ||
+            quantity < 1 || quantity > MaximumBatchSize || _stationJob != null)
+        { Status = "A suitable attended workstation and an idle station batch are required."; return false; }
+        if (!_inventory.HasCraftingIngredients(recipe, quantity))
+        { Status = "Not enough ingredients in your backpack."; return false; }
+        _station = station; _stationJob = new CraftJob(recipe, quantity); _stationTick = 0;
+        Status = "Station batch queued."; return true;
+    }
+
+    // =========================================================
+    // Cancel unpaid unfinished operations; completed outputs already belong to inventory.
+    public void CancelStation(StationCrafting station)
+    {
+        if (_station != station) return;
+        _stationJob = null; _station = null; _stationTick = 0;
+        Status = "Unfinished station work cancelled; ingredients retained.";
+    }
+
+    // =========================================================
+    // Use the same timed job model and atomic inventory exchange, rechecking attendance at payout.
+    private void AdvanceStation(double delta)
+    {
+        Player player = GetParent().GetParent<Player>();
+        StationCraftingHud hud = player.GetNodeOrNull<StationCraftingHud>("StationCraftingHud");
+        if (!GodotObject.IsInstanceValid(_station) || !GodotObject.IsInstanceValid(hud) ||
+            !hud.IsAttending(_station) || !_station.CanCraft(player, _stationJob.Recipe))
+        { CancelStation(_station); return; }
+        if (!hud.CanWorkAt(_station)) return;
+        _stationTick += delta;
+        if (_stationTick < 0.1) return;
+        CraftJob job = _stationJob;
+        job.Elapsed = Math.Min(job.Recipe.DurationSeconds, job.Elapsed + _stationTick); _stationTick = 0;
+        if (job.Elapsed < job.Recipe.DurationSeconds)
+        { Status = $"Assembling {job.Recipe.Output.DisplayName}..."; return; }
+        if (!_inventory.TryCraftAtStation(job.Recipe, _station, out string reason))
+        { Status = reason; return; }
+        job.Remaining--; job.Elapsed = 0;
+        if (job.Remaining == 0) { _stationJob = null; _station = null; }
+        Status = $"Assembled {job.Recipe.Output.DisplayName} ×{job.Recipe.OutputCount}.";
+    }
+    #endregion
+
     #region Queue
     // =========================================================
     // Add a bounded batch after checking its current ingredient requirements.
     public bool TryQueue(CraftingRecipe recipe, int quantity)
     {
-        if (recipe == null || !Catalog.Recipes.Contains(recipe) ||
+        if (recipe == null || !recipe.IsHandCraftable || !Catalog.Recipes.Contains(recipe) ||
             quantity < 1 || quantity > MaximumBatchSize)
         {
             Status = "Invalid crafting quantity or recipe.";

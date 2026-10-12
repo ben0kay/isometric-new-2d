@@ -107,7 +107,8 @@ public static class CampaignRecipe
             string current = Convert.ToHexString(
                 SHA256.HashData(Godot.FileAccess.GetFileAsBytes(stamp.Key)));
             if (current != stamp.Value && !HarvestRecipeCompatibility.Allows(stamp.Key, stamp.Value) &&
-                !OreRecipeCompatibility.Allows(stamp.Key, stamp.Value))
+                !OreRecipeCompatibility.Allows(stamp.Key, stamp.Value) &&
+                !StationRecipeCompatibility.Allows(stamp.Key, stamp.Value))
                 throw new InvalidDataException("World generation resources changed since this save. " +
                     "Start a new campaign or restore the original resources. " + stamp.Key);
         }
@@ -173,4 +174,3 @@ public static class CampaignRecipe
         world.GetNode<ChunkController>("Systems/ChunkController").WorldSeed = data.Seed;
     }
 }
-

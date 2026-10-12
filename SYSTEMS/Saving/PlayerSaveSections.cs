@@ -228,6 +228,8 @@ public partial class PlayerCrafting
             if (entry == null) throw new InvalidDataException("Missing crafting job.");
             CraftingRecipe recipe = Catalog.Recipes.FirstOrDefault(r => r.Id == entry.Recipe)
                 ?? throw new InvalidDataException($"Saved recipe '{entry.Recipe}' is unavailable.");
+            if (!recipe.IsHandCraftable)
+                throw new InvalidDataException("Station recipes cannot restore as hand jobs.");
             if (entry.Remaining < 1 || entry.Remaining > MaximumBatchSize ||
                 !double.IsFinite(entry.Elapsed) || entry.Elapsed < 0 || entry.Elapsed > recipe.DurationSeconds)
                 throw new InvalidDataException("Invalid saved crafting progress.");
