@@ -181,7 +181,7 @@ public override void _PhysicsProcess(double delta)
 // Forward successful action duration to the player's survival helper.
 public void ReportWork(double seconds)
 {
-    _survival ??= GetNode<PlayerSurvival>("Systems/Survival");
-    _survival.ReportWork(seconds);
+	_survival ??= GetNode<PlayerSurvival>("Systems/Survival");
+	_survival.ReportWork(seconds);
 }
 }
