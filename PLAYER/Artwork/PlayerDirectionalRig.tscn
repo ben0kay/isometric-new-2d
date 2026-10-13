@@ -1,0 +1,18 @@
+[gd_scene load_steps=6 format=3]
+[ext_resource type="Script" path="res://PLAYER/Artwork/PlayerDirectionalRig.cs" id="1_controller"]
+[ext_resource type="PackedScene" path="res://PLAYER/Artwork/Player01FrontRig.tscn" id="2_front"]
+[ext_resource type="PackedScene" path="res://PLAYER/Artwork/Player01RearRig.tscn" id="3_rear"]
+[ext_resource type="Texture2D" path="res://PLAYER/Artwork/Player01.png" id="4_front_image"]
+[ext_resource type="Texture2D" path="res://PLAYER/Artwork/Player01Rear.png" id="5_rear_image"]
+[node name="Artwork" type="Node2D"]
+script = ExtResource("1_controller")
+FrontShadow = ExtResource("4_front_image")
+RearShadow = ExtResource("5_rear_image")
+[node name="ShadowSource" type="Sprite2D" parent="."]
+self_modulate = Color(1, 1, 1, 0)
+texture = ExtResource("4_front_image")
+centered = false
+offset = Vector2(-128, -224)
+[node name="Front" parent="." instance=ExtResource("2_front")]
+[node name="Rear" parent="." instance=ExtResource("3_rear")]
+visible = false
